@@ -2,8 +2,9 @@
 let SPAWN=V3(0,0,-83),SPAWN_YAW=Math.PI;
 const player={pos:SPAWN.clone(),prev:SPAWN.clone(),vel:V3(),yaw:Math.PI,pitch:0,grounded:false,low:false,
   wallrun:false,wallN:V3(),wallTimer:0,wallCd:0,noGround:0,slideCd:0,grapple:null,grappleLine:null,
+  surfing:false,surfN:V3(),surfGrace:0,surfTime:0,
   runStarted:false,runTime:0,gate:0,splits:[],cp:null,best:0,eye:CFG.eyeStand,roll:0};
-const contact={ground:false,wall:false,gn:V3(),wn:V3()};
+const contact={ground:false,wall:false,surf:false,gn:V3(),wn:V3(),sn:V3()};
 const keys={},wish=V3();
 let locked=false,last=performance.now(),acc=0,jumpBuffer=0,coyote=0,burstCd=0,padCd=0,toastTimer=0;
 let ghostRecorder=null,ghostPb=null,ghostLast=null,ghostMode='pb',ghostVisual=null;
@@ -83,17 +84,30 @@ function pushSphere(cy){
       else if(oy<=oz){_n.set(0,Math.sign(_lp.y)||1,0);pen=R+oy;}
       else{_n.set(0,0,Math.sign(_lp.z)||1);pen=R+oz;}
     }
-    _n.applyQuaternion(s.q);
+    // Anti-ramp-bug analytical normal clamp for multi-segment curved CS surf ramps
+    if(s.isSurf&&s.surfNormal){
+      const res=SurfEngine.resolveSurfLocalNormal(_lp,_n,s.half,R,true);
+      if(res.useAnalytical){
+        _n.copy(s.surfNormal);
+        pen=R-(_lp.y-s.half.y);
+      }else{
+        _n.applyQuaternion(s.q);
+      }
+    }else{
+      _n.applyQuaternion(s.q);
+    }
     if(pen>0){
       p.addScaledVector(_n,pen);_c.addScaledVector(_n,pen);
       const into=v.dot(_n);if(into<0)v.addScaledVector(_n,-into);
     }
-    if(_n.y>=CFG.walkableY){contact.ground=true;contact.gn.copy(_n);}
-    else if(Math.abs(_n.y)<.3){contact.wall=true;contact.wn.set(_n.x,0,_n.z).normalize();}
+    const kind=SurfEngine.classifySurfaceNormal(_n.y,CFG,s.isSurf);
+    if(kind==='ground'){contact.ground=true;contact.gn.copy(_n);}
+    else if(kind==='surf'){contact.surf=true;contact.sn.copy(_n);}
+    else if(kind==='wall'){contact.wall=true;contact.wn.set(_n.x,0,_n.z).normalize();}
   }
 }
 function collide(){
-  contact.ground=false;contact.wall=false;
+  contact.ground=false;contact.wall=false;contact.surf=false;
   const hs=player.low?H_LOW:H_STAND;
   for(let i=0;i<3;i++)for(const h of hs)pushSphere(h);
 }
@@ -123,6 +137,7 @@ function resetPlayer(){
   const p=player;
   p.pos.copy(SPAWN);p.prev.copy(SPAWN);p.vel.set(0,0,0);p.yaw=SPAWN_YAW;p.pitch=0;
   p.grapple=null;p.grounded=false;p.low=false;p.wallrun=false;p.wallTimer=0;
+  p.surfing=false;p.surfGrace=0;p.surfTime=0;
   p.runStarted=false;p.runTime=0;p.gate=0;p.cp=null;p.splits=[];ghostRecorder=null;
   refreshGates();cpEl.textContent='';timerEl.textContent='00:00.000';grappleEl.textContent='GRAPPLE READY';showToast('POSITION RESET');
 }
@@ -203,7 +218,7 @@ function toCheckpoint(){
   if(!p.runStarted||!p.cp){resetPlayer();return;}
   const g=course[p.cp.i];
   p.pos.copy(p.cp.pos);p.prev.copy(p.pos);p.vel.set(0,0,0);p.yaw=Math.atan2(-g.n.x,-g.n.z);p.pitch=0;
-  p.grapple=null;p.wallrun=false;p.low=false;p.grounded=false;showToast('CHECKPOINT');
+  p.grapple=null;p.wallrun=false;p.low=false;p.grounded=false;p.surfing=false;p.surfGrace=0;showToast('CHECKPOINT');
 }
 
 function step(dt){
@@ -211,6 +226,7 @@ function step(dt){
   p.prev.copy(p.pos);
   jumpBuffer=Math.max(0,jumpBuffer-dt);coyote=Math.max(0,coyote-dt);burstCd=Math.max(0,burstCd-dt);padCd=Math.max(0,padCd-dt);
   p.slideCd=Math.max(0,p.slideCd-dt);p.wallCd=Math.max(0,p.wallCd-dt);p.noGround=Math.max(0,p.noGround-dt);
+  p.surfGrace=Math.max(0,p.surfGrace-dt);
 
   // Wish direction
   const sy=Math.sin(p.yaw),cy=Math.cos(p.yaw);wish.set(0,0,0);
@@ -232,7 +248,7 @@ function step(dt){
     p.wallrun=false;p.wallCd=C.wallCooldown;p.wallTimer=0;jumpBuffer=0;p.noGround=.05;
   }
 
-  // Friction + acceleration
+  // Friction + acceleration (authentic CS surf: zero ramp friction + crisp air-strafe into ramp)
   const hs=Math.hypot(v.x,v.z);
   if(grounded){
     const fast=p.low&&hs>C.slideMinSpeed;
@@ -242,7 +258,11 @@ function step(dt){
       else if(p.low)accelerate(wish,C.groundSpeed*.5,C.slideAccel,dt);          // slow crouch-walk
       else accelerate(wish,C.groundSpeed,C.groundAccel,dt);
     }
-  }else if(hasWish)accelerate(wish,C.airWishCap,C.airAccel,dt,C.groundSpeed);   // air strafe
+  }else if(hasWish){
+    const surfMode=p.surfing||p.surfGrace>0;
+    const d=SurfEngine.computeAirStrafeDelta(v,wish,dt,C,surfMode);
+    v.x+=d.dx;v.z+=d.dz;
+  }
 
   // Grapple pull
   if(p.grapple){
@@ -251,7 +271,7 @@ function step(dt){
     else{to.divideScalar(dist);const along=v.dot(to);if(along<C.grapplePullSpeed)v.addScaledVector(to,Math.min(C.grapplePullAccel*dt,C.grapplePullSpeed-along));grappleEl.textContent='TETHER '+Math.round(dist)+'M';}
   }
 
-  // Gravity (none while standing on ground, so slopes don't drag you; sliding uses full slope gravity)
+  // Gravity (none while standing on ground, so slopes don't drag you; sliding & surfing use full gravity)
   let gs=1;if(p.wallrun)gs=C.wallGravityScale;if(p.grapple)gs=Math.min(gs,C.grappleGravityScale);
   if(!(grounded&&!p.low))v.y-=C.gravity*gs*dt;
   if(p.wallrun){v.y=Math.max(v.y,-C.wallMaxFall);v.addScaledVector(p.wallN,-C.wallStick*dt);}
@@ -260,14 +280,19 @@ function step(dt){
   p.pos.addScaledVector(v,dt);
   collide();
   p.grounded=contact.ground&&p.noGround<=0;
-  if(!p.grounded&&grounded&&v.y<=.01&&p.noGround<=0){      // ground snap for running down slopes
+  if(!p.grounded&&grounded&&v.y<=.01&&p.noGround<=0&&!contact.surf){      // ground snap for running down slopes
     p.pos.y-=C.snapDist;collide();
     if(contact.ground)p.grounded=true;else{p.pos.y+=C.snapDist;collide();}
   }
-  if(p.grounded){coyote=C.coyote;p.wallTimer=0;}
+  if(p.grounded){coyote=C.coyote;p.wallTimer=0;p.surfing=false;p.surfGrace=0;}
+  else if(contact.surf){
+    p.surfing=true;p.surfN.copy(contact.sn);p.surfGrace=C.surfGrace;p.surfTime+=dt;
+  }else{
+    p.surfing=false;
+  }
 
-  // Wall-run attach (needs a near-vertical contact, speed, input, and time budget)
-  if(!p.grounded&&contact.wall&&Math.hypot(v.x,v.z)>C.wallMinSpeed&&hasWish&&p.wallTimer<C.wallMaxTime&&p.wallCd<=0){
+  // Wall-run attach (never hijacks a surf slope; needs near-vertical contact, speed, input, and budget)
+  if(!p.grounded&&!p.surfing&&contact.wall&&Math.hypot(v.x,v.z)>C.wallMinSpeed&&hasWish&&p.wallTimer<C.wallMaxTime&&p.wallCd<=0){
     p.wallN.copy(contact.wn);p.wallrun=true;p.wallTimer+=dt;
   }else p.wallrun=false;
 
@@ -281,7 +306,8 @@ function step(dt){
   if(level.bound){const B=level.bound;
     if(Math.abs(p.pos.x)>B){p.pos.x=Math.sign(p.pos.x)*B;v.x=0;}
     if(Math.abs(p.pos.z)>B){p.pos.z=Math.sign(p.pos.z)*B;v.z=0;}}
-  if(p.pos.y<C.killY){toCheckpoint();return;}
+  const killFloor=level.killY!=null?level.killY:C.killY;
+  if(p.pos.y<killFloor){toCheckpoint();return;}
 
   // Time trial: gates must be crossed in order, along their facing direction
   if(p.runStarted){

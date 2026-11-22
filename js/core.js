@@ -35,6 +35,58 @@ const orange = new THREE.MeshStandardMaterial({color:0xff914d,emissive:0x9b3c12,
 const dark = new THREE.MeshStandardMaterial({color:0x182634,roughness:.82,metalness:.35});
 const concrete = new THREE.MeshStandardMaterial({color:0x354656,roughness:.9});
 const floorMat = new THREE.MeshStandardMaterial({color:0x111c28,roughness:.94});
+const surfUnderMat = new THREE.MeshStandardMaterial({color:0x0f1a26,roughness:.88,metalness:.3});
+const surfTexture = (() => {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const ctx = c.getContext('2d');
+  // Dark architectural slate base with subtle horizontal depth shading
+  const bg = ctx.createLinearGradient(0, 0, 512, 0);
+  bg.addColorStop(0, '#132231');
+  bg.addColorStop(0.5, '#1a2e42');
+  bg.addColorStop(1, '#12202e');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 512, 512);
+  // Crisp structural panel grid
+  ctx.strokeStyle = 'rgba(101, 231, 255, 0.14)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i <= 512; i += 64) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+  }
+  // Directional flow chevrons pointing downward (+y on canvas = +Z forward on ramp top face)
+  ctx.strokeStyle = 'rgba(101, 231, 255, 0.42)';
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let row = 0; row < 4; row++) {
+    const cy = row * 128 + 46;
+    for (let col = 0; col < 2; col++) {
+      const cx = col * 256 + 128;
+      ctx.beginPath();
+      ctx.moveTo(cx - 56, cy - 18);
+      ctx.lineTo(cx, cy + 28);
+      ctx.lineTo(cx + 56, cy - 18);
+      ctx.stroke();
+    }
+  }
+  // Fine cyan racing rails along edges
+  ctx.fillStyle = 'rgba(101, 231, 255, 0.22)';
+  ctx.fillRect(0, 0, 8, 512);
+  ctx.fillRect(504, 0, 8, 512);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+})();
+const surfMat = new THREE.MeshStandardMaterial({
+  map: surfTexture,
+  color: 0xdff6ff,
+  roughness: 0.42,
+  metalness: 0.25
+});
 const V3=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 const clamp=THREE.MathUtils.clamp;
 
@@ -47,7 +99,10 @@ const CFG={
   eyeStand:1.7, eyeLow:.9,           // camera height standing / sliding
   groundSpeed:22, groundAccel:12,    // run speed cap and Quake-style accel factor
   friction:6, stopSpeed:4,           // ground friction; speed floor used by friction (snappy stops)
-  airWishCap:2.6, airAccel:12,       // air-strafe: max speed gained along wish dir per tick; accel factor
+  airWishCap:2.75, airAccel:15,      // air-strafe: max speed gained along wish dir per tick; accel factor
+  surfMinY:.32,                      // surf slope band: surfMinY <= normal.y < walkableY (~46°..71°)
+  surfWishCap:2.75, surfAirAccel:20, // authentic CS surf air-strafe responsiveness on/off ramps
+  surfRoll:.085, surfGrace:.14,      // subtle surf bank roll (rad) and short seam/lip grace window
   gravity:26, jumpSpeed:9.5,         // jumpSpeed is added to any upward slope velocity (ramp-jump boost)
   autoHop:true,                      // hold Space to chain hops with no ground friction
   walkableY:.7,                      // surface normal.y >= this is ground; below it you surf

@@ -142,6 +142,10 @@ async function ensureDailyCourseRegistered(dateKey) {
   const preview = Gen.previewSeedCourse(canonicalSeed, dateKey);
 
   if (!db) return preview;
+  const user = auth ? auth.currentUser : null;
+  if (!user || !user.emailVerified) {
+    return preview;
+  }
 
   const docPath = `dailyCourses/${dateKey}`;
   const ref = doc(db, 'dailyCourses', dateKey);

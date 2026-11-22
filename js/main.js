@@ -1,5 +1,6 @@
 // ---------- render ----------
-const _rp=V3();
+const _rp=V3(),_right=V3();
+const surfHintEl=$('surfHint');
 ghostVisual=GhostSystem.createGhostMesh(THREE,scene);
 
 function updateGhostVisual(dt){
@@ -25,8 +26,9 @@ function render(dt){
   _rp.lerpVectors(p.prev,p.pos,a);                      // interpolate between physics ticks
   sun.position.set(_rp.x-45,_rp.y+75,_rp.z+30);sun.target.position.copy(_rp);   // shadows follow the player
   p.eye+=((p.low?C.eyeLow:C.eyeStand)-p.eye)*Math.min(1,dt*14);
-  const right=V3(Math.cos(p.yaw),0,-Math.sin(p.yaw));
-  const rollT=p.wallrun?-C.wallRoll*Math.sign(right.dot(p.wallN)):0;
+  _right.set(Math.cos(p.yaw),0,-Math.sin(p.yaw));
+  const isSurfDisplay=p.surfing||p.surfGrace>0.04;
+  const rollT=p.wallrun?-C.wallRoll*Math.sign(_right.dot(p.wallN)):(isSurfDisplay?-C.surfRoll*Math.sign(_right.dot(p.surfN)):0);
   p.roll+=(rollT-p.roll)*Math.min(1,dt*8);
   camera.position.set(_rp.x,_rp.y+p.eye,_rp.z);
   camera.rotation.set(p.pitch,p.yaw,p.roll);
@@ -34,7 +36,14 @@ function render(dt){
   camera.fov+=(C.fovBase+Math.min(sp*C.fovPerSpeed,C.fovMax)-camera.fov)*Math.min(1,dt*5);camera.updateProjectionMatrix();
   speedEl.textContent=Math.round(sp);
   if(p.runStarted)timerEl.textContent=fmt(p.runTime);
-  stateEl.textContent=!inLevel?'READY':p.wallrun?'WALLRUN':p.grapple?'TETHER':p.low&&p.grounded?'SLIDE':p.grounded?'GROUNDED':'AIRBORNE';
+  const stateLabel=!inLevel?'READY':p.wallrun?'WALLRUN':p.grapple?'TETHER':isSurfDisplay?'SURFING':p.low&&p.grounded?'SLIDE':p.grounded?'GROUNDED':'AIRBORNE';
+  stateEl.textContent=stateLabel;
+  stateEl.classList.toggle('surfing',stateLabel==='SURFING');
+  document.body.dataset.surfing=isSurfDisplay?'1':'0';
+  if(surfHintEl){
+    const showHint=inLevel&&overlay.style.display==='none'&&!!level.surfHint&&p.surfTime<1.2;
+    surfHintEl.style.opacity=showHint?'1':'0';
+  }
   if(p.grapple){
     if(!p.grappleLine){
       p.grappleLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(),V3()]),new THREE.LineBasicMaterial({color:0x65e7ff}));
@@ -75,16 +84,22 @@ function frame(now){
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
 // ---------- levels + seeded daily courses ----------
-const LEVELS={sandbox:{name:'SANDBOX',build:buildSandbox},course1:{name:'COURSE 01',build:buildCourse1}};
+const LEVELS={
+  sandbox:{name:'SANDBOX',build:buildSandbox},
+  course1:{name:'COURSE 01',build:buildCourse1},
+  surf1:{name:'SURF 01',build:buildSurfMap1}
+};
 const worldBuildApi={
   slab,
   addBox,
   addRamp,
+  addSurfWedge,
+  addSurfCurve,
   addLaunchPad,
   buildGates,
   gateText,
   V3,
-  materials:{concrete,cyan,orange,dark,floorMat}
+  materials:{concrete,cyan,orange,dark,floorMat,surfMat}
 };
 
 function clearWorldGroup(){

@@ -17,12 +17,14 @@
   .stat-label{font-size:9px;letter-spacing:.2em;color:#88a5b8;text-transform:uppercase;margin-bottom:4px}
   .speed{font-size:54px;font-weight:800;line-height:.9;letter-spacing:-.06em;font-variant-numeric:tabular-nums}
   .unit{font-size:11px;color:#8da8ba;margin-left:5px}
-  .small-stat{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+  .small-stat{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;transition:color .12s}
+  .small-stat.surfing{color:var(--cyan);text-shadow:0 0 14px rgba(101,231,255,.45)}
   .rightstats{position:absolute;right:24px;top:22px;text-align:right}
   .timer{font-size:29px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
   .pb{font-size:11px;color:#8ca7ba;margin-top:3px;font-variant-numeric:tabular-nums}
   .status{position:absolute;right:24px;bottom:25px;text-align:right;font-size:10px;letter-spacing:.14em;color:#9db7c9;line-height:1.8}
   .status b{color:var(--cyan);font-weight:700}
+  #surfHint{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);font-size:10px;letter-spacing:.2em;color:#b8e8f8;background:rgba(7,15,24,.78);border:1px solid rgba(101,231,255,.26);padding:7px 14px;opacity:0;transition:opacity .35s;white-space:nowrap}
   #centerMessage{position:absolute;left:50%;top:19%;transform:translateX(-50%);font-size:11px;letter-spacing:.25em;color:#dffaff;text-shadow:0 0 18px #47dfff;opacity:0;transition:opacity .2s}
   #crosshair{position:absolute;left:50%;top:50%;width:14px;height:14px;transform:translate(-50%,-50%);opacity:.8}
   #crosshair:before,#crosshair:after{content:"";position:absolute;background:#c9f8ff;box-shadow:0 0 8px #5be8ff}
@@ -134,13 +136,17 @@
           <span>DAILY ARCHIVE &amp; CUSTOM SEEDS</span>
           <small>PAST DAYS · LEADERBOARDS</small>
         </button>
+        <button type="button" class="alt" data-level="surf1">
+          <span>SURF 01 — SKYLINE DRIFT</span>
+          <small id="pb-surf1">CS SURF TIME TRIAL</small>
+        </button>
         <button type="button" class="alt" data-level="course1">
           <span>COURSE 01 — THE ASCENT</span>
           <small id="pb-course1">LINEAR TIME TRIAL</small>
         </button>
         <button type="button" class="alt" data-level="sandbox">
           <span>SANDBOX</span>
-          <small>FREE-ROAM ARENA</small>
+          <small>FREE-ROAM + SURF ZONE</small>
         </button>
       </div>
       <div class="controls">
@@ -220,7 +226,8 @@
     <div><div class="stat-label">Velocity</div><div><span class="speed" id="speed">0</span><span class="unit">u/s</span></div></div>
     <div><div class="stat-label">State</div><div class="small-stat" id="state">READY</div></div>
   </div>
-  <div class="status"><b id="grappleState">GRAPPLE READY</b><br>WALLRUN · AIR STRAFE · SLIDE · BURST</div>
+  <div class="status"><b id="grappleState">GRAPPLE READY</b><br>SURF · WALLRUN · AIR STRAFE · SLIDE · BURST</div>
+  <div id="surfHint">SURF: STRAFE A/D INTO RAMP · STEER WITH MOUSE · NO W</div>
   <div id="crosshair"></div><div id="centerMessage">RUN STARTED</div>
 </div>
 <div id="toast"></div>
@@ -234,7 +241,7 @@ import(new URL('js/firebase-daily.js', document.baseURI).href).catch((err) => {
 });
 
 try {
-  for (const f of ['core', 'world', 'sandbox', 'course', 'daily', 'ghost', 'player', 'main']) {
+  for (const f of ['core', 'surf', 'world', 'sandbox', 'course', 'daily', 'ghost', 'player', 'main']) {
     await new Promise((ok, fail) => {
       const s = document.createElement('script');
       s.src = new URL('js/' + f + '.js', document.baseURI).href;

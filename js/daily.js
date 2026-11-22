@@ -15,7 +15,7 @@
     ramp: 'Ramps',
     gaps: 'Hop Gaps',
     wallrun: 'Wall-Run',
-    surf: 'Surf Banks',
+    surf: 'CS Surf Ramps',
     slide: 'Slide Bars',
     grapple: 'Grapple Void',
     pads: 'Launch Pads'
@@ -186,11 +186,13 @@
     const segmentCount = randInt(rng, tier.minSegs, tier.maxSegs);
     const segmentTypes = buildSegmentPlan(rng, segmentCount);
 
-    const slabs = [];  // { x, top, z0, z1, w, mat }
-    const boxes = [];  // { x, y, z, sx, sy, sz, mat }
-    const ramps = [];  // { a: [x,y,z], b: [x,y,z], w, mat }
-    const pads = [];   // { x, y, z }
-    const gates = [];  // [x, y, z, r] or [x, y, z, r, sx, sy, sz]
+    const slabs = [];      // { x, top, z0, z1, w, mat }
+    const boxes = [];      // { x, y, z, sx, sy, sz, mat }
+    const ramps = [];      // { a: [x,y,z], b: [x,y,z], w, mat }
+    const surfWedges = []; // { a: [x,y,z], b: [x,y,z], opts }
+    const surfCurves = []; // { start, yawStart, yawDelta, radius, pitchDrop, segments, faceWidth, slopeDeg, side, lipEnd }
+    const pads = [];       // { x, y, z }
+    const gates = [];      // [x, y, z, r] or [x, y, z, r, sx, sy, sz]
     const mechanicsSet = new Set();
 
     let x = 0;
@@ -251,21 +253,96 @@
         gates.push([x, y + 3, z + landLen * 0.55, 6]);
         z += landLen;
       } else if (type === 'surf') {
-        const surfLen = randInt(rng, 92, 118);
-        const surfCenterZ = z + surfLen / 2;
-        const bottomY = y - 10;
-        // Twin steep ~51 deg cyan surf banks (matching Course 01 geometry orientation)
-        ramps.push({ a: [x - 8, y, surfCenterZ], b: [x, bottomY, surfCenterZ], w: surfLen, mat: 'cyan' });
-        ramps.push({ a: [x + 8, y, surfCenterZ], b: [x, bottomY, surfCenterZ], w: surfLen, mat: 'cyan' });
-        gates.push([x, bottomY + 5, surfCenterZ, 7.5, safeEntry[0], safeEntry[1], safeEntry[2]]);
-        z += surfLen;
-        // Walkable exit ramp lifting back up to deck level
-        const exitLen = 32;
-        ramps.push({ a: [x, bottomY, z], b: [x, y, z + exitLen], w: 15, mat: 'concrete' });
-        z += exitLen;
-        const deckLen = 20;
-        slabs.push({ x, top: y, z0: z, z1: z + deckLen, w: 15, mat: 'concrete' });
-        gates.push([x, y + 3, z + deckLen * 0.5, 6]);
+        const variant = randInt(rng, 0, 2);
+        const dropY = y - 7;
+        if (variant === 0) {
+          // Variant 0: Downhill speed CS surf wedge -> uphill boost flick wedge + recovery ramp
+          const len1 = randInt(rng, 48, 60);
+          const len2 = randInt(rng, 42, 52);
+          surfWedges.push({
+            a: [x, y - 0.5, z + 2],
+            b: [x, dropY, z + 2 + len1],
+            opts: { faceWidth: 10.5, slopeDeg: 50, side: 'both', lipEnd: true }
+          });
+          const midZ = z + 2 + len1 + 4;
+          gates.push([x, dropY + 3, midZ, 9.5, safeEntry[0], safeEntry[1], safeEntry[2]]);
+          surfWedges.push({
+            a: [x, dropY, midZ + 4],
+            b: [x, y - 0.5, midZ + 4 + len2],
+            opts: { faceWidth: 10.5, slopeDeg: 50, side: 'both', lipEnd: true }
+          });
+          z = midZ + 4 + len2;
+          const exitLen = 30;
+          ramps.push({ a: [x, dropY - 1, z], b: [x, y, z + exitLen], w: 16, mat: 'concrete' });
+          z += exitLen;
+        } else if (variant === 1) {
+          // Variant 1: Alternating left/right A-frame spine transfer
+          const sideSign = rng() < 0.5 ? 1 : -1;
+          const len1 = randInt(rng, 44, 54);
+          const len2 = randInt(rng, 44, 54);
+          const x1 = Math.max(-20, Math.min(20, x + sideSign * 4.5));
+          const x2 = Math.max(-20, Math.min(20, x - sideSign * 4.5));
+          surfWedges.push({
+            a: [x1, y - 0.5, z + 2],
+            b: [x1, dropY + 1, z + 2 + len1],
+            opts: { faceWidth: 10.5, slopeDeg: 50, side: 'both', lipEnd: true }
+          });
+          const midZ = z + 2 + len1 + 5;
+          gates.push([x, dropY + 4, midZ, 10, safeEntry[0], safeEntry[1], safeEntry[2]]);
+          surfWedges.push({
+            a: [x2, dropY + 0.5, midZ + 5],
+            b: [x2, y - 1, midZ + 5 + len2],
+            opts: { faceWidth: 10.5, slopeDeg: 50, side: 'both', lipEnd: true }
+          });
+          z = midZ + 5 + len2;
+          const exitLen = 30;
+          ramps.push({ a: [x, dropY - 1, z], b: [x, y, z + exitLen], w: 18, mat: 'concrete' });
+          z += exitLen;
+        } else {
+          // Variant 2: Smooth S-curve banked CS surf sweep returning seamlessly to +Z
+          const turnDir = x > 6 ? -1 : x < -6 ? 1 : (rng() < 0.5 ? 1 : -1);
+          const yawArc = turnDir * 0.42;
+          const radius = randInt(rng, 64, 76);
+          const dxOne = turnDir * radius * (1 - Math.cos(Math.abs(yawArc)));
+          const dzOne = radius * Math.sin(Math.abs(yawArc));
+          const startZ = z + 2;
+          surfCurves.push({
+            start: [x, y - 0.5, startZ],
+            yawStart: 0,
+            yawDelta: yawArc,
+            radius,
+            pitchDrop: -5.5,
+            segments: 8,
+            faceWidth: 11,
+            slopeDeg: 50,
+            side: 'both',
+            lipEnd: true
+          });
+          const midX = x + dxOne;
+          const midZ = startZ + dzOne;
+          gates.push([midX, y - 3, midZ + 3, 10.5, safeEntry[0], safeEntry[1], safeEntry[2]]);
+          const c2StartZ = midZ + 6;
+          surfCurves.push({
+            start: [midX + turnDir * 1.5, y - 6, c2StartZ],
+            yawStart: yawArc,
+            yawDelta: -yawArc,
+            radius,
+            pitchDrop: 4.5,
+            segments: 8,
+            faceWidth: 11,
+            slopeDeg: 50,
+            side: 'both',
+            lipEnd: true
+          });
+          x = Math.max(-22, Math.min(22, midX + turnDir * 1.5 + dxOne));
+          z = c2StartZ + dzOne;
+          const exitLen = 28;
+          ramps.push({ a: [x, y - 5.5, z], b: [x, y, z + exitLen], w: 18, mat: 'concrete' });
+          z += exitLen;
+        }
+        const deckLen = 22;
+        slabs.push({ x, top: y, z0: z, z1: z + deckLen, w: 18, mat: 'concrete' });
+        gates.push([x, y + 3, z + deckLen * 0.5, 6.5]);
         z += deckLen;
       } else if (type === 'slide') {
         const bars = randInt(rng, 2, 3);
@@ -343,6 +420,8 @@
       slabs,
       boxes,
       ramps,
+      surfWedges,
+      surfCurves,
       pads,
       gates,
       finishLabelPos: { x, y: y + 10, z: finishZ }
@@ -375,6 +454,17 @@
     for (let i = 0; i < bp.ramps.length; i++) {
       const r = bp.ramps[i];
       api.addRamp(r.a, r.b, r.w, getMat(r.mat));
+    }
+    if (api.addSurfWedge && bp.surfWedges) {
+      for (let i = 0; i < bp.surfWedges.length; i++) {
+        const sw = bp.surfWedges[i];
+        api.addSurfWedge(sw.a, sw.b, sw.opts);
+      }
+    }
+    if (api.addSurfCurve && bp.surfCurves) {
+      for (let i = 0; i < bp.surfCurves.length; i++) {
+        api.addSurfCurve(bp.surfCurves[i]);
+      }
     }
     for (let i = 0; i < bp.pads.length; i++) {
       const p = bp.pads[i];
