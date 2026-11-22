@@ -1,0 +1,137 @@
+{
+  "entities": {
+    "DailyCourse": {
+      "title": "DailyCourse",
+      "description": "A canonical seeded daily movement course identified by UTC date key.",
+      "type": "object",
+      "properties": {
+        "dateKey": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "minLength": 10,
+          "maxLength": 10,
+          "description": "UTC calendar date key in YYYY-MM-DD format."
+        },
+        "seed": {
+          "type": "string",
+          "pattern": "^[A-Z0-9\\-]+$",
+          "minLength": 4,
+          "maxLength": 64,
+          "description": "Canonical deterministic seed string for generating course geometry."
+        },
+        "lengthTier": {
+          "type": "string",
+          "enum": ["short", "medium", "long"],
+          "description": "Rolled course length category."
+        },
+        "segmentCount": {
+          "type": "integer",
+          "description": "Total generated movement segments between Start and Finish."
+        },
+        "mechanics": {
+          "type": "array",
+          "description": "Bounded list of movement segment types featured in this course (max 8)."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Public visibility flag for daily archive listing."
+        },
+        "createdBy": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the authenticated player who first registered the daily record."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the daily course record was registered."
+        }
+      },
+      "required": [
+        "dateKey",
+        "seed",
+        "lengthTier",
+        "segmentCount",
+        "mechanics",
+        "isPublic",
+        "createdBy",
+        "createdAt"
+      ]
+    },
+    "DailyRun": {
+      "title": "DailyRun",
+      "description": "An authenticated player's personal best leaderboard entry on a specific daily course.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Firebase Auth UID of the runner (matches document ID)."
+        },
+        "dateKey": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "minLength": 10,
+          "maxLength": 10,
+          "description": "Parent daily course UTC date key."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Public runner display name shown on the leaderboard."
+        },
+        "bestTime": {
+          "type": "number",
+          "description": "Fastest finish time in seconds (strictly positive, <= 3600)."
+        },
+        "splits": {
+          "type": "array",
+          "description": "Bounded list of gate split timestamps in seconds (max 32)."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Public visibility flag for leaderboard listing."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server timestamp of initial submission."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest personal best improvement."
+        }
+      },
+      "required": [
+        "uid",
+        "dateKey",
+        "displayName",
+        "bestTime",
+        "splits",
+        "isPublic",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/dailyCourses/{dateKey}": {
+      "schema": {
+        "$ref": "#/entities/DailyCourse"
+      },
+      "description": "Shared daily course registry indexed by UTC date (YYYY-MM-DD)."
+    },
+    "/dailyCourses/{dateKey}/runs/{uid}": {
+      "schema": {
+        "$ref": "#/entities/DailyRun"
+      },
+      "description": "Per-player personal best leaderboard records for each daily course."
+    }
+  }
+}

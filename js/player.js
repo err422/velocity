@@ -44,6 +44,7 @@ document.addEventListener('pointerlockchange',()=>{
 });
 document.addEventListener('mousemove',e=>{if(!locked)return;player.yaw-=e.movementX*.0022;player.pitch=clamp(player.pitch-e.movementY*.0022,-1.48,1.48);});
 document.addEventListener('keydown',e=>{
+  if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
   keys[e.code]=true;
   if(e.code==='Space'){jumpBuffer=CFG.jumpBuffer;e.preventDefault();}
   const activePlay=locked||(typeof inLevel!=='undefined'&&inLevel&&overlay.style.display==='none');
@@ -182,6 +183,17 @@ function passGate(){
       localStorage.setItem(PB_KEY,p.best);localStorage.setItem(SPL_KEY,JSON.stringify(bestSplits));
       pbEl.textContent='PERSONAL BEST '+fmt(p.best);message('NEW PERSONAL BEST');showToast('NEW PERSONAL BEST — '+fmt(p.best));
     }else{message('RUN COMPLETE');showToast('FINISH — '+fmt(p.runTime)+'  '+dtxt);}
+    if(typeof window.onCourseFinished==='function'){
+      const cleanSplits=p.splits.filter(x=>typeof x==='number'&&Number.isFinite(x));
+      window.onCourseFinished({
+        levelId:level.id,
+        dateKey:level.meta&&level.meta.dateKey?level.meta.dateKey:null,
+        seed:level.meta&&level.meta.seed?level.meta.seed:null,
+        runTime:p.runTime,
+        splits:cleanSplits,
+        isNewBest
+      });
+    }
   }
   refreshGates();
 }

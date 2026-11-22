@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "test": "node --test tests/ghost.test.js",
-    "build": "node -c server.js && node -c js/core.js && node -c js/world.js && node -c js/sandbox.js && node -c js/course.js && node -c js/ghost.js && node -c js/player.js && node -c js/main.js",
-    "lint": "node -c server.js && node -c js/core.js && node -c js/world.js && node -c js/sandbox.js && node -c js/course.js && node -c js/ghost.js && node -c js/player.js && node -c js/main.js"
+    "test": "node --test tests/ghost.test.js tests/daily.test.js",
+    "build": "node -c server.js && node -c js/core.js && node -c js/world.js && node -c js/sandbox.js && node -c js/course.js && node -c js/daily.js && node -c js/ghost.js && node -c js/player.js && node -c js/main.js",
+    "lint": "npx eslint firestore.rules && node -c server.js && node -c js/core.js && node -c js/world.js && node -c js/sandbox.js && node -c js/course.js && node -c js/daily.js && node -c js/ghost.js && node -c js/player.js && node -c js/main.js"
   },
   "dependencies": {
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@firebase/eslint-plugin-security-rules": "^0.0.2",
+    "eslint": "^10.15.0"
   }
 }

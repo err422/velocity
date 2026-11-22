@@ -30,4 +30,10 @@ function addRing(x,y,z,r=2,color=0x5deaff){
   const m=new THREE.Mesh(new THREE.TorusGeometry(r,.075,8,48),new THREE.MeshBasicMaterial({color}));
   m.position.set(x,y,z);levelGroup.add(m);return m;
 }
+function addLaunchPad(x,y,z){
+  const p=new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.4,.22,32),orange);
+  p.position.set(x,y,z);levelGroup.add(p);pads.push(p);
+  const tor=addRing(x,y+.18,z,2.6,0xffa15d);tor.rotation.x=Math.PI/2;
+  return p;
+}
 

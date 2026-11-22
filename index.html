@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>VELOCITY — Movement Sandbox</title>
 <style>
-  :root{color-scheme:dark;--cyan:#65e7ff;--orange:#ff9b55;--panel:rgba(7,13,22,.78)}
+  :root{color-scheme:dark;--cyan:#65e7ff;--orange:#ff9b55;--panel:rgba(7,13,22,.78);--line:rgba(111,210,238,.2);--muted:#8ca7ba}
   *{box-sizing:border-box}
   html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070b12;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;color:#eaf7ff}
   canvas{display:block}
@@ -20,7 +20,7 @@
   .small-stat{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
   .rightstats{position:absolute;right:24px;top:22px;text-align:right}
   .timer{font-size:29px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
-  .pb{font-size:11px;color:#8ca7ba;margin-top:3px}
+  .pb{font-size:11px;color:#8ca7ba;margin-top:3px;font-variant-numeric:tabular-nums}
   .status{position:absolute;right:24px;bottom:25px;text-align:right;font-size:10px;letter-spacing:.14em;color:#9db7c9;line-height:1.8}
   .status b{color:var(--cyan);font-weight:700}
   #centerMessage{position:absolute;left:50%;top:19%;transform:translateX(-50%);font-size:11px;letter-spacing:.25em;color:#dffaff;text-shadow:0 0 18px #47dfff;opacity:0;transition:opacity .2s}
@@ -28,50 +28,189 @@
   #crosshair:before,#crosshair:after{content:"";position:absolute;background:#c9f8ff;box-shadow:0 0 8px #5be8ff}
   #crosshair:before{width:1px;height:14px;left:6px;top:0}
   #crosshair:after{height:1px;width:14px;top:6px;left:0}
-  #overlay{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at center,rgba(11,24,38,.72),rgba(3,7,13,.94));z-index:5}
-  .card{width:min(540px,calc(100vw - 32px));padding:34px;border:1px solid rgba(111,210,238,.24);background:linear-gradient(145deg,rgba(12,27,40,.96),rgba(5,10,18,.96));box-shadow:0 25px 100px #0009}
-  .eyebrow{font-size:10px;letter-spacing:.3em;color:var(--cyan);font-weight:800}
-  h1{font-size:clamp(38px,8vw,64px);line-height:.9;letter-spacing:-.07em;margin:13px 0 12px}
+  #overlay{position:fixed;inset:0;display:grid;place-items:center;padding:16px;overflow-y:auto;background:radial-gradient(ellipse at center,rgba(11,24,38,.74),rgba(3,7,13,.95));z-index:5}
+  .card{width:min(560px,calc(100vw - 32px));padding:30px 32px;border:1px solid rgba(111,210,238,.24);background:linear-gradient(145deg,rgba(12,27,40,.96),rgba(5,10,18,.97));box-shadow:0 25px 100px #0009;transition:width .18s ease}
+  .card.wide{width:min(900px,calc(100vw - 32px));padding:26px 28px}
+  .card-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .eyebrow{font-size:10px;letter-spacing:.28em;color:var(--cyan);font-weight:800}
+  .auth-bar{display:flex;align-items:center;gap:10px;font-size:11px;color:#b8d4e5}
+  .auth-name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#eaf7ff;font-weight:600}
+  .btn-inline{width:auto;padding:7px 12px;font-size:10px;letter-spacing:.14em;background:transparent;color:#cfeefa;border:1px solid #2c5870;white-space:nowrap}
+  .btn-inline:hover{border-color:var(--cyan);color:#ffffff;filter:none;transform:none}
+  h1{font-size:clamp(36px,7vw,58px);line-height:.92;letter-spacing:-.07em;margin:12px 0 10px}
   h1 span{color:var(--cyan)}
-  .sub{color:#9db4c5;font-size:13px;line-height:1.6;max-width:420px}
-  .controls{display:grid;grid-template-columns:1fr 1fr;gap:9px 18px;margin:24px 0;color:#a9c1d0;font-size:11px}
+  .sub{color:#9db4c5;font-size:13px;line-height:1.55;max-width:460px}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;margin:20px 0 16px;color:#a9c1d0;font-size:11px}
   .controls b{display:inline-block;color:#effcff;min-width:65px;font-size:10px;letter-spacing:.08em}
-  button{border:0;background:var(--cyan);color:#06121b;font-weight:900;letter-spacing:.16em;padding:15px 22px;width:100%;cursor:pointer;transition:filter .15s,transform .15s}
-  button:hover{filter:brightness(1.13);transform:translateY(-1px)}
-  .foot{margin-top:13px;color:#698397;font-size:10px;line-height:1.5}
-  #toast{position:fixed;left:50%;top:28%;transform:translateX(-50%);z-index:4;padding:10px 16px;background:#071722dd;border:1px solid #4fdff477;color:#dffaff;font-size:11px;letter-spacing:.12em;opacity:0;pointer-events:none;transition:opacity .2s}
-  @media(max-width:600px){.stats{gap:14px;left:14px;bottom:16px}.speed{font-size:40px}.rightstats{right:14px;top:14px}.topline{left:14px;top:14px}.status{right:14px;bottom:16px;font-size:8px}.controls{grid-template-columns:1fr}}
-  button.alt{background:transparent;color:#cfeefa;border:1px solid #2c5870;margin-top:9px}
-  .lvls button{margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;text-align:left}
-  .lvls small{font-weight:600;letter-spacing:.08em;font-size:9px;opacity:.75}
+  button{border:0;background:var(--cyan);color:#06121b;font-weight:900;letter-spacing:.15em;font-size:12px;padding:14px 20px;width:100%;cursor:pointer;transition:filter .15s,transform .15s,border-color .15s,background .15s}
+  button:hover{filter:brightness(1.1);transform:translateY(-1px)}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  button.alt{background:rgba(13,30,45,.65);color:#d9f3ff;border:1px solid #2c5870;margin-top:9px}
+  button.alt:hover{border-color:var(--cyan);filter:none}
+  .lvls{margin-top:20px}
+  .lvls button{margin-bottom:9px;margin-top:0;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left}
+  .lvls small{font-weight:600;letter-spacing:.08em;font-size:10px;opacity:.82;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .lvls button.featured{background:var(--cyan);color:#06121b}
+  .lvls button.featured small{color:#062333;opacity:.9}
+  .foot{margin-top:12px;color:#698397;font-size:10px;line-height:1.5}
+  #toast{position:fixed;left:50%;top:28%;transform:translateX(-50%);z-index:6;padding:10px 16px;background:#071722ee;border:1px solid #4fdff477;color:#dffaff;font-size:11px;letter-spacing:.12em;opacity:0;pointer-events:none;transition:opacity .2s}
+
+  /* Daily Archive & Leaderboard Hub */
+  .hub-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+  .hub-title{font-size:20px;font-weight:800;letter-spacing:-.03em;margin:0}
+  .hub-actions{display:flex;align-items:center;gap:8px}
+  .hub-grid{display:grid;grid-template-columns:1fr 1.08fr;gap:24px;margin-top:18px;align-items:start}
+  .section-label{font-size:10px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin:0 0 10px;font-weight:700}
+  .archive-list{display:flex;flex-direction:column;gap:6px;max-height:290px;overflow-y:auto;padding-right:4px}
+  .archive-row{display:flex;flex-direction:column;gap:4px;padding:11px 13px;background:rgba(10,23,36,.72);border:1px solid rgba(111,210,238,.14);color:#dff4ff;text-align:left;font-weight:600;letter-spacing:.03em;text-transform:none}
+  .archive-row:hover{border-color:rgba(101,231,255,.55);filter:none;transform:none}
+  .archive-row.selected{background:rgba(20,52,74,.9);border-color:var(--cyan)}
+  .archive-row-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;width:100%}
+  .archive-date{font-size:12px;font-weight:800;letter-spacing:.08em;color:#f0fbff}
+  .archive-today{color:var(--orange);font-size:10px;letter-spacing:.14em;margin-left:6px}
+  .archive-pb{font-size:11px;color:var(--cyan);font-variant-numeric:tabular-nums;font-weight:700}
+  .archive-pb.none{color:#6d899d;font-weight:500}
+  .archive-meta{font-size:11px;color:#8aa7ba;font-variant-numeric:tabular-nums}
+
+  .seed-box{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .seed-row{display:flex;gap:8px}
+  .seed-input{flex:1;min-width:0;background:rgba(5,12,20,.9);border:1px solid #2b5066;color:#eaf7ff;padding:10px 12px;font-size:12px;letter-spacing:.08em;font-family:inherit;text-transform:uppercase}
+  .seed-input::placeholder{color:#5e7c91;text-transform:none;letter-spacing:0}
+  .seed-btn{width:auto;padding:10px 14px;font-size:10px;letter-spacing:.14em;white-space:nowrap}
+  .seed-preview{margin-top:8px;font-size:11px;color:#93b2c6;min-height:16px}
+
+  .detail-panel{display:flex;flex-direction:column;gap:14px}
+  .detail-date{font-size:22px;font-weight:800;letter-spacing:-.03em;margin:0}
+  .detail-meta{font-size:12px;color:#9ab6c8;margin-top:4px;font-variant-numeric:tabular-nums}
+  .detail-mech{font-size:11px;color:#7fa1b8;margin-top:6px;line-height:1.5}
+  .detail-seed{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#cfeefa}
+
+  .lb-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-top:12px;border-top:1px solid var(--line)}
+  .lb-status{font-size:10px;letter-spacing:.14em;color:#7f9db1}
+  .lb-list{display:flex;flex-direction:column;gap:4px;max-height:228px;overflow-y:auto;padding-right:4px}
+  .lb-row{display:grid;grid-template-columns:34px 1fr auto auto;gap:10px;align-items:center;padding:8px 10px;background:rgba(8,19,30,.75);border:1px solid rgba(111,210,238,.09);font-size:12px;font-variant-numeric:tabular-nums}
+  .lb-row.me{border-color:rgba(101,231,255,.55);background:rgba(19,48,68,.82)}
+  .lb-rank{color:var(--muted);font-weight:700;font-size:11px}
+  .lb-rank.top1{color:var(--orange)}
+  .lb-name{color:#eaf7ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .lb-time{color:var(--cyan);font-weight:700}
+  .lb-delta{color:#7897ab;font-size:11px;min-width:52px;text-align:right}
+  .lb-empty{padding:16px 12px;font-size:12px;color:#8aa6b8;background:rgba(8,18,28,.55);border:1px solid rgba(111,210,238,.12);line-height:1.5}
+  .lb-note{font-size:11px;color:#8aa6b8;display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:4px}
+
+  @media(max-width:760px){
+    .hub-grid{grid-template-columns:1fr}
+    .archive-list{max-height:200px}
+    .lb-list{max-height:180px}
+  }
+  @media(max-width:600px){
+    .stats{gap:14px;left:14px;bottom:16px}.speed{font-size:40px}
+    .rightstats{right:14px;top:14px}.topline{left:14px;top:14px}
+    .status{right:14px;bottom:16px;font-size:8px}.controls{grid-template-columns:1fr}
+    .card,.card.wide{padding:20px 18px}
+    .lvls button{flex-direction:column;align-items:flex-start;gap:4px}
+  }
 </style>
 </head>
 <body>
 <div id="overlay">
-  <div class="card">
-    <div class="eyebrow">MOVEMENT LAB / BUILD 005</div>
-    <h1>VELOCITY<span>.</span></h1>
+  <div class="card" id="overlayCard">
     <div id="menu">
-    <div class="sub">An open movement sandbox. Build momentum, chain jumps, carve ramps, wall-run, grapple, and find your own fastest line. No combat. Just movement.</div>
-    <div class="lvls" style="margin-top:22px">
-      <button data-level="sandbox">SANDBOX <small>FREE-ROAM ARENA</small></button>
-      <button data-level="course1">COURSE 01 — THE ASCENT <small id="pb-course1">LINEAR TIME TRIAL</small></button>
+      <div class="card-top">
+        <div class="eyebrow">MOVEMENT LAB / DAILY EDITION</div>
+        <div class="auth-bar" id="menuAuthBar">
+          <span class="auth-name" id="menuAuthName" style="display:none"></span>
+          <button type="button" class="btn-inline" id="menuAuthBtn">SIGN IN</button>
+        </div>
+      </div>
+      <h1>VELOCITY<span>.</span></h1>
+      <div class="sub">An open movement sandbox and daily time-trial circuit. Build momentum, chain jumps, carve ramps, wall-run, grapple, and race today's seeded track.</div>
+      <div class="lvls">
+        <button type="button" class="featured" id="playTodayBtn" data-start="true">
+          <span id="todayBtnTitle">TODAY'S DAILY</span>
+          <small id="todayBtnSub">LOADING SEED...</small>
+        </button>
+        <button type="button" class="alt" id="openArchiveBtn">
+          <span>DAILY ARCHIVE &amp; CUSTOM SEEDS</span>
+          <small>PAST DAYS · LEADERBOARDS</small>
+        </button>
+        <button type="button" class="alt" data-level="course1">
+          <span>COURSE 01 — THE ASCENT</span>
+          <small id="pb-course1">LINEAR TIME TRIAL</small>
+        </button>
+        <button type="button" class="alt" data-level="sandbox">
+          <span>SANDBOX</span>
+          <small>FREE-ROAM ARENA</small>
+        </button>
+      </div>
+      <div class="controls">
+        <div><b>W A S D</b> Move</div><div><b>MOUSE</b> Look</div>
+        <div><b>SPACE</b> Jump / wall jump</div><div><b>SHIFT</b> Slide</div>
+        <div><b>E</b> Grapple / release</div><div><b>Q</b> Speed burst</div>
+        <div><b>R</b> Restart run</div><div><b>T</b> Last checkpoint</div>
+        <div><b>ESC</b> Pause</div><div><b>G</b> Ghost mode</div>
+      </div>
+      <div class="foot">Sign in with Google to publish daily leaderboard times. Local PBs and 3D ghost replays save automatically for every daily date and custom seed.</div>
     </div>
-    <div class="controls">
-      <div><b>W A S D</b> Move</div><div><b>MOUSE</b> Look</div>
-      <div><b>SPACE</b> Jump / wall jump</div><div><b>SHIFT</b> Slide</div>
-      <div><b>E</b> Grapple / release</div><div><b>Q</b> Speed burst</div>
-      <div><b>R</b> Restart run</div><div><b>T</b> Last checkpoint</div>
-      <div><b>ESC</b> Pause</div><div><b>G</b> Ghost mode</div>
+
+    <div id="dailyHub" style="display:none">
+      <div class="hub-head">
+        <div>
+          <div class="eyebrow">SEEDED CIRCUIT</div>
+          <h2 class="hub-title">Daily Archive &amp; Leaderboards</h2>
+        </div>
+        <div class="hub-actions">
+          <button type="button" class="btn-inline" id="hubAuthBtn">SIGN IN</button>
+          <button type="button" class="btn-inline" id="hubBackBtn">MENU</button>
+        </div>
+      </div>
+
+      <div class="hub-grid">
+        <div>
+          <div class="section-label">Past Daily Tracks</div>
+          <div class="archive-list" id="archiveList" role="listbox" aria-label="Daily courses archive"></div>
+
+          <div class="seed-box">
+            <label class="section-label" for="customSeedInput" style="display:block">Custom Seed Track</label>
+            <div class="seed-row">
+              <input id="customSeedInput" class="seed-input" type="text" maxlength="32" placeholder="Enter seed (e.g. APEX-742)" autocomplete="off">
+              <button type="button" class="alt seed-btn" id="randomSeedBtn" style="margin-top:0">RANDOM</button>
+              <button type="button" class="seed-btn" id="playSeedBtn">PLAY</button>
+            </div>
+            <div class="seed-preview" id="customSeedPreview">Enter any word or code to generate a deterministic course.</div>
+          </div>
+        </div>
+
+        <div class="detail-panel">
+          <div>
+            <div class="section-label" id="detailKicker">SELECTED DAILY</div>
+            <h3 class="detail-date" id="detailDate">—</h3>
+            <div class="detail-meta" id="detailMeta">—</div>
+            <div class="detail-mech" id="detailMechanics">—</div>
+          </div>
+
+          <button type="button" id="playSelectedDailyBtn">PLAY DAILY COURSE</button>
+
+          <div>
+            <div class="lb-head">
+              <div class="section-label" style="margin:0">Shared Leaderboard</div>
+              <div class="lb-status" id="lbStatus">LOADING...</div>
+            </div>
+            <div class="lb-list" id="lbList" aria-live="polite"></div>
+            <div class="lb-note" id="lbAuthNote"></div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="foot">Best experienced on desktop with a mouse and keyboard. Click the game to capture your mouse. This is an early physics prototype — expect tuning.</div>
-  </div>
-  <div id="pause" style="display:none">
-    <div class="sub">PAUSED</div>
-    <button id="resume" style="margin-top:20px">RESUME</button>
-    <button class="alt" id="restart">RESTART</button>
-    <button class="alt" id="tomenu">MAIN MENU</button>
-  </div>
+
+    <div id="pause" style="display:none">
+      <div class="eyebrow">PAUSED</div>
+      <div class="sub" id="pauseCourseLabel" style="margin-top:6px">COURSE</div>
+      <button type="button" id="resume" style="margin-top:20px">RESUME</button>
+      <button type="button" class="alt" id="restart">RESTART</button>
+      <button type="button" class="alt" id="pauseArchive">DAILY ARCHIVE &amp; LEADERBOARD</button>
+      <button type="button" class="alt" id="tomenu">MAIN MENU</button>
+    </div>
   </div>
 </div>
 <div id="hud">
@@ -86,14 +225,24 @@
 </div>
 <div id="toast"></div>
 <script type="module">
-// three.js loads as a module from the CDN, then the game scripts load as plain scripts in order.
-// (Plain scripts keep this working when index.html is opened straight from disk, no server needed.)
+// three.js and Firebase daily backend load as ES modules, then game scripts load in order.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-window.THREE=THREE;
-try{
-  for(const f of ['core','world','sandbox','course','ghost','player','main'])
-    await new Promise((ok,fail)=>{const s=document.createElement('script');s.src='js/'+f+'.js';s.onload=ok;s.onerror=()=>fail(new Error('Could not load js/'+f+'.js'));document.head.appendChild(s);});
-}catch(e){console.error(e);document.body.insertAdjacentHTML('beforeend','<pre style="position:fixed;z-index:9;top:10px;left:10px;color:#ff9b55">'+e.message+'</pre>');}
+window.THREE = THREE;
+try {
+  await import('./js/firebase-daily.js');
+  for (const f of ['core', 'world', 'sandbox', 'course', 'daily', 'ghost', 'player', 'main']) {
+    await new Promise((ok, fail) => {
+      const s = document.createElement('script');
+      s.src = 'js/' + f + '.js';
+      s.onload = ok;
+      s.onerror = () => fail(new Error('Could not load js/' + f + '.js'));
+      document.head.appendChild(s);
+    });
+  }
+} catch (e) {
+  console.error(e);
+  document.body.insertAdjacentHTML('beforeend', '<pre style="position:fixed;z-index:9;top:10px;left:10px;color:#ff9b55">' + e.message + '</pre>');
+}
 </script>
 </body>
 </html>
