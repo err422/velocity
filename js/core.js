@@ -1,13 +1,26 @@
 
 
+const isSoftwareGl = (() => {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return true;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER;
+    const gpu = String(gl.getParameter(param) || '');
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+  } catch (_) {
+    return false;
+  }
+})();
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x080f19);
 scene.fog = new THREE.FogExp2(0x080f19, 0.0038);
 const camera = new THREE.PerspectiveCamera(85, innerWidth/innerHeight, .08, 700);
-const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));
+const renderer = new THREE.WebGLRenderer({antialias:!isSoftwareGl, powerPreference:'high-performance'});
+renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(devicePixelRatio,1.7));
 renderer.setSize(innerWidth,innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !isSoftwareGl;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);

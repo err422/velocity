@@ -1,6 +1,6 @@
 // Collision world + per-level state. Levels add geometry through addBox/addRamp/addRing so it can be cleared on level switch.
 let levelGroup=new THREE.Group();scene.add(levelGroup);
-let level={id:'',bound:0},course=null,pads=[],bestSplits=[],PB_KEY='',SPL_KEY='';
+let level={id:'',bound:0},course=null,pads=[],bestSplits=[],PB_KEY='',SPL_KEY='',GHOST_PB_KEY='',GHOST_LAST_KEY='';
 // ---------- collision world (oriented boxes) ----------
 const solidMeshes=[], solids=[];
 const raycaster=new THREE.Raycaster();

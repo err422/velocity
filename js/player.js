@@ -6,25 +6,54 @@ const player={pos:SPAWN.clone(),prev:SPAWN.clone(),vel:V3(),yaw:Math.PI,pitch:0,
 const contact={ground:false,wall:false,gn:V3(),wn:V3()};
 const keys={},wish=V3();
 let locked=false,last=performance.now(),acc=0,jumpBuffer=0,coyote=0,burstCd=0,padCd=0,toastTimer=0;
+let ghostRecorder=null,ghostPb=null,ghostLast=null,ghostMode='pb',ghostVisual=null;
 camera.rotation.order='YXZ';
 const $=id=>document.getElementById(id);
-const cpEl=$('cp'),speedEl=$('speed'),stateEl=$('state'),timerEl=$('timer'),pbEl=$('pb'),centerMsg=$('centerMessage'),grappleEl=$('grappleState'),overlay=$('overlay'),toast=$('toast');
+const cpEl=$('cp'),speedEl=$('speed'),stateEl=$('state'),timerEl=$('timer'),pbEl=$('pb'),ghostHudEl=$('ghostHud'),centerMsg=$('centerMessage'),grappleEl=$('grappleState'),overlay=$('overlay'),toast=$('toast');
 function fmt(t){const m=Math.floor(t/60),s=Math.floor(t%60),ms=Math.floor((t%1)*1000);return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;}
 function showToast(s){toast.textContent=s;toast.style.opacity=1;toastTimer=1.7;}
 function message(s){centerMsg.textContent=s;centerMsg.style.opacity=1;setTimeout(()=>centerMsg.style.opacity=0,1200);}
+function updateGhostHud(){
+  if(!ghostHudEl)return;
+  if(!course){ghostHudEl.textContent='';return;}
+  const sel=GhostSystem.selectGhostEntry(ghostMode,ghostPb,ghostLast);
+  if(sel.kind==='off')ghostHudEl.textContent='GHOST OFF [G]';
+  else if(sel.kind==='none')ghostHudEl.textContent='GHOST NONE';
+  else ghostHudEl.textContent=`GHOST ${sel.kind.toUpperCase()} ${fmt(sel.ghost.duration)} [G]`;
+}
+function loadCourseGhosts(courseId){
+  ghostPb=null;ghostLast=null;
+  try{ghostPb=GhostSystem.deserializeGhost(localStorage.getItem(GHOST_PB_KEY),courseId);}catch(_){}
+  try{ghostLast=GhostSystem.deserializeGhost(localStorage.getItem(GHOST_LAST_KEY),courseId);}catch(_){}
+  updateGhostHud();
+}
+function toggleGhostMode(){
+  if(!course)return;
+  ghostMode=GhostSystem.nextGhostMode(ghostMode);
+  updateGhostHud();
+  const sel=GhostSystem.selectGhostEntry(ghostMode,ghostPb,ghostLast);
+  showToast(sel.kind==='off'?'GHOST OFF':sel.kind==='none'?'NO GHOST SAVED':`GHOST: ${sel.kind.toUpperCase()}`);
+}
 
 
 // ---------- input ----------
-document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;if(!locked){for(const k in keys)keys[k]=false;onUnlock();}});
+document.addEventListener('pointerlockchange',()=>{
+  const wasLocked=locked;
+  locked=document.pointerLockElement===renderer.domElement;
+  if(!locked){for(const k in keys)keys[k]=false;if(wasLocked)onUnlock();}
+});
 document.addEventListener('mousemove',e=>{if(!locked)return;player.yaw-=e.movementX*.0022;player.pitch=clamp(player.pitch-e.movementY*.0022,-1.48,1.48);});
 document.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Space'){jumpBuffer=CFG.jumpBuffer;e.preventDefault();}
-  if(!locked)return;
+  const activePlay=locked||(typeof inLevel!=='undefined'&&inLevel&&overlay.style.display==='none');
+  if(!activePlay)return;
+  if(e.code==='Escape'&&!locked){onUnlock();return;}
   if(e.code==='KeyE'&&!e.repeat)toggleGrapple();
   if(e.code==='KeyR')resetPlayer();
   if(e.code==='KeyT')toCheckpoint();
   if(e.code==='KeyQ'&&!e.repeat)burst();
+  if(e.code==='KeyG'&&!e.repeat)toggleGhostMode();
 });
 document.addEventListener('keyup',e=>keys[e.code]=false);
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
@@ -93,7 +122,8 @@ function resetPlayer(){
   const p=player;
   p.pos.copy(SPAWN);p.prev.copy(SPAWN);p.vel.set(0,0,0);p.yaw=SPAWN_YAW;p.pitch=0;
   p.grapple=null;p.grounded=false;p.low=false;p.wallrun=false;p.wallTimer=0;
-  p.runStarted=false;p.runTime=0;p.gate=0;p.cp=null;p.splits=[];refreshGates();cpEl.textContent='';timerEl.textContent='00:00.000';grappleEl.textContent='GRAPPLE READY';showToast('POSITION RESET');
+  p.runStarted=false;p.runTime=0;p.gate=0;p.cp=null;p.splits=[];ghostRecorder=null;
+  refreshGates();cpEl.textContent='';timerEl.textContent='00:00.000';grappleEl.textContent='GRAPPLE READY';showToast('POSITION RESET');
 }
 
 // ---------- movement ----------
@@ -121,7 +151,12 @@ function refreshGates(){
 }
 function passGate(){
   const p=player,i=p.gate,last=course.length-1;
-  if(i===0){p.runStarted=true;p.runTime=0;p.splits=[];p.cp=null;p.gate=1;cpEl.textContent='';message('RUN STARTED');refreshGates();return;}
+  if(i===0){
+    p.runStarted=true;p.runTime=0;p.splits=[];p.cp=null;p.gate=1;cpEl.textContent='';
+    ghostRecorder=GhostSystem.createRecorder(level.id);
+    GhostSystem.recordSample(ghostRecorder,0,p,true);
+    message('RUN STARTED');refreshGates();return;
+  }
   p.splits[i]=p.runTime;
   const ref=bestSplits[i],d=ref!=null?p.runTime-ref:null;
   const dtxt=d==null?'':(d<=0?'−':'+')+Math.abs(d).toFixed(2);
@@ -130,7 +165,19 @@ function passGate(){
     cpEl.textContent=`GATE ${i}/${last-1}  ${dtxt}`;showToast(`GATE ${i}/${last-1} — ${fmt(p.runTime)}  ${dtxt}`);
   }else{
     p.runStarted=false;p.gate=0;p.cp=null;cpEl.textContent='FINISH  '+dtxt;
-    if(!p.best||p.runTime<p.best){
+    const isNewBest=!p.best||p.runTime<p.best;
+    const recorded=GhostSystem.finalizeRecording(ghostRecorder,p.runTime,p);
+    ghostRecorder=null;
+    if(recorded){
+      ghostLast=recorded;
+      try{localStorage.setItem(GHOST_LAST_KEY,GhostSystem.serializeGhost(recorded));}catch(_){}
+      if(isNewBest||!ghostPb){
+        ghostPb=recorded;
+        try{localStorage.setItem(GHOST_PB_KEY,GhostSystem.serializeGhost(recorded));}catch(_){}
+      }
+      updateGhostHud();
+    }
+    if(isNewBest){
       p.best=p.runTime;bestSplits=Array.from(p.splits,x=>x??null);
       localStorage.setItem(PB_KEY,p.best);localStorage.setItem(SPL_KEY,JSON.stringify(bestSplits));
       pbEl.textContent='PERSONAL BEST '+fmt(p.best);message('NEW PERSONAL BEST');showToast('NEW PERSONAL BEST — '+fmt(p.best));
@@ -225,7 +272,10 @@ function step(dt){
   if(p.pos.y<C.killY){toCheckpoint();return;}
 
   // Time trial: gates must be crossed in order, along their facing direction
-  if(p.runStarted)p.runTime+=dt;
+  if(p.runStarted){
+    p.runTime+=dt;
+    if(ghostRecorder)GhostSystem.recordSample(ghostRecorder,p.runTime,p);
+  }
   if(course&&crossedGate(course[p.gate],p))passGate();
 }
 

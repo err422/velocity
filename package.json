@@ -1,0 +1,16 @@
+{
+  "name": "velocity",
+  "version": "0.5.0",
+  "private": true,
+  "description": "VELOCITY — Movement Sandbox",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node --test tests/ghost.test.js",
+    "build": "node -c server.js && node -c js/core.js && node -c js/world.js && node -c js/sandbox.js && node -c js/course.js && node -c js/ghost.js && node -c js/player.js && node -c js/main.js",
+    "lint": "node -c server.js && node -c js/core.js && node -c js/world.js && node -c js/sandbox.js && node -c js/course.js && node -c js/ghost.js && node -c js/player.js && node -c js/main.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

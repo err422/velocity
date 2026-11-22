@@ -62,7 +62,7 @@
       <div><b>SPACE</b> Jump / wall jump</div><div><b>SHIFT</b> Slide</div>
       <div><b>E</b> Grapple / release</div><div><b>Q</b> Speed burst</div>
       <div><b>R</b> Restart run</div><div><b>T</b> Last checkpoint</div>
-      <div><b>ESC</b> Pause</div><div></div>
+      <div><b>ESC</b> Pause</div><div><b>G</b> Ghost mode</div>
     </div>
     <div class="foot">Best experienced on desktop with a mouse and keyboard. Click the game to capture your mouse. This is an early physics prototype — expect tuning.</div>
   </div>
@@ -76,7 +76,7 @@
 </div>
 <div id="hud">
   <div class="topline"><div class="logo">VELOCITY</div><div class="version" id="levelName">SANDBOX</div></div>
-  <div class="rightstats"><div class="stat-label">RUN TIME</div><div class="timer" id="timer">00:00.000</div><div class="pb" id="pb">PERSONAL BEST —:—.---</div><div class="pb" id="cp"></div></div>
+  <div class="rightstats"><div class="stat-label">RUN TIME</div><div class="timer" id="timer">00:00.000</div><div class="pb" id="pb">PERSONAL BEST —:—.---</div><div class="pb" id="cp"></div><div class="pb" id="ghostHud"></div></div>
   <div class="stats">
     <div><div class="stat-label">Velocity</div><div><span class="speed" id="speed">0</span><span class="unit">u/s</span></div></div>
     <div><div class="stat-label">State</div><div class="small-stat" id="state">READY</div></div>
@@ -91,7 +91,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 window.THREE=THREE;
 try{
-  for(const f of ['core','world','sandbox','course','player','main'])
+  for(const f of ['core','world','sandbox','course','ghost','player','main'])
     await new Promise((ok,fail)=>{const s=document.createElement('script');s.src='js/'+f+'.js';s.onload=ok;s.onerror=()=>fail(new Error('Could not load js/'+f+'.js'));document.head.appendChild(s);});
 }catch(e){console.error(e);document.body.insertAdjacentHTML('beforeend','<pre style="position:fixed;z-index:9;top:10px;left:10px;color:#ff9b55">'+e.message+'</pre>');}
 </script>
