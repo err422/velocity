@@ -225,15 +225,19 @@
 </div>
 <div id="toast"></div>
 <script type="module">
-// three.js and Firebase daily backend load as ES modules, then game scripts load in order.
+// Load three.js and game scripts unconditionally; load Firebase daily backend in parallel so slow/blocked Firebase never stalls the game.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 window.THREE = THREE;
+
+import(new URL('js/firebase-daily.js', document.baseURI).href).catch((err) => {
+  console.warn('Firebase daily backend failed to load; continuing in local mode:', err);
+});
+
 try {
-  await import('./js/firebase-daily.js');
   for (const f of ['core', 'world', 'sandbox', 'course', 'daily', 'ghost', 'player', 'main']) {
     await new Promise((ok, fail) => {
       const s = document.createElement('script');
-      s.src = 'js/' + f + '.js';
+      s.src = new URL('js/' + f + '.js', document.baseURI).href;
       s.onload = ok;
       s.onerror = () => fail(new Error('Could not load js/' + f + '.js'));
       document.head.appendChild(s);

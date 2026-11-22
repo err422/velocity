@@ -103,7 +103,8 @@ async function testConnection() {
 
 async function initFirebase() {
   try {
-    const res = await fetch('/firebase-applet-config.json', { cache: 'no-store' });
+    const configUrl = new URL('../firebase-applet-config.json', import.meta.url).href;
+    const res = await fetch(configUrl, { cache: 'no-store' });
     if (!res.ok) throw new Error(`Could not load firebase-applet-config.json (${res.status})`);
     const firebaseConfig = await res.json();
     app = initializeApp(firebaseConfig);
@@ -126,6 +127,8 @@ async function initFirebase() {
     initError = err instanceof Error ? err.message : String(err);
     isOnline = false;
     console.warn('Firebase initialization unavailable; using local deterministic daily mode:', initError);
+  } finally {
+    window.dispatchEvent(new Event('daily-backend-ready'));
   }
 }
 
@@ -354,3 +357,4 @@ window.DailyBackend = {
   fetchLeaderboard,
   submitDailyRun
 };
+window.dispatchEvent(new Event('daily-backend-ready'));

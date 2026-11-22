@@ -184,7 +184,10 @@ function renderAuthUI(user){
 }
 
 async function handleAuthClick(){
-  if(!window.DailyBackend)return;
+  if(!window.DailyBackend){
+    showToast('CLOUD BACKEND LOADING — TRY AGAIN');
+    return;
+  }
   const st=window.DailyBackend.getState();
   try{
     if(st.user){
@@ -198,8 +201,13 @@ async function handleAuthClick(){
       }
     }
   }catch(err){
-    const msg=err&&err.message?err.message:'Sign-in canceled';
-    if(!msg.includes('popup-closed-by-user'))showToast('SIGN-IN UNAVAILABLE');
+    const code=err&&err.code?String(err.code):'';
+    const msg=err&&err.message?String(err.message):'Sign-in canceled';
+    if(code.includes('unauthorized-domain')||msg.includes('unauthorized-domain')){
+      showToast(`ADD ${location.hostname.toUpperCase()} IN FIREBASE AUTH DOMAINS`);
+    }else if(!code.includes('popup-closed-by-user')&&!msg.includes('popup-closed-by-user')){
+      showToast('SIGN-IN UNAVAILABLE');
+    }
   }
 }
 
@@ -494,9 +502,26 @@ $('restart').onclick=()=>{resetPlayer();enter();};
 $('pauseArchive').onclick=()=>openDailyHub(level.meta&&level.meta.dateKey?level.meta.dateKey:DailyCourseGen.getTodayDateKey());
 $('tomenu').onclick=showMenu;
 
-if(window.DailyBackend){
-  window.DailyBackend.onAuthChange(renderAuthUI);
+let backendBound=false;
+async function bindDailyBackend(){
+  if(!window.DailyBackend)return;
+  if(!backendBound){
+    backendBound=true;
+    window.DailyBackend.onAuthChange(renderAuthUI);
+  }
+  if(dailyHubEl.style.display!=='none'){
+    try{
+      const synced=await window.DailyBackend.fetchDailyArchive(14);
+      if(synced&&synced.courses.length>0){
+        archiveCourses=synced.courses;
+        const stillThere=archiveCourses.find(c=>c.dateKey===selectedDateKey);
+        selectDailyInHub(stillThere?selectedDateKey:archiveCourses[0].dateKey);
+      }
+    }catch(_){}
+  }
 }
+window.addEventListener('daily-backend-ready',bindDailyBackend);
+bindDailyBackend();
 
 const params=new URLSearchParams(location.search);
 if(params.get('autostart')==='1'){
