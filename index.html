@@ -221,8 +221,8 @@
   .arm-btn-danger:hover{border-color:#ff5e7a;color:#ffffff;filter:none}
   .arm-btn-danger:disabled{opacity:.38;cursor:not-allowed}
 
-  .arm-cat-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
-  .arm-cat-btn{padding:8px 10px;font-size:10px;letter-spacing:.16em;background:rgba(9,22,34,.8);color:#92b0c4;border:1px solid #26485e}
+  .arm-cat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+  .arm-cat-btn{padding:8px 8px;font-size:10px;letter-spacing:.14em;background:rgba(9,22,34,.8);color:#92b0c4;border:1px solid #26485e}
   .arm-cat-btn:hover{border-color:rgba(101,231,255,.55);color:#eaf7ff;filter:none;transform:none}
   .arm-cat-btn.active{background:rgba(20,54,76,.94);border-color:var(--cyan);color:#ffffff}
   .arm-filter-bar{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
@@ -239,8 +239,83 @@
   .inv-meta{font-size:10px;color:#8aa7ba;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .inv-empty{grid-column:1 / -1;padding:20px 14px;font-size:12px;color:#8aa6b8;background:rgba(8,18,28,.55);border:1px solid rgba(111,210,238,.12)}
 
+  /* Servers & Arenas Panel */
+  .srv-grid{display:grid;grid-template-columns:1.22fr .98fr;gap:22px;margin-top:16px;align-items:start}
+  .srv-filter-row{display:flex;gap:6px;margin-bottom:10px;align-items:center;justify-content:space-between}
+  .srv-filters{display:flex;gap:4px}
+  .srv-list{display:flex;flex-direction:column;gap:6px;max-height:245px;overflow-y:auto;padding-right:4px}
+  .srv-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 12px;background:rgba(9,21,34,.82);border:1px solid rgba(111,210,238,.16)}
+  .srv-row-title{font-size:12px;font-weight:800;color:#f0fbff;letter-spacing:.03em}
+  .srv-row-meta{font-size:10px;color:#8ca9bd;margin-top:3px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
+  .srv-join-btn{width:auto;padding:8px 14px;font-size:10px;letter-spacing:.14em}
+  .srv-empty{padding:18px 14px;font-size:12px;color:#8aa7ba;background:rgba(8,18,28,.55);border:1px solid rgba(111,210,238,.12);line-height:1.5}
+  .srv-code-box{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .srv-warmup-box{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .srv-warmup-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .srv-warmup-btn{padding:11px 12px;font-size:10px;letter-spacing:.12em;text-align:left;display:flex;flex-direction:column;gap:3px}
+  .srv-warmup-btn small{font-size:9px;opacity:.76;font-weight:600;letter-spacing:.08em}
+
+  /* Combat HUD */
+  #weaponHud{position:absolute;right:24px;bottom:56px;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .ammo-box{display:flex;align-items:baseline;gap:8px;font-variant-numeric:tabular-nums}
+  .ammo-cur{font-size:40px;font-weight:900;line-height:.9;letter-spacing:-.04em;color:#f2fbff}
+  .ammo-cur.low{color:var(--orange)}
+  .ammo-max{font-size:14px;font-weight:700;color:#7f9fb3}
+  .ammo-name{font-size:10px;letter-spacing:.18em;color:var(--cyan);font-weight:800;text-transform:uppercase}
+  .reload-bar{width:154px;height:4px;background:rgba(12,26,40,.85);border:1px solid rgba(101,231,255,.28);overflow:hidden;display:none}
+  .reload-fill{height:100%;width:0%;background:var(--cyan)}
+  .slot-strip{display:flex;gap:5px}
+  .slot-item{padding:5px 8px;background:rgba(7,15,24,.78);border:1px solid rgba(111,210,238,.18);font-size:9px;letter-spacing:.12em;color:#84a3b8;font-weight:700;display:flex;gap:5px;align-items:center}
+  .slot-item b{color:#c9e9f8;font-weight:900}
+  .slot-item.active{border-color:var(--cyan);background:rgba(18,48,68,.92);color:#ffffff}
+  .slot-item.active b{color:var(--cyan)}
+
+  #arenaHpWrap{display:none;min-width:128px}
+  .hp-val{font-size:28px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;color:#7dff9e}
+  .hp-val.mid{color:#ffd166}
+  .hp-val.low{color:#ff5470}
+  .hp-bar{width:128px;height:5px;background:rgba(9,19,30,.85);border:1px solid rgba(125,255,158,.28);margin-top:5px}
+  .hp-fill{height:100%;width:100%;background:#7dff9e;transition:width .1s}
+
+  #gauntletHud{margin-top:4px;font-size:11px;font-weight:800;letter-spacing:.14em;color:#ff9b55;font-variant-numeric:tabular-nums;display:none}
+  #gauntletHud.clean{color:#7dff9e}
+
+  #arenaTopBar{position:absolute;left:50%;top:18px;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;gap:4px;text-align:center}
+  .arena-top-pill{padding:7px 16px;background:rgba(7,15,25,.88);border:1px solid rgba(101,231,255,.32);font-size:11px;font-weight:800;letter-spacing:.18em;color:#f0fbff;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .arena-top-sub{font-size:10px;letter-spacing:.16em;color:#8cb2c9}
+
+  #killFeed{position:absolute;right:24px;top:98px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;pointer-events:none}
+  .kf-row{padding:5px 10px;background:rgba(7,15,24,.84);border-right:3px solid var(--cyan);font-size:10px;letter-spacing:.1em;color:#dff4ff;white-space:nowrap}
+  .kf-row.hs{border-right-color:var(--orange)}
+  .kf-wep{color:#7ea4bc;margin:0 6px}
+
+  #hitmarker{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);opacity:0;pointer-events:none;transition:opacity .06s}
+  #hitmarker::before,#hitmarker::after{content:'';position:absolute;left:50%;top:50%;width:22px;height:2px;background:var(--hm-col,#ffffff);box-shadow:0 0 8px var(--hm-col,#ffffff)}
+  #hitmarker::before{transform:translate(-50%,-50%) rotate(45deg)}
+  #hitmarker::after{transform:translate(-50%,-50%) rotate(-45deg)}
+
+  #damageVignette{position:fixed;inset:0;pointer-events:none;opacity:0;box-shadow:inset 0 0 110px 28px rgba(255,48,78,.72);transition:opacity .08s}
+
+  #awpScopeOverlay{position:fixed;inset:0;pointer-events:none;display:none;z-index:3}
+  .scope-mask{position:absolute;inset:0;background:radial-gradient(circle at center,transparent 0%,transparent 35%,#03060a 37.5%,#020408 100%)}
+  .scope-h{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(12,18,24,.94)}
+  .scope-v{position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(12,18,24,.94)}
+  .scope-ring{position:absolute;left:50%;top:50%;width:min(74vh,74vw);height:min(74vh,74vw);transform:translate(-50%,-50%);border:2px solid rgba(101,231,255,.32);border-radius:50%}
+  .scope-dot{position:absolute;left:50%;top:50%;width:4px;height:4px;transform:translate(-50%,-50%);background:#ff4b66;border-radius:50%;box-shadow:0 0 8px #ff4b66}
+  .scope-zoom-tag{position:absolute;left:50%;bottom:13%;transform:translateX(-50%);font-size:10px;letter-spacing:.24em;color:#82d9ee;background:rgba(4,10,16,.84);padding:4px 10px;border:1px solid rgba(101,231,255,.26)}
+
+  #arenaScoreboard{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 32px));background:rgba(6,13,22,.94);border:1px solid rgba(101,231,255,.32);padding:20px 22px;display:none;z-index:6;pointer-events:auto}
+  .sb-head{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+  .sb-title{font-size:15px;font-weight:800;letter-spacing:.1em;color:#f2fbff}
+  .sb-sub{font-size:10px;letter-spacing:.16em;color:var(--cyan)}
+  .sb-table{display:flex;flex-direction:column;gap:4px}
+  .sb-row{display:grid;grid-template-columns:1fr 56px 56px 64px;gap:8px;padding:7px 10px;background:rgba(11,24,38,.78);font-size:12px;font-variant-numeric:tabular-nums}
+  .sb-row.hdr{background:transparent;color:#7b9bb0;font-size:10px;letter-spacing:.14em;padding:4px 10px}
+  .sb-row.me{border-left:3px solid var(--cyan)}
+  .sb-actions{display:flex;gap:8px;margin-top:14px}
+
   @media(max-width:760px){
-    .hub-grid,.set-grid,.kb-grid,.arm-case-grid,.arm-reveal-grid,.arm-inv-grid,.case-detail-bar{grid-template-columns:1fr}
+    .hub-grid,.set-grid,.kb-grid,.arm-case-grid,.arm-reveal-grid,.arm-inv-grid,.case-detail-bar,.srv-grid{grid-template-columns:1fr}
     .archive-list{max-height:200px}
     .lb-list{max-height:180px}
   }
@@ -250,6 +325,7 @@
     .status{right:14px;bottom:16px;font-size:8px}.controls{grid-template-columns:1fr}
     .card,.card.wide{padding:20px 18px}
     .lvls button{flex-direction:column;align-items:flex-start;gap:4px}
+    #weaponHud{right:14px;bottom:48px}
   }
 </style>
 </head>
@@ -273,21 +349,25 @@
           <span id="todayBtnTitle">TODAY'S DAILY</span>
           <small id="todayBtnSub">LOADING SEED...</small>
         </button>
+        <button type="button" class="alt" id="openServersBtn" style="border-color:rgba(255,155,85,.55);color:#ffe4ce">
+          <span>SERVERS &amp; ARENAS</span>
+          <small style="color:#ff9b55">1v1 DUEL · FFA · SOLO WARMUP</small>
+        </button>
         <button type="button" class="alt" id="openArchiveBtn">
           <span>DAILY ARCHIVE &amp; CUSTOM SEEDS</span>
           <small>PAST DAYS · LEADERBOARDS</small>
         </button>
         <button type="button" class="alt" data-level="surf1">
           <span>SURF 01 — SKYLINE DRIFT</span>
-          <small id="pb-surf1">CS SURF TIME TRIAL</small>
+          <small id="pb-surf1">CS SURF + GAUNTLET TARGETS</small>
         </button>
         <button type="button" class="alt" data-level="course1">
           <span>COURSE 01 — THE ASCENT</span>
-          <small id="pb-course1">LINEAR TIME TRIAL</small>
+          <small id="pb-course1">TIME TRIAL + GAUNTLET TARGETS</small>
         </button>
         <button type="button" class="alt" data-level="sandbox">
           <span>SANDBOX</span>
-          <small>FREE-ROAM + SURF ZONE</small>
+          <small>FREE-ROAM · SHOOTING RANGE · SURF</small>
         </button>
       </div>
       <div class="controls" id="menuControls">
@@ -509,7 +589,7 @@
     <div id="armoryPanel" style="display:none">
       <div class="hub-head">
         <div>
-          <div class="eyebrow">KNIVES, GLOVES &amp; CONTAINERS</div>
+          <div class="eyebrow">WEAPONS, KNIVES, GLOVES &amp; CONTAINERS</div>
           <h2 class="hub-title">Armory &amp; Cases</h2>
         </div>
         <div class="hub-actions">
@@ -520,7 +600,7 @@
 
       <div class="set-tabs" role="tablist" aria-label="Armory sections">
         <button type="button" class="set-tab active" data-arm-tab="cases" id="armTabCases" role="tab" aria-selected="true">CASES (3)</button>
-        <button type="button" class="set-tab" data-arm-tab="inventory" id="armTabInventory" role="tab" aria-selected="false">INVENTORY (1)</button>
+        <button type="button" class="set-tab" data-arm-tab="inventory" id="armTabInventory" role="tab" aria-selected="false">INVENTORY (5)</button>
       </div>
 
       <div class="set-pane" data-arm-pane="cases">
@@ -537,7 +617,7 @@
             </div>
           </div>
           <div class="arm-earn-note">
-            <span>EARN CASES: +1 COURSE FINISH · +1 NEW PB · +2 DAILY FIRST CLEAR</span>
+            <span>EARN CASES: +1 COURSE / ARENA · +1 NEW PB · +2 DAILY CLEAR</span>
             <span id="armoryOpenedStat">0 UNBOXED</span>
           </div>
         </div>
@@ -591,7 +671,8 @@
         <div class="arm-inv-grid">
           <div>
             <div class="arm-cat-row" role="tablist" aria-label="Inventory category">
-              <button type="button" class="arm-cat-btn active" id="invCatKnives" data-inv-cat="knives" role="tab" aria-selected="true">KNIVES (1)</button>
+              <button type="button" class="arm-cat-btn active" id="invCatWeapons" data-inv-cat="weapons" role="tab" aria-selected="true">WEAPONS (3)</button>
+              <button type="button" class="arm-cat-btn" id="invCatKnives" data-inv-cat="knives" role="tab" aria-selected="false">KNIVES (1)</button>
               <button type="button" class="arm-cat-btn" id="invCatGloves" data-inv-cat="gloves" role="tab" aria-selected="false">GLOVES (1)</button>
             </div>
             <div class="arm-filter-bar" id="armoryFilterBar"></div>
@@ -633,28 +714,161 @@
       </div>
     </div>
 
+    <div id="serversPanel" style="display:none">
+      <div class="hub-head">
+        <div>
+          <div class="eyebrow">PEER-TO-PEER WEBRTC ARENAS</div>
+          <h2 class="hub-title">Servers &amp; Combat Arenas</h2>
+        </div>
+        <div class="hub-actions">
+          <span class="set-sync" id="serversSyncNote">P2P BOARD</span>
+          <button type="button" class="btn-inline" id="serversAuthBtn">SIGN IN</button>
+          <button type="button" class="btn-inline" id="serversBackBtn">MENU</button>
+        </div>
+      </div>
+
+      <div class="srv-grid">
+        <div>
+          <div class="srv-filter-row">
+            <div class="section-label" style="margin:0">Live Public Servers</div>
+            <div class="srv-filters">
+              <button type="button" class="arm-filter-btn active" data-srv-filter="all">ALL</button>
+              <button type="button" class="arm-filter-btn" data-srv-filter="duel_1v1">1v1 DUEL</button>
+              <button type="button" class="arm-filter-btn" data-srv-filter="ffa_4p">FFA</button>
+            </div>
+          </div>
+          <div class="srv-list" id="serversBoardList" aria-live="polite"></div>
+
+          <div class="srv-code-box">
+            <label class="section-label" for="privateCodeInput" style="display:block">Join Private Room by Code</label>
+            <div class="seed-row">
+              <input id="privateCodeInput" class="seed-input" type="text" maxlength="4" placeholder="4-letter code (e.g. V4K9)" autocomplete="off">
+              <button type="button" class="seed-btn" id="joinPrivateCodeBtn">JOIN CODE</button>
+            </div>
+          </div>
+
+          <div class="srv-warmup-box">
+            <div class="section-label">Solo Arena Warmup (Hologram Bots · No Sign-In Required)</div>
+            <div class="srv-warmup-grid">
+              <button type="button" class="alt srv-warmup-btn" id="warmupSurfBtn" style="margin-top:0">
+                <span>SURF DUEL WARMUP</span>
+                <small>TWIN RAMPS + LAUNCH PADS</small>
+              </button>
+              <button type="button" class="alt srv-warmup-btn" id="warmupAimBtn" style="margin-top:0">
+                <span>AIM MAP WARMUP</span>
+                <small>SYMMETRICAL CS COURTYARD</small>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">Host Serverless Arena</div>
+          <div class="set-field">
+            <div class="set-row-head"><label class="set-label" for="hostRoomName">Room Name</label></div>
+            <input id="hostRoomName" class="set-input" type="text" maxlength="32" placeholder="e.g. Surf Duel Warmups" autocomplete="off">
+          </div>
+          <div class="set-field">
+            <div class="set-row-head"><span class="set-label">Arena Map</span></div>
+            <div class="seg-group">
+              <button type="button" class="seg-btn active" data-host-map="arena_surf">SURF DUEL</button>
+              <button type="button" class="seg-btn" data-host-map="arena_aim">AIM MAP</button>
+            </div>
+          </div>
+          <div class="set-field">
+            <div class="set-row-head"><span class="set-label">Match Mode</span></div>
+            <div class="seg-group">
+              <button type="button" class="seg-btn active" data-host-mode="duel_1v1">1v1 DUEL (FT5)</button>
+              <button type="button" class="seg-btn" data-host-mode="ffa_4p">FFA (UP TO 4P)</button>
+            </div>
+          </div>
+          <div class="set-field">
+            <div class="set-row-head"><span class="set-label">Room Visibility</span></div>
+            <div class="seg-group">
+              <button type="button" class="seg-btn active" data-host-vis="public">PUBLIC BOARD</button>
+              <button type="button" class="seg-btn" data-host-vis="private">PRIVATE CODE</button>
+            </div>
+          </div>
+          <button type="button" id="hostDeployBtn">HOST &amp; DEPLOY ARENA</button>
+          <div class="set-help" id="hostDeployNote" style="margin-top:10px">Zero server setup: your room appears instantly on the public board via Firestore and connects players peer-to-peer over WebRTC.</div>
+        </div>
+      </div>
+    </div>
+
     <div id="pause" style="display:none">
       <div class="eyebrow">PAUSED</div>
       <div class="sub" id="pauseCourseLabel" style="margin-top:6px">COURSE</div>
       <button type="button" id="resume" style="margin-top:20px">RESUME</button>
       <button type="button" class="alt" id="restart">RESTART</button>
+      <button type="button" class="alt" id="pauseServers">SERVERS &amp; ARENAS</button>
       <button type="button" class="alt" id="pauseArmory">ARMORY &amp; CASES</button>
       <button type="button" class="alt" id="pauseSettings">SETTINGS</button>
       <button type="button" class="alt" id="pauseArchive">DAILY ARCHIVE &amp; LEADERBOARD</button>
+      <button type="button" class="alt arm-btn-danger" id="pauseLeaveServer" style="display:none">LEAVE SERVER</button>
       <button type="button" class="alt" id="tomenu">MAIN MENU</button>
     </div>
   </div>
 </div>
 <div id="hud">
   <div class="topline"><div class="logo">VELOCITY</div><div class="version" id="levelName">SANDBOX</div></div>
-  <div class="rightstats"><div class="stat-label">RUN TIME</div><div class="timer" id="timer">00:00.000</div><div class="pb" id="pb">PERSONAL BEST —:—.---</div><div class="pb" id="cp"></div><div class="pb" id="ghostHud"></div></div>
+  <div id="arenaTopBar">
+    <div class="arena-top-pill" id="arenaScoreLine">WARMUP · HOLOGRAM BOTS</div>
+    <div class="arena-top-sub" id="arenaSubLine">TAB SCOREBOARD · 1-4 WEAPONS · C RELOAD</div>
+  </div>
+  <div class="rightstats">
+    <div class="stat-label">RUN TIME</div>
+    <div class="timer" id="timer">00:00.000</div>
+    <div class="pb" id="pb">PERSONAL BEST —:—.---</div>
+    <div id="gauntletHud">TARGETS 0/0 · +1.0S/MISS</div>
+    <div class="pb" id="cp"></div>
+    <div class="pb" id="ghostHud"></div>
+  </div>
+  <div id="killFeed"></div>
   <div class="stats">
+    <div id="arenaHpWrap">
+      <div class="stat-label">Health</div>
+      <div class="hp-val" id="hpVal">100</div>
+      <div class="hp-bar"><div class="hp-fill" id="hpFill"></div></div>
+    </div>
     <div><div class="stat-label">Velocity</div><div><span class="speed" id="speed">0</span><span class="unit">u/s</span></div></div>
     <div><div class="stat-label">State</div><div class="small-stat" id="state">READY</div></div>
   </div>
-  <div class="status"><b id="grappleState">GRAPPLE READY</b><br>SURF · WALLRUN · AIR STRAFE · SLIDE · BURST</div>
+  <div id="weaponHud">
+    <div class="ammo-name" id="hudWeaponName">V-47 RIFLE</div>
+    <div class="ammo-box" id="hudAmmoBox"><span class="ammo-cur" id="hudAmmoCur">30</span><span class="ammo-max" id="hudAmmoMax">/ 30</span></div>
+    <div class="reload-bar" id="hudReloadBar"><div class="reload-fill" id="hudReloadFill"></div></div>
+    <div class="slot-strip" id="hudSlotStrip">
+      <div class="slot-item" data-hud-slot="rifle"><b>1</b>RIFLE</div>
+      <div class="slot-item" data-hud-slot="awp"><b>2</b>AWP</div>
+      <div class="slot-item" data-hud-slot="deagle"><b>3</b>DEAGLE</div>
+      <div class="slot-item active" data-hud-slot="knife"><b>4</b>KNIFE</div>
+    </div>
+  </div>
+  <div class="status"><b id="grappleState">GRAPPLE READY</b><br>1-4 WEAPONS · C RELOAD · F INSPECT · SURF · WALLRUN</div>
   <div id="surfHint">SURF: STRAFE A/D INTO RAMP · STEER WITH MOUSE · NO W</div>
-  <div id="crosshair" class="ch-glyph" data-style="cross"><span class="ch-v"></span><span class="ch-h"></span><span class="ch-dot"></span><span class="ch-ring"></span></div><div id="centerMessage">RUN STARTED</div>
+  <div id="crosshair" class="ch-glyph" data-style="cross"><span class="ch-v"></span><span class="ch-h"></span><span class="ch-dot"></span><span class="ch-ring"></span></div>
+  <div id="hitmarker"></div>
+  <div id="centerMessage">RUN STARTED</div>
+</div>
+<div id="damageVignette"></div>
+<div id="awpScopeOverlay">
+  <div class="scope-mask"></div>
+  <div class="scope-h"></div>
+  <div class="scope-v"></div>
+  <div class="scope-ring"></div>
+  <div class="scope-dot"></div>
+  <div class="scope-zoom-tag" id="scopeZoomTag">OPTIC 1× · RMB 2×</div>
+</div>
+<div id="arenaScoreboard">
+  <div class="sb-head">
+    <div class="sb-title" id="sbTitle">ARENA SCOREBOARD</div>
+    <div class="sb-sub" id="sbSub">1v1 DUEL · FIRST TO 5</div>
+  </div>
+  <div class="sb-table" id="sbTable"></div>
+  <div class="sb-actions" id="sbActions" style="display:none">
+    <button type="button" id="sbRematchBtn">REMATCH</button>
+    <button type="button" class="alt" id="sbLeaveBtn" style="margin-top:0">LEAVE ARENA</button>
+  </div>
 </div>
 <div id="toast"></div>
 <script type="module">
@@ -667,7 +881,7 @@ import(new URL('js/firebase-daily.js', document.baseURI).href).catch((err) => {
 });
 
 try {
-  for (const f of ['core', 'settings', 'knives-data', 'viewmodel', 'surf', 'world', 'sandbox', 'course', 'daily', 'ghost', 'player', 'main']) {
+  for (const f of ['core', 'settings', 'knives-data', 'viewmodel', 'combat', 'surf', 'world', 'sandbox', 'course', 'arenas', 'daily', 'ghost', 'netcode', 'player', 'main']) {
     await new Promise((ok, fail) => {
       const s = document.createElement('script');
       s.src = new URL('js/' + f + '.js', document.baseURI).href;

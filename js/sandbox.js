@@ -37,5 +37,46 @@ for(const [x,z] of [[-10,20],[10,-20],[-43,-24],[43,24],[0,66]]){
   addLaunchPad(x,.02,z);
 }
 
-  return {id:'sandbox',spawn:V3(0,0,-83),yaw:Math.PI,course:null,bound:91};
+// Dedicated North-West Shooting Range Bay (15m / 30m / 50m tactical target lanes facing -X from firing line x = -18, z = -74)
+addBox(-48, 0.05, -74, 56, 0.1, 18, concrete, false);
+addBox(-77, 5, -74, 2, 10, 20, dark);                      // Backstop wall
+addBox(-48, 4, -84, 58, 8, 1.5, dark);                    // North range baffle
+addBox(-48, 2.2, -64.5, 58, 4.4, 1.2, dark);              // South low divider
+// Distance markers on floor (15m, 30m, 50m from firing line at x = -22)
+addBox(-37, 0.11, -74, 0.25, 0.05, 16, cyan, false);
+addBox(-52, 0.11, -74, 0.25, 0.05, 16, cyan, false);
+addBox(-72, 0.11, -74, 0.25, 0.05, 16, orange, false);
+// Firing booth rail
+addBox(-22, 0.85, -74, 0.9, 1.1, 14, dark);
+addBox(-22, 1.45, -74, 1.0, 0.12, 14, cyan, false);
+
+const rangeTargets = [
+  // 15m Static Trio
+  { id: 'rng_1', x: -37, y: 2.2, z: -79, yaw: Math.PI / 2, scale: 1.0 },
+  { id: 'rng_2', x: -37, y: 2.2, z: -74, yaw: Math.PI / 2, scale: 1.0 },
+  { id: 'rng_3', x: -37, y: 2.2, z: -69, yaw: Math.PI / 2, scale: 1.0 },
+  // 30m Strafing Mid Duo
+  { id: 'rng_4', x: -52, y: 2.8, z: -77, yaw: Math.PI / 2, scale: 1.1, patrolAxis: 'z', patrolRange: 4.5, patrolSpeed: 1.9, phase: 0.4 },
+  { id: 'rng_5', x: -52, y: 3.6, z: -71, yaw: Math.PI / 2, scale: 1.1, patrolAxis: 'z', patrolRange: 4.5, patrolSpeed: 2.2, phase: 2.6 },
+  // 50m Long-Range Sniper Trio (AWP / Deagle flicks)
+  { id: 'rng_6', x: -70, y: 2.4, z: -79, yaw: Math.PI / 2, scale: 1.25 },
+  { id: 'rng_7', x: -70, y: 4.4, z: -74, yaw: Math.PI / 2, scale: 1.25, patrolAxis: 'z', patrolRange: 5.2, patrolSpeed: 1.6, phase: 1.2 },
+  { id: 'rng_8', x: -70, y: 2.4, z: -69, yaw: Math.PI / 2, scale: 1.25 }
+];
+
+  return {
+    id:'sandbox',
+    spawn:V3(0,0,-83),
+    yaw:Math.PI,
+    course:null,
+    bound:91,
+    targetMode:'range',
+    targets:rangeTargets,
+    rangeMeta:{
+      resetPos:[-26, 2.3, -65.4],
+      resetYaw:Math.PI,
+      boardPos:[-75.8, 7.6, -74],
+      boardYaw:Math.PI / 2
+    }
+  };
 }

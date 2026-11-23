@@ -54,14 +54,21 @@ test('rebindAction swaps conflicting bindings cleanly and rejects Escape', () =>
   assert.equal(swapRes.settings.keybinds.jump, 'KeyE');
   assert.equal(new Set(Object.values(swapRes.settings.keybinds)).size, VelocitySettings.ACTION_IDS.length);
 
-  // Rebind grapple to Mouse2 (free) -> no swap
-  const mouseRes = VelocitySettings.rebindAction(swapRes.settings, 'grapple', 'Mouse2');
+  // Rebind grapple to Mouse3 (free) -> no swap
+  const mouseRes = VelocitySettings.rebindAction(swapRes.settings, 'grapple', 'Mouse3');
   assert.equal(mouseRes.changed, true);
   assert.equal(mouseRes.swappedWith, null);
-  assert.equal(mouseRes.settings.keybinds.grapple, 'Mouse2');
+  assert.equal(mouseRes.settings.keybinds.grapple, 'Mouse3');
+
+  // Rebind grapple to Mouse2 (bound to altFire) -> swaps cleanly
+  const altSwap = VelocitySettings.rebindAction(mouseRes.settings, 'grapple', 'Mouse2');
+  assert.equal(altSwap.changed, true);
+  assert.equal(altSwap.swappedWith, 'altFire');
+  assert.equal(altSwap.settings.keybinds.grapple, 'Mouse2');
+  assert.equal(altSwap.settings.keybinds.altFire, 'Mouse3');
 
   // Escape is forbidden as a bind target
-  const escRes = VelocitySettings.rebindAction(mouseRes.settings, 'grapple', 'Escape');
+  const escRes = VelocitySettings.rebindAction(altSwap.settings, 'grapple', 'Escape');
   assert.equal(escRes.changed, false);
   assert.equal(escRes.settings.keybinds.grapple, 'Mouse2');
 });

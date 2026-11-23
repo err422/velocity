@@ -51,7 +51,7 @@ function toggleGhostMode(){
 // ---------- input ----------
 function getSettings(){
   if(window.activeSettings)return window.activeSettings;
-  return window.VelocitySettings?VelocitySettings.DEFAULT_SETTINGS:{sensitivity:1,invertY:false,baseFov:85,keybinds:{forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',slide:'ShiftLeft',grapple:'KeyE',burst:'KeyQ',restart:'KeyR',checkpoint:'KeyT',ghost:'KeyG'}};
+  return window.VelocitySettings?VelocitySettings.DEFAULT_SETTINGS:{sensitivity:1,invertY:false,baseFov:85,keybinds:{forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',slide:'ShiftLeft',grapple:'KeyE',burst:'KeyQ',restart:'KeyR',checkpoint:'KeyT',ghost:'KeyG',inspect:'KeyF',fire:'Mouse0',altFire:'Mouse2',reload:'KeyC',slotRifle:'Digit1',slotAwp:'Digit2',slotDeagle:'Digit3',slotKnife:'Digit4'}};
 }
 function isActionDown(action){
   const tok=getSettings().keybinds[action];
@@ -62,16 +62,77 @@ function isActivePlay(){
 }
 function clearHeldInputs(){
   for(const k in keys)keys[k]=false;
+  window.isScoreboardHeld=false;
 }
+function isArenaBlocked(){
+  if(!window.NetcodeSystem)return false;
+  const ns=window.NetcodeSystem.getState();
+  return ns.isArena&&(ns.freezeTimer>0||!ns.localAlive||ns.phase==='match_over');
+}
+function performFire(heavy){
+  if(!window.CombatSystem||!isActivePlay()||isArenaBlocked())return null;
+  const p=player;
+  const cp=Math.cos(p.pitch);
+  const dir=V3(-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp);
+  const origin=V3(p.pos.x,p.pos.y+p.eye,p.pos.z);
+  const res=window.CombatSystem.tryFire(origin,dir,{
+    heavy:!!heavy,
+    moveSpeed:Math.hypot(p.vel.x,p.vel.z),
+    airborne:!p.grounded,
+    solidMeshes
+  });
+  if(res&&res.fired){
+    if(res.recoilPitch)p.pitch=clamp(p.pitch+res.recoilPitch,-1.48,1.48);
+    if(res.recoilYaw)p.yaw+=res.recoilYaw;
+    if(window.NetcodeSystem)window.NetcodeSystem.reportShot(res);
+    if(res.hitKind==='range_reset')showToast('SHOOTING RANGE RESET');
+  }
+  return res;
+}
+function respawnAtSpawn(sp,refillAmmo){
+  const p=player;
+  if(sp){
+    p.pos.set(sp.x,sp.y,sp.z);
+    p.prev.set(sp.x,sp.y,sp.z);
+    if(typeof sp.yaw==='number')p.yaw=sp.yaw;
+  }
+  p.vel.set(0,0,0);
+  p.pitch=0;
+  p.grapple=null;p.grounded=false;p.low=false;p.wallrun=false;p.wallTimer=0;
+  p.surfing=false;p.surfGrace=0;
+  if(refillAmmo&&window.CombatSystem){
+    window.CombatSystem.resetAmmo();
+    window.CombatSystem.clearScope();
+  }
+}
+window.respawnAtSpawn=respawnAtSpawn;
+
 function triggerBoundToken(token,repeat){
   const kb=getSettings().keybinds;
   if(token===kb.jump)jumpBuffer=CFG.jumpBuffer;
   if(!isActivePlay())return;
   if(token===kb.grapple&&!repeat)toggleGrapple();
-  if(token===kb.restart&&!repeat)resetPlayer();
-  if(token===kb.checkpoint&&!repeat)toCheckpoint();
-  if(token===kb.burst&&!repeat)burst();
+  if(token===kb.restart&&!repeat){
+    const ns=window.NetcodeSystem?window.NetcodeSystem.getState():null;
+    if(!ns||!ns.isOnline)resetPlayer();
+  }
+  if(token===kb.checkpoint&&!repeat){
+    const ns=window.NetcodeSystem?window.NetcodeSystem.getState():null;
+    if(!ns||!ns.isOnline)toCheckpoint();
+  }
+  if(token===kb.burst&&!repeat&&!isArenaBlocked())burst();
   if(token===kb.ghost&&!repeat)toggleGhostMode();
+  if(token===kb.slotRifle&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('rifle');
+  if(token===kb.slotAwp&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('awp');
+  if(token===kb.slotDeagle&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('deagle');
+  if(token===kb.slotKnife&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('knife');
+  if(token===kb.reload&&!repeat&&window.CombatSystem)window.CombatSystem.startReload();
+  if(token===kb.fire&&!repeat)performFire(false);
+  if(token===kb.altFire&&!repeat&&window.CombatSystem){
+    const st=window.CombatSystem.getState();
+    if(st.activeSlot==='awp')window.CombatSystem.toggleScope();
+    else if(st.activeSlot==='knife')performFire(true);
+  }
   if(token===kb.inspect&&!repeat&&window.ViewmodelSystem){
     const res=window.ViewmodelSystem.triggerInspect();
     if(res&&res.tier==='mythic'&&!res.continued){
@@ -90,7 +151,8 @@ document.addEventListener('pointerlockchange',()=>{
 document.addEventListener('mousemove',e=>{
   if(!locked||window.isRebindingInput)return;
   const s=getSettings();
-  const sens=0.0022*s.sensitivity;
+  const scopeMul=window.CombatSystem?window.CombatSystem.getScopeSensMultiplier():1;
+  const sens=0.0022*s.sensitivity*scopeMul;
   const ySign=s.invertY?-1:1;
   player.yaw-=e.movementX*sens;
   player.pitch=clamp(player.pitch-e.movementY*sens*ySign,-1.48,1.48);
@@ -101,12 +163,16 @@ document.addEventListener('keydown',e=>{
   if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
   const activePlay=isActivePlay();
   if(e.code==='Escape'&&activePlay){document.exitPointerLock?.();onUnlock();return;}
+  if(e.code==='Tab'&&activePlay){e.preventDefault();window.isScoreboardHeld=true;return;}
   keys[e.code]=true;
   const kb=getSettings().keybinds;
   if(e.code===kb.jump||e.code==='Space'){if(activePlay)e.preventDefault();}
   triggerBoundToken(e.code,e.repeat);
 });
-document.addEventListener('keyup',e=>{keys[e.code]=false;});
+document.addEventListener('keyup',e=>{
+  if(e.code==='Tab'){window.isScoreboardHeld=false;}
+  keys[e.code]=false;
+});
 document.addEventListener('mousedown',e=>{
   if(window.isRebindingInput||!isActivePlay())return;
   const tok=window.VelocitySettings?VelocitySettings.mouseButtonToToken(e.button):('Mouse'+e.button);
@@ -119,6 +185,11 @@ document.addEventListener('mouseup',e=>{
   const tok=window.VelocitySettings?VelocitySettings.mouseButtonToToken(e.button):('Mouse'+e.button);
   if(tok)keys[tok]=false;
 });
+document.addEventListener('wheel',e=>{
+  if(window.isRebindingInput||!isActivePlay()||!window.CombatSystem)return;
+  if(Math.abs(e.deltaY)<4)return;
+  window.CombatSystem.cycleSlot(e.deltaY>0?1:-1);
+},{passive:true});
 renderer.domElement.addEventListener('contextmenu',e=>{
   if(isActivePlay())e.preventDefault();
 });
@@ -203,6 +274,11 @@ function resetPlayer(){
   p.grapple=null;p.grounded=false;p.low=false;p.wallrun=false;p.wallTimer=0;
   p.surfing=false;p.surfGrace=0;p.surfTime=0;
   p.runStarted=false;p.runTime=0;p.gate=0;p.cp=null;p.splits=[];ghostRecorder=null;
+  if(window.CombatSystem){
+    window.CombatSystem.resetTargets();
+    window.CombatSystem.resetAmmo();
+    window.CombatSystem.clearScope();
+  }
   refreshGates();cpEl.textContent='';timerEl.textContent='00:00.000';grappleEl.textContent='GRAPPLE READY';showToast('POSITION RESET');
 }
 
@@ -233,6 +309,7 @@ function passGate(){
   const p=player,i=p.gate,last=course.length-1;
   if(i===0){
     p.runStarted=true;p.runTime=0;p.splits=[];p.cp=null;p.gate=1;cpEl.textContent='';
+    if(window.CombatSystem)window.CombatSystem.resetTargets();
     ghostRecorder=GhostSystem.createRecorder(level.id);
     GhostSystem.recordSample(ghostRecorder,0,p,true);
     message('RUN STARTED');refreshGates();return;
@@ -244,9 +321,25 @@ function passGate(){
     p.cp={pos:(course[i].spawn||p.pos).clone(),i};p.gate=i+1;
     cpEl.textContent=`GATE ${i}/${last-1}  ${dtxt}`;showToast(`GATE ${i}/${last-1} — ${fmt(p.runTime)}  ${dtxt}`);
   }else{
-    p.runStarted=false;p.gate=0;p.cp=null;cpEl.textContent='FINISH  '+dtxt;
-    const isNewBest=!p.best||p.runTime<p.best;
-    const recorded=GhostSystem.finalizeRecording(ghostRecorder,p.runTime,p);
+    p.runStarted=false;p.gate=0;p.cp=null;
+    const rawTime=p.runTime;
+    let finalTime=rawTime;
+    let gauntletSummary=null;
+    if(window.CombatSystem){
+      const tp=window.CombatSystem.getTargetProgress();
+      if(tp.mode==='gauntlet'&&tp.total>0){
+        gauntletSummary=window.CombatSystem.computeGauntletSummary(rawTime,tp.hits,tp.total);
+        finalTime=gauntletSummary.finalTime;
+      }
+    }
+    p.runTime=finalTime;
+    timerEl.textContent=fmt(finalTime);
+    const penTag=gauntletSummary
+      ?(gauntletSummary.cleanRun?'CLEAN RUN (+0.0S)':`+${gauntletSummary.penaltySec.toFixed(1)}S (${gauntletSummary.targetsHit}/${gauntletSummary.targetsTotal})`)
+      :'';
+    cpEl.textContent=penTag?`FINISH · ${penTag}`:('FINISH  '+dtxt);
+    const isNewBest=!p.best||finalTime<p.best;
+    const recorded=GhostSystem.finalizeRecording(ghostRecorder,finalTime,p);
     ghostRecorder=null;
     if(recorded){
       ghostLast=recorded;
@@ -258,17 +351,24 @@ function passGate(){
       updateGhostHud();
     }
     if(isNewBest){
-      p.best=p.runTime;bestSplits=Array.from(p.splits,x=>x??null);
+      p.best=finalTime;bestSplits=Array.from(p.splits,x=>x??null);
       localStorage.setItem(PB_KEY,p.best);localStorage.setItem(SPL_KEY,JSON.stringify(bestSplits));
-      pbEl.textContent='PERSONAL BEST '+fmt(p.best);message('NEW PERSONAL BEST');showToast('NEW PERSONAL BEST — '+fmt(p.best));
-    }else{message('RUN COMPLETE');showToast('FINISH — '+fmt(p.runTime)+'  '+dtxt);}
+      pbEl.textContent='PERSONAL BEST '+fmt(p.best);
+      message(penTag?`NEW PB · ${penTag}`:'NEW PERSONAL BEST',{duration:2200});
+      showToast('NEW PERSONAL BEST — '+fmt(p.best)+(penTag?' · '+penTag:''));
+    }else{
+      message(penTag?`RUN COMPLETE · ${penTag}`:'RUN COMPLETE',{duration:2000});
+      showToast('FINISH — '+fmt(finalTime)+(penTag?' · '+penTag:'  '+dtxt));
+    }
     if(typeof window.onCourseFinished==='function'){
       const cleanSplits=p.splits.filter(x=>typeof x==='number'&&Number.isFinite(x));
       window.onCourseFinished({
         levelId:level.id,
         dateKey:level.meta&&level.meta.dateKey?level.meta.dateKey:null,
         seed:level.meta&&level.meta.seed?level.meta.seed:null,
-        runTime:p.runTime,
+        runTime:finalTime,
+        rawTime,
+        gauntlet:gauntletSummary,
         splits:cleanSplits,
         isNewBest
       });
@@ -291,6 +391,17 @@ function step(dt){
   jumpBuffer=Math.max(0,jumpBuffer-dt);coyote=Math.max(0,coyote-dt);burstCd=Math.max(0,burstCd-dt);padCd=Math.max(0,padCd-dt);
   p.slideCd=Math.max(0,p.slideCd-dt);p.wallCd=Math.max(0,p.wallCd-dt);p.noGround=Math.max(0,p.noGround-dt);
   p.surfGrace=Math.max(0,p.surfGrace-dt);
+
+  // Full-auto firing for Rifle while fire key/LMB is held
+  if(isActionDown('fire')&&window.CombatSystem&&window.CombatSystem.getState().activeSlot==='rifle'){
+    performFire(false);
+  }
+
+  // Freeze player movement during 1v1 round countdown or death respawn
+  if(isArenaBlocked()){
+    v.set(0,0,0);
+    return;
+  }
 
   // Wish direction
   const sy=Math.sin(p.yaw),cy=Math.cos(p.yaw);wish.set(0,0,0);

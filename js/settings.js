@@ -20,10 +20,17 @@
     { id: 'slide', label: 'Slide / Crouch', group: 'Movement' },
     { id: 'grapple', label: 'Grapple / Release', group: 'Abilities' },
     { id: 'burst', label: 'Kinetic Burst', group: 'Abilities' },
+    { id: 'fire', label: 'Fire / Primary Attack', group: 'Combat' },
+    { id: 'altFire', label: 'Scope / Alt Attack', group: 'Combat' },
+    { id: 'reload', label: 'Reload Weapon', group: 'Combat' },
+    { id: 'slotRifle', label: 'Rifle (Slot 1)', group: 'Combat' },
+    { id: 'slotAwp', label: 'AWP Sniper (Slot 2)', group: 'Combat' },
+    { id: 'slotDeagle', label: 'Deagle (Slot 3)', group: 'Combat' },
+    { id: 'slotKnife', label: 'Knife (Slot 4)', group: 'Combat' },
     { id: 'restart', label: 'Restart Run', group: 'Shortcuts' },
     { id: 'checkpoint', label: 'Last Checkpoint', group: 'Shortcuts' },
     { id: 'ghost', label: 'Cycle Ghost Mode', group: 'Shortcuts' },
-    { id: 'inspect', label: 'Inspect Knife', group: 'Shortcuts' }
+    { id: 'inspect', label: 'Inspect Weapon / Knife', group: 'Shortcuts' }
   ]);
 
   const ACTION_IDS = Object.freeze(ACTIONS.map((a) => a.id));
@@ -37,6 +44,13 @@
     slide: 'ShiftLeft',
     grapple: 'KeyE',
     burst: 'KeyQ',
+    fire: 'Mouse0',
+    altFire: 'Mouse2',
+    reload: 'KeyC',
+    slotRifle: 'Digit1',
+    slotAwp: 'Digit2',
+    slotDeagle: 'Digit3',
+    slotKnife: 'Digit4',
     restart: 'KeyR',
     checkpoint: 'KeyT',
     ghost: 'KeyG',
@@ -182,7 +196,9 @@
     }
 
     // Fill any missing/colliding slots with unused defaults (or fallback tokens)
-    const fallbackPool = Object.values(DEFAULT_KEYBINDS).concat(['KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN']);
+    const fallbackPool = Object.values(DEFAULT_KEYBINDS).concat([
+      'KeyZ', 'KeyX', 'KeyV', 'KeyB', 'KeyN', 'KeyM', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'
+    ]);
     for (const id of ACTION_IDS) {
       if (keybinds[id]) continue;
       if (!used.has(DEFAULT_KEYBINDS[id])) {
@@ -294,6 +310,13 @@
         slide: clean.keybinds.slide,
         grapple: clean.keybinds.grapple,
         burst: clean.keybinds.burst,
+        fire: clean.keybinds.fire,
+        altFire: clean.keybinds.altFire,
+        reload: clean.keybinds.reload,
+        slotRifle: clean.keybinds.slotRifle,
+        slotAwp: clean.keybinds.slotAwp,
+        slotDeagle: clean.keybinds.slotDeagle,
+        slotKnife: clean.keybinds.slotKnife,
         restart: clean.keybinds.restart,
         checkpoint: clean.keybinds.checkpoint,
         ghost: clean.keybinds.ghost,

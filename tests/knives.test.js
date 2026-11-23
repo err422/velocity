@@ -58,7 +58,7 @@ test('Doppler, Fade, and Marble Fade pattern metadata resolve ultra-rare variant
   assert.equal(marbleMeta.specialTag, 'FIRE & ICE');
 });
 
-test('rollCaseDrop creates a 45-card strip with winner pinned at winIndex', () => {
+test('rollCaseDrop creates a 45-card strip with winner pinned at winIndex across weapon, knife, and glove drops', () => {
   const rng = makeRng(1337);
   for (const cid of KnivesSystem.CASE_IDS) {
     const roll = KnivesSystem.rollCaseDrop(cid, rng);
@@ -66,11 +66,19 @@ test('rollCaseDrop creates a 45-card strip with winner pinned at winIndex', () =
     assert.equal(roll.winIndex, 36);
     assert.deepEqual(roll.strip[roll.winIndex], roll.winner);
     assert.ok(roll.landingJitter >= -0.35 && roll.landingJitter <= 0.35);
-    assert.ok(KnivesSystem.KNIFE_TYPES[roll.winner.knifeType]);
-    assert.ok(KnivesSystem.SKINS[roll.winner.skinId]);
     assert.ok(KnivesSystem.RARITIES[roll.winner.rarity]);
     assert.ok(roll.winner.patternSeed >= 0 && roll.winner.patternSeed <= 999);
     assert.ok(roll.winner.floatValue >= 0 && roll.winner.floatValue <= 0.9999);
+    if (KnivesSystem.isWeaponItem(roll.winner)) {
+      assert.ok(KnivesSystem.WEAPON_TYPES[roll.winner.weaponType]);
+      assert.ok(KnivesSystem.WEAPON_SKINS[roll.winner.skinId]);
+    } else if (KnivesSystem.isGloveItem(roll.winner)) {
+      assert.ok(KnivesSystem.GLOVE_TYPES[roll.winner.gloveType]);
+      assert.ok(KnivesSystem.GLOVE_SKINS[roll.winner.skinId]);
+    } else {
+      assert.ok(KnivesSystem.KNIFE_TYPES[roll.winner.knifeType]);
+      assert.ok(KnivesSystem.SKINS[roll.winner.skinId]);
+    }
   }
 });
 
@@ -147,9 +155,15 @@ test('sanitizeInventory and cloud payloads enforce strict schema bounds', () => 
   assert.equal(clean.knives.length, 3); // starter + 2 sanitized
 
   const summaryPayload = KnivesSystem.toCloudInventoryPayload(clean, 'user_123');
-  assert.deepEqual(Object.keys(summaryPayload).sort(), ['caseCounts', 'equippedGloveId', 'equippedKnifeId', 'lastDailyDropDate', 'totalOpened', 'uid']);
+  assert.deepEqual(
+    Object.keys(summaryPayload).sort(),
+    ['caseCounts', 'equippedAwpId', 'equippedDeagleId', 'equippedGloveId', 'equippedKnifeId', 'equippedRifleId', 'lastDailyDropDate', 'totalOpened', 'uid']
+  );
   assert.equal(summaryPayload.uid, 'user_123');
   assert.equal(summaryPayload.equippedGloveId, 'starter_standard_tactical');
+  assert.equal(summaryPayload.equippedRifleId, 'starter_rifle_slate');
+  assert.equal(summaryPayload.equippedAwpId, 'starter_awp_slate');
+  assert.equal(summaryPayload.equippedDeagleId, 'starter_deagle_slate');
 
   const knifePayload = KnivesSystem.toCloudKnifePayload(clean.knives[1], 'user_123');
   assert.deepEqual(
@@ -227,4 +241,45 @@ test('rollInspectTier implements exact 1/100 Mythic, 25% Uncommon, and 74% Norma
     assert.ok(typeof KnivesSystem.KNIFE_TYPES[kt].mythicName === 'string' && KnivesSystem.KNIFE_TYPES[kt].mythicName.length > 0);
   }
 });
+
+test('weapon catalog defines Rifle, AWP, Deagle, 14 skins, 3 starters, and ~15% Gold case odds', () => {
+  assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'awp', 'deagle']);
+  assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 14);
+  assert.equal(KnivesSystem.RARITIES.gold.weight, 15);
+
+  const starter = KnivesSystem.createStarterInventory();
+  assert.equal(starter.weapons.length, 3);
+  assert.equal(KnivesSystem.getEquippedWeapon(starter, 'rifle').weaponType, 'rifle');
+  assert.equal(KnivesSystem.getEquippedWeapon(starter, 'awp').weaponType, 'awp');
+  assert.equal(KnivesSystem.getEquippedWeapon(starter, 'deagle').weaponType, 'deagle');
+
+  // Verify empirical case drop distribution over 1000 deterministic rolls
+  const rng = makeRng(9001);
+  let weaponDrops = 0;
+  let knifeDrops = 0;
+  let gloveDrops = 0;
+  for (let i = 0; i < 1000; i++) {
+    const r = KnivesSystem.rollCaseDrop('velocity', rng);
+    if (KnivesSystem.isWeaponItem(r.winner)) weaponDrops++;
+    else if (KnivesSystem.isGloveItem(r.winner)) gloveDrops++;
+    else knifeDrops++;
+  }
+  const goldPct = (knifeDrops + gloveDrops) / 1000;
+  assert.ok(weaponDrops > 780 && weaponDrops < 920, `Expected ~85% weapon skins, got ${weaponDrops}/1000`);
+  assert.ok(goldPct >= 0.10 && goldPct <= 0.21, `Expected ~15% Gold Knives+Gloves, got ${(goldPct * 100).toFixed(1)}%`);
+  assert.ok(knifeDrops > 30 && gloveDrops > 20, `Expected both knives (${knifeDrops}) and gloves (${gloveDrops}) in Gold drops`);
+
+  const wpPayload = KnivesSystem.toCloudWeaponPayload(starter.weapons[0], 'user_789');
+  assert.deepEqual(
+    Object.keys(wpPayload).sort(),
+    ['bluePct', 'caseId', 'floatValue', 'id', 'patternSeed', 'rarity', 'skinId', 'specialTag', 'uid', 'weaponType', 'wearGrade']
+  );
+
+  // Arena match reward grants +1 case on completion and +2 cases on victory
+  const lossReward = KnivesSystem.grantArenaReward(starter, { won: false }, makeRng(7));
+  assert.equal(lossReward.awarded.length, 1);
+  const winReward = KnivesSystem.grantArenaReward(starter, { won: true }, makeRng(7));
+  assert.equal(winReward.awarded.length, 2);
+});
+
 

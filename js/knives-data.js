@@ -85,12 +85,83 @@
 
   const GLOVE_TYPE_IDS = Object.freeze(Object.keys(GLOVE_TYPES));
 
+  const WEAPON_TYPES = Object.freeze({
+    rifle: {
+      id: 'rifle',
+      name: 'V-47 Rifle',
+      shortName: 'Rifle',
+      slot: 1,
+      magSize: 30,
+      rpm: 600,
+      fireInterval: 0.10,
+      damageBody: 34,
+      damageHead: 100,
+      reloadTime: 1.75,
+      auto: true,
+      scoped: false,
+      range: 260,
+      spreadBase: 0.0022,
+      spreadHip: 0.0022,
+      spreadMove: 0.011,
+      recoilPitch: 0.014,
+      recoilYaw: 0.007,
+      inspectName: 'Mag Check & Side Tilt',
+      description: 'Full-auto precision surf carbine with crisp 1-tap headshots and controlled recoil.'
+    },
+    awp: {
+      id: 'awp',
+      name: 'AWP Sniper',
+      shortName: 'AWP',
+      slot: 2,
+      magSize: 5,
+      rpm: 42,
+      fireInterval: 1.42,
+      damageBody: 100,
+      damageHead: 250,
+      reloadTime: 2.35,
+      auto: false,
+      scoped: true,
+      range: 420,
+      spreadBase: 0.0004,
+      spreadHip: 0.032,
+      spreadMove: 0.022,
+      recoilPitch: 0.062,
+      recoilYaw: 0.010,
+      inspectName: 'Bolt Sweep & Optic Check',
+      description: 'High-caliber bolt-action rifle with 2-stage RMB optic zoom and 1-shot eliminations.'
+    },
+    deagle: {
+      id: 'deagle',
+      name: 'Deagle .50',
+      shortName: 'Deagle',
+      slot: 3,
+      magSize: 7,
+      rpm: 210,
+      fireInterval: 0.285,
+      damageBody: 52,
+      damageHead: 120,
+      reloadTime: 1.45,
+      auto: false,
+      scoped: false,
+      range: 220,
+      spreadBase: 0.0018,
+      spreadHip: 0.0018,
+      spreadMove: 0.013,
+      recoilPitch: 0.038,
+      recoilYaw: 0.009,
+      inspectName: 'Slide Spin & Balance',
+      description: 'Heavy .50 cal semi-auto hand cannon built for mid-air flicks and 1-tap headshots.'
+    }
+  });
+
+  const WEAPON_TYPE_IDS = Object.freeze(Object.keys(WEAPON_TYPES));
+
   const RARITIES = Object.freeze({
-    milspec: { id: 'milspec', label: 'Mil-Spec', color: '#4b69ff', weight: 52, order: 1 },
-    restricted: { id: 'restricted', label: 'Restricted', color: '#8847ff', weight: 26, order: 2 },
-    classified: { id: 'classified', label: 'Classified', color: '#d32ce6', weight: 13.5, order: 3 },
-    covert: { id: 'covert', label: 'Covert', color: '#eb4b4b', weight: 6.0, order: 4 },
-    gold: { id: 'gold', label: 'Rare Special', color: '#f5c542', weight: 2.5, order: 5 }
+    milspec: { id: 'milspec', label: 'Mil-Spec', color: '#4b69ff', weight: 42, order: 1 },
+    restricted: { id: 'restricted', label: 'Restricted', color: '#8847ff', weight: 22, order: 2 },
+    classified: { id: 'classified', label: 'Classified', color: '#d32ce6', weight: 13, order: 3 },
+    covert: { id: 'covert', label: 'Covert', color: '#eb4b4b', weight: 8, order: 4 },
+    gold: { id: 'gold', label: 'Rare Special', color: '#f5c542', weight: 15, order: 5 }
   });
 
   const RARITY_IDS = Object.freeze(Object.keys(RARITIES));
@@ -312,6 +383,137 @@
 
   const GLOVE_SKIN_IDS = Object.freeze(Object.keys(GLOVE_SKINS));
 
+  const WEAPON_SKINS = Object.freeze({
+    factory_slate: {
+      id: 'factory_slate',
+      name: 'Factory Slate',
+      patternBased: false,
+      minFloat: 0.04,
+      maxFloat: 0.35,
+      accent: '#65e7ff',
+      description: 'Standard-issue matte graphite polymer and gunmetal steel with subtle cyan rail piping.'
+    },
+    ultraviolet: {
+      id: 'ultraviolet',
+      name: 'Ultraviolet',
+      patternBased: false,
+      minFloat: 0.06,
+      maxFloat: 0.78,
+      accent: '#7a5cff',
+      description: 'Stealth matte obsidian receiver paired with deep anodized ultraviolet furniture.'
+    },
+    redline: {
+      id: 'redline',
+      name: 'Redline',
+      patternBased: false,
+      minFloat: 0.10,
+      maxFloat: 0.70,
+      accent: '#eb4b4b',
+      description: 'Woven carbon-fiber chassis sliced by razor-sharp crimson racing pinstripes.'
+    },
+    damascus: {
+      id: 'damascus',
+      name: 'Damascus Steel',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.50,
+      accent: '#c8d6e2',
+      description: 'Layered folded-steel Damascus ripples milled across upper receiver and barrel.'
+    },
+    vulcan: {
+      id: 'vulcan',
+      name: 'Vulcan',
+      patternBased: false,
+      minFloat: 0.00,
+      maxFloat: 0.68,
+      accent: '#2ea8ff',
+      description: 'Sport-inspired chalk white, cobalt, and electric cyan geometric velocity stripes.'
+    },
+    crimson_web: {
+      id: 'crimson_web',
+      name: 'Crimson Web',
+      patternBased: true,
+      minFloat: 0.06,
+      maxFloat: 0.80,
+      accent: '#c92434',
+      description: 'Hydrographic crimson enamel laced with seeded obsidian spider-web centers.'
+    },
+    asiimov: {
+      id: 'asiimov',
+      name: 'Asiimov',
+      patternBased: false,
+      minFloat: 0.18,
+      maxFloat: 0.96,
+      accent: '#ff7b29',
+      description: 'Iconic sci-fi white ceramic plating with precision safety-orange and jet-black blocks.'
+    },
+    blaze: {
+      id: 'blaze',
+      name: 'Blaze',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.08,
+      accent: '#ff8a24',
+      description: 'Mirror-dark anodized slide engulfed in roaring gold-to-crimson airbrushed flames.'
+    },
+    neon_rider: {
+      id: 'neon_rider',
+      name: 'Neon Rider',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.65,
+      accent: '#ff4fd8',
+      description: 'High-contrast synthwave hot magenta, electric cyan, and deep indigo diagonal streaks.'
+    },
+    printstream: {
+      id: 'printstream',
+      name: 'Printstream',
+      patternBased: false,
+      minFloat: 0.00,
+      maxFloat: 0.80,
+      accent: '#eef6ff',
+      description: 'Pearlescent satin-white chassis accented with crisp micro-etched obsidian telemetry marks.'
+    },
+    hyper_chroma: {
+      id: 'hyper_chroma',
+      name: 'Hyper Chroma',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.55,
+      accent: '#2ee6d6',
+      description: 'Prismatic fluid waves shifting across cyber teal, ultraviolet, and coral accents.'
+    },
+    fade: {
+      id: 'fade',
+      name: 'Fade',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.08,
+      accent: '#ff6ad5',
+      description: 'Translucent gold, magenta, and violet anodized gradient — Full Fade patterns possible.'
+    },
+    case_hardened: {
+      id: 'case_hardened',
+      name: 'Case Hardened',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.99,
+      accent: '#2ea8ff',
+      description: 'Heat-quenched blue and gold patina across the receiver — Blue Gem seeds possible.'
+    },
+    dragon_gold: {
+      id: 'dragon_gold',
+      name: 'Dragon Gold',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.45,
+      accent: '#f5c542',
+      description: 'Burnished bullion-gold etched dragon scales sweeping across deep crimson-obsidian steel.'
+    }
+  });
+
+  const WEAPON_SKIN_IDS = Object.freeze(Object.keys(WEAPON_SKINS));
+
   const SPECIAL_TAGS = Object.freeze([
     '',
     'BLUE GEM',
@@ -342,35 +544,37 @@
       name: 'Velocity Classic Case',
       shortName: 'Classic Case',
       accent: '#2ea8ff',
-      description: 'Original surf collection featuring Case Hardened Blue Gems, Crimson Web, Slaughter, and Classic Gold Gloves.',
+      description: 'Classic weapon skins (Redline, Asiimov, Blaze, Case Hardened) plus 15% Gold Knife & Classic Glove drops.',
       pools: {
         milspec: [
-          { knifeType: 'default', skinId: 'vanilla' },
-          { knifeType: 'default', skinId: 'ultraviolet' },
-          { knifeType: 'm9', skinId: 'ultraviolet' }
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'ultraviolet' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'ultraviolet' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'ultraviolet' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'damascus' }
         ],
         restricted: [
-          { knifeType: 'default', skinId: 'damascus' },
-          { knifeType: 'm9', skinId: 'damascus' },
-          { knifeType: 'skeleton', skinId: 'ultraviolet' }
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'redline' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'redline' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'damascus' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'crimson_web' }
         ],
         classified: [
-          { knifeType: 'm9', skinId: 'crimson_web' },
-          { knifeType: 'karambit', skinId: 'ultraviolet' },
-          { knifeType: 'butterfly', skinId: 'slaughter' },
-          { knifeType: 'skeleton', skinId: 'crimson_web' }
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'vulcan' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'blaze' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'crimson_web' }
         ],
         covert: [
-          { knifeType: 'karambit', skinId: 'case_hardened' },
-          { knifeType: 'butterfly', skinId: 'case_hardened' },
-          { knifeType: 'm9', skinId: 'case_hardened' },
-          { knifeType: 'skeleton', skinId: 'case_hardened' }
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'asiimov' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'case_hardened' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'asiimov' }
         ],
         gold: [
           { knifeType: 'karambit', skinId: 'case_hardened', forceBlueGem: true },
           { knifeType: 'butterfly', skinId: 'case_hardened', forceBlueGem: true },
+          { knifeType: 'm9', skinId: 'crimson_web' },
           { knifeType: 'skeleton', skinId: 'case_hardened', forceBlueGem: true },
-          { knifeType: 'm9', skinId: 'case_hardened', forceBlueGem: true },
+          { knifeType: 'butterfly', skinId: 'slaughter' },
+          { knifeType: 'default', skinId: 'case_hardened', forceBlueGem: true },
           { itemKind: 'glove', gloveType: 'wraps', skinId: 'leather' },
           { itemKind: 'glove', gloveType: 'wraps', skinId: 'slaughter' },
           { itemKind: 'glove', gloveType: 'specialist', skinId: 'crimson_kimono' },
@@ -383,36 +587,37 @@
       name: 'Chroma Surf Case',
       shortName: 'Chroma Case',
       accent: '#d32ce6',
-      description: 'Anodized Chroma finishes: Doppler Ruby & Sapphire, Tiger Tooth, plus Sport & Specialist Gold Gloves.',
+      description: 'Anodized weapon skins (Neon Rider, Hyper Chroma, Printstream) plus 15% Gold Doppler Knives & Sport Gloves.',
       pools: {
         milspec: [
-          { knifeType: 'default', skinId: 'ultraviolet' },
-          { knifeType: 'm9', skinId: 'vanilla' },
-          { knifeType: 'default', skinId: 'damascus' }
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'damascus' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'damascus' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'ultraviolet' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'ultraviolet' }
         ],
         restricted: [
-          { knifeType: 'm9', skinId: 'damascus' },
-          { knifeType: 'karambit', skinId: 'damascus' },
-          { knifeType: 'butterfly', skinId: 'ultraviolet' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'vulcan' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'crimson_web' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'vulcan' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'redline' }
         ],
         classified: [
-          { knifeType: 'm9', skinId: 'tiger_tooth' },
-          { knifeType: 'karambit', skinId: 'tiger_tooth' },
-          { knifeType: 'butterfly', skinId: 'tiger_tooth' },
-          { knifeType: 'skeleton', skinId: 'slaughter' }
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'neon_rider' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'hyper_chroma' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'hyper_chroma' }
         ],
         covert: [
-          { knifeType: 'karambit', skinId: 'doppler' },
-          { knifeType: 'm9', skinId: 'doppler' },
-          { knifeType: 'butterfly', skinId: 'doppler' },
-          { knifeType: 'karambit', skinId: 'marble_fade' },
-          { knifeType: 'm9', skinId: 'marble_fade' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'printstream' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'printstream' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'neon_rider' }
         ],
         gold: [
           { knifeType: 'karambit', skinId: 'doppler', forceGem: true },
           { knifeType: 'butterfly', skinId: 'doppler', forceGem: true },
           { knifeType: 'm9', skinId: 'doppler', forceGem: true },
           { knifeType: 'karambit', skinId: 'marble_fade', forceFireIce: true },
+          { knifeType: 'm9', skinId: 'tiger_tooth' },
+          { knifeType: 'karambit', skinId: 'tiger_tooth' },
           { itemKind: 'glove', gloveType: 'sport', skinId: 'pandoras_box' },
           { itemKind: 'glove', gloveType: 'sport', skinId: 'hedge_maze' },
           { itemKind: 'glove', gloveType: 'specialist', skinId: 'emerald_web' },
@@ -425,35 +630,37 @@
       name: 'Spectrum Gem Case',
       shortName: 'Spectrum Case',
       accent: '#f5c542',
-      description: 'High-tier showcase featuring Full Fades, Skeleton Blue Gems, and Vice / Slingshot / Fade Gold Gloves.',
+      description: 'Showcase Dragon Gold, Fade & Printstream guns plus 15% Gold Full Fades, Gems & Vice / Slingshot Gloves.',
       pools: {
         milspec: [
-          { knifeType: 'skeleton', skinId: 'vanilla' },
-          { knifeType: 'default', skinId: 'damascus' },
-          { knifeType: 'm9', skinId: 'ultraviolet' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'damascus' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'ultraviolet' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'redline' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'redline' }
         ],
         restricted: [
-          { knifeType: 'butterfly', skinId: 'damascus' },
-          { knifeType: 'skeleton', skinId: 'damascus' },
-          { knifeType: 'karambit', skinId: 'slaughter' }
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'hyper_chroma' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'vulcan' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'neon_rider' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'vulcan' }
         ],
         classified: [
-          { knifeType: 'butterfly', skinId: 'fade' },
-          { knifeType: 'karambit', skinId: 'fade' },
-          { knifeType: 'skeleton', skinId: 'fade' },
-          { knifeType: 'm9', skinId: 'fade' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'fade' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'fade' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'case_hardened' }
         ],
         covert: [
-          { knifeType: 'butterfly', skinId: 'marble_fade' },
-          { knifeType: 'skeleton', skinId: 'doppler' },
-          { knifeType: 'skeleton', skinId: 'case_hardened' },
-          { knifeType: 'karambit', skinId: 'doppler' }
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'dragon_gold' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'dragon_gold' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'printstream' }
         ],
         gold: [
           { knifeType: 'butterfly', skinId: 'doppler', forceGem: true },
           { knifeType: 'skeleton', skinId: 'case_hardened', forceBlueGem: true },
           { knifeType: 'karambit', skinId: 'fade', forceFullFade: true },
           { knifeType: 'butterfly', skinId: 'fade', forceFullFade: true },
+          { knifeType: 'skeleton', skinId: 'fade', forceFullFade: true },
+          { knifeType: 'm9', skinId: 'marble_fade', forceFireIce: true },
           { itemKind: 'glove', gloveType: 'sport', skinId: 'vice' },
           { itemKind: 'glove', gloveType: 'sport', skinId: 'slingshot' },
           { itemKind: 'glove', gloveType: 'specialist', skinId: 'fade', forceFullFade: true },
@@ -679,8 +886,16 @@
     return createItemId('glv', rng);
   }
 
+  function createWeaponId(rng) {
+    return createItemId('wpn', rng);
+  }
+
   function isGloveItem(item) {
-    return !!(item && (item.itemKind === 'glove' || (!!item.gloveType && !item.knifeType)));
+    return !!(item && (item.itemKind === 'glove' || (!!item.gloveType && !item.knifeType && !item.weaponType)));
+  }
+
+  function isWeaponItem(item) {
+    return !!(item && (item.itemKind === 'weapon' || (!!item.weaponType && !item.knifeType && !item.gloveType)));
   }
 
   function pickWeightedRarity(rng) {
@@ -707,6 +922,34 @@
       patternSeed = 763;
     } else if (entry.forceFireIce) {
       patternSeed = 412;
+    }
+
+    if (entry.itemKind === 'weapon') {
+      const wSkin = WEAPON_SKINS[entry.skinId] || WEAPON_SKINS.factory_slate;
+      let rawT = r();
+      if (rarityId === 'covert') {
+        rawT = Math.pow(rawT, 1.45);
+      } else if (wSkin.maxFloat - wSkin.minFloat > 0.4) {
+        rawT = Math.pow(rawT, 1.25);
+      }
+      const floatValue = Math.round((wSkin.minFloat + rawT * (wSkin.maxFloat - wSkin.minFloat)) * 10000) / 10000;
+      const clampedFloat = Math.max(0.0001, Math.min(0.9999, floatValue));
+      const wear = getWearGrade(clampedFloat);
+      const meta = computeSkinMetadata(entry.skinId, patternSeed, entry);
+
+      return sanitizeWeaponItem({
+        id: overrideId || createWeaponId(r),
+        itemKind: 'weapon',
+        weaponType: entry.weaponType,
+        skinId: entry.skinId,
+        rarity: rarityId,
+        patternSeed,
+        floatValue: clampedFloat,
+        wearGrade: wear.code,
+        specialTag: meta.specialTag,
+        bluePct: meta.bluePct,
+        caseId: caseDef.id
+      });
     }
 
     if (entry.itemKind === 'glove') {
@@ -813,12 +1056,41 @@
     };
   }
 
+  function createStarterWeapon(weaponType) {
+    const wt = WEAPON_TYPES[weaponType] ? weaponType : 'rifle';
+    return {
+      id: 'starter_' + wt + '_slate',
+      itemKind: 'weapon',
+      weaponType: wt,
+      skinId: 'factory_slate',
+      rarity: 'milspec',
+      patternSeed: 0,
+      floatValue: 0.09,
+      wearGrade: 'MW',
+      specialTag: '',
+      bluePct: 0,
+      caseId: 'starter'
+    };
+  }
+
+  function createStarterWeapons() {
+    return [
+      createStarterWeapon('rifle'),
+      createStarterWeapon('awp'),
+      createStarterWeapon('deagle')
+    ];
+  }
+
   function createStarterInventory() {
     const starterKnife = createStarterKnife();
     const starterGlove = createStarterGlove();
+    const starterWeapons = createStarterWeapons();
     return {
       equippedKnifeId: starterKnife.id,
       equippedGloveId: starterGlove.id,
+      equippedRifleId: starterWeapons[0].id,
+      equippedAwpId: starterWeapons[1].id,
+      equippedDeagleId: starterWeapons[2].id,
       caseCounts: {
         velocity: 1,
         chroma: 1,
@@ -827,7 +1099,8 @@
       totalOpened: 0,
       lastDailyDropDate: '',
       knives: [starterKnife],
-      gloves: [starterGlove]
+      gloves: [starterGlove],
+      weapons: starterWeapons
     };
   }
 
@@ -898,6 +1171,40 @@
     };
   }
 
+  function sanitizeWeaponItem(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const id = typeof src.id === 'string' && /^[a-zA-Z0-9_\-]{1,64}$/.test(src.id)
+      ? src.id
+      : createWeaponId();
+    const weaponType = WEAPON_TYPES[src.weaponType] ? src.weaponType : 'rifle';
+    const skinId = WEAPON_SKINS[src.skinId] ? src.skinId : 'factory_slate';
+    const rarity = RARITIES[src.rarity] ? src.rarity : 'milspec';
+    const patternSeed = Math.max(0, Math.min(999, Math.floor(Number(src.patternSeed) || 0)));
+    const rawFloat = Number(src.floatValue);
+    const floatValue = Number.isFinite(rawFloat)
+      ? Math.round(Math.max(0, Math.min(0.9999, rawFloat)) * 10000) / 10000
+      : 0.09;
+    const wearGrade = getWearGrade(floatValue).code;
+    const specialTag = SPECIAL_TAGS.includes(src.specialTag) ? src.specialTag : '';
+    const rawPct = Number(src.bluePct);
+    const bluePct = Number.isFinite(rawPct) ? Math.max(0, Math.min(100, Math.round(rawPct))) : 0;
+    const caseId = CASES[src.caseId] || src.caseId === 'starter' ? src.caseId : 'velocity';
+
+    return {
+      id,
+      itemKind: 'weapon',
+      weaponType,
+      skinId,
+      rarity,
+      patternSeed,
+      floatValue,
+      wearGrade,
+      specialTag,
+      bluePct,
+      caseId
+    };
+  }
+
   function clampInt(v, lo, hi, fallback) {
     const n = Math.floor(Number(v));
     if (!Number.isFinite(n)) return fallback;
@@ -949,6 +1256,25 @@
       seenGloves.add('starter_standard_tactical');
     }
 
+    const seenWeapons = new Set();
+    const weapons = [];
+    if (Array.isArray(raw.weapons)) {
+      for (const item of raw.weapons) {
+        const clean = sanitizeWeaponItem(item);
+        if (!seenWeapons.has(clean.id)) {
+          seenWeapons.add(clean.id);
+          weapons.push(clean);
+        }
+      }
+    }
+    for (const wt of WEAPON_TYPE_IDS) {
+      const sid = 'starter_' + wt + '_slate';
+      if (!seenWeapons.has(sid)) {
+        weapons.unshift(createStarterWeapon(wt));
+        seenWeapons.add(sid);
+      }
+    }
+
     const equippedKnifeId = typeof raw.equippedKnifeId === 'string' && seenKnives.has(raw.equippedKnifeId)
       ? raw.equippedKnifeId
       : knives[0].id;
@@ -956,14 +1282,31 @@
       ? raw.equippedGloveId
       : gloves[0].id;
 
+    const findValidWeaponId = (candidate, wt) => {
+      if (typeof candidate === 'string') {
+        const found = weapons.find((w) => w.id === candidate && w.weaponType === wt);
+        if (found) return found.id;
+      }
+      const fallback = weapons.find((w) => w.weaponType === wt);
+      return fallback ? fallback.id : 'starter_' + wt + '_slate';
+    };
+
+    const equippedRifleId = findValidWeaponId(raw.equippedRifleId, 'rifle');
+    const equippedAwpId = findValidWeaponId(raw.equippedAwpId, 'awp');
+    const equippedDeagleId = findValidWeaponId(raw.equippedDeagleId, 'deagle');
+
     return {
       equippedKnifeId,
       equippedGloveId,
+      equippedRifleId,
+      equippedAwpId,
+      equippedDeagleId,
       caseCounts,
       totalOpened,
       lastDailyDropDate,
       knives,
-      gloves
+      gloves,
+      weapons
     };
   }
 
@@ -975,6 +1318,19 @@
   function getEquippedGlove(inventory) {
     const inv = sanitizeInventory(inventory);
     return inv.gloves.find((g) => g.id === inv.equippedGloveId) || inv.gloves[0];
+  }
+
+  function getEquippedWeapon(inventory, weaponType) {
+    const inv = sanitizeInventory(inventory);
+    const wt = WEAPON_TYPES[weaponType] ? weaponType : 'rifle';
+    const eqId = wt === 'awp'
+      ? inv.equippedAwpId
+      : wt === 'deagle'
+        ? inv.equippedDeagleId
+        : inv.equippedRifleId;
+    return inv.weapons.find((w) => w.id === eqId && w.weaponType === wt)
+      || inv.weapons.find((w) => w.weaponType === wt)
+      || createStarterWeapon(wt);
   }
 
   function totalCaseCount(inventory) {
@@ -1013,6 +1369,25 @@
     return { inventory: inv, awarded };
   }
 
+  function grantArenaReward(inventory, info, rng) {
+    const inv = sanitizeInventory(inventory);
+    const r = typeof rng === 'function' ? rng : Math.random;
+    const awarded = [];
+    const pickCase = () => CASE_IDS[Math.floor(r() * CASE_IDS.length) % CASE_IDS.length];
+
+    const matchCase = pickCase();
+    inv.caseCounts[matchCase] = Math.min(999, inv.caseCounts[matchCase] + 1);
+    awarded.push({ caseId: matchCase, reason: 'Arena Match Complete' });
+
+    if (info && info.won) {
+      const winCase = pickCase();
+      inv.caseCounts[winCase] = Math.min(999, inv.caseCounts[winCase] + 1);
+      awarded.push({ caseId: winCase, reason: 'Arena Victory Bonus' });
+    }
+
+    return { inventory: inv, awarded };
+  }
+
   function formatKnifeFullName(item) {
     const kt = KNIFE_TYPES[item.knifeType] || KNIFE_TYPES.default;
     const sk = SKINS[item.skinId] || SKINS.vanilla;
@@ -1025,13 +1400,25 @@
     return `${gt.name} | ${sk.name}`;
   }
 
+  function formatWeaponFullName(item) {
+    const wt = WEAPON_TYPES[item.weaponType] || WEAPON_TYPES.rifle;
+    const sk = WEAPON_SKINS[item.skinId] || WEAPON_SKINS.factory_slate;
+    return `${wt.name} | ${sk.name}`;
+  }
+
   function formatItemFullName(item) {
-    return isGloveItem(item) ? formatGloveFullName(item) : formatKnifeFullName(item);
+    if (isWeaponItem(item)) return formatWeaponFullName(item);
+    if (isGloveItem(item)) return formatGloveFullName(item);
+    return formatKnifeFullName(item);
   }
 
   function formatKnifeMetaLine(item) {
     const parts = [item.wearGrade, formatFloat(item.floatValue)];
-    const sk = isGloveItem(item) ? GLOVE_SKINS[item.skinId] : SKINS[item.skinId];
+    const sk = isWeaponItem(item)
+      ? WEAPON_SKINS[item.skinId]
+      : isGloveItem(item)
+        ? GLOVE_SKINS[item.skinId]
+        : SKINS[item.skinId];
     if (sk && sk.patternBased) {
       parts.push(`#${item.patternSeed}`);
     }
@@ -1052,6 +1439,9 @@
       uid: String(uid || ''),
       equippedKnifeId: clean.equippedKnifeId,
       equippedGloveId: clean.equippedGloveId,
+      equippedRifleId: clean.equippedRifleId,
+      equippedAwpId: clean.equippedAwpId,
+      equippedDeagleId: clean.equippedDeagleId,
       caseCounts: {
         velocity: clean.caseCounts.velocity,
         chroma: clean.caseCounts.chroma,
@@ -1096,6 +1486,23 @@
     };
   }
 
+  function toCloudWeaponPayload(item, uid) {
+    const clean = sanitizeWeaponItem(item);
+    return {
+      uid: String(uid || ''),
+      id: clean.id,
+      weaponType: clean.weaponType,
+      skinId: clean.skinId,
+      rarity: clean.rarity,
+      patternSeed: clean.patternSeed,
+      floatValue: clean.floatValue,
+      wearGrade: clean.wearGrade,
+      specialTag: clean.specialTag,
+      bluePct: clean.bluePct,
+      caseId: clean.caseId
+    };
+  }
+
   function loadLocal(storage) {
     const store = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
     if (!store) return createStarterInventory();
@@ -1129,12 +1536,16 @@
     KNIFE_TYPE_IDS,
     GLOVE_TYPES,
     GLOVE_TYPE_IDS,
+    WEAPON_TYPES,
+    WEAPON_TYPE_IDS,
     RARITIES,
     RARITY_IDS,
     SKINS,
     SKIN_IDS,
     GLOVE_SKINS,
     GLOVE_SKIN_IDS,
+    WEAPON_SKINS,
+    WEAPON_SKIN_IDS,
     SPECIAL_TAGS,
     WEAR_GRADES,
     WEAR_CODES,
@@ -1156,25 +1567,33 @@
     formatFloat,
     computeSkinMetadata,
     isGloveItem,
+    isWeaponItem,
     rollItemFromPool,
     rollCaseDrop,
     createStarterKnife,
     createStarterGlove,
+    createStarterWeapon,
+    createStarterWeapons,
     createStarterInventory,
     sanitizeKnifeItem,
     sanitizeGloveItem,
+    sanitizeWeaponItem,
     sanitizeInventory,
     getEquippedKnife,
     getEquippedGlove,
+    getEquippedWeapon,
     totalCaseCount,
     grantRunRewards,
+    grantArenaReward,
     formatKnifeFullName,
     formatGloveFullName,
+    formatWeaponFullName,
     formatItemFullName,
     formatKnifeMetaLine,
     toCloudInventoryPayload,
     toCloudKnifePayload,
     toCloudGlovePayload,
+    toCloudWeaponPayload,
     loadLocal,
     saveLocal
   };

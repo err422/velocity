@@ -399,6 +399,28 @@
     const mechanics = ALL_MECHANICS.filter((m) => mechanicsSet.has(m));
     const totalLengthMeters = Math.round(finishZ - 8);
 
+    // Deterministic optional Titanfall Gauntlet targets positioned cleanly near intermediate gates
+    const targets = [];
+    const targetCount = Math.min(6, Math.max(3, Math.floor(gates.length / 2)));
+    for (let ti = 0; ti < targetCount; ti++) {
+      const gIdx = Math.min(gates.length - 1, Math.max(1, Math.round(((ti + 1) / (targetCount + 1)) * (gates.length - 1))));
+      const g = gates[gIdx];
+      const side = (ti % 2 === 0 ? -1 : 1) * (3.8 + (hashString(seed + ':' + ti) % 3));
+      const moving = ti === targetCount - 1;
+      targets.push({
+        id: 'daily_t' + (ti + 1),
+        x: Math.round((g[0] + (moving ? 0 : side)) * 10) / 10,
+        y: Math.round((g[1] + 0.8) * 10) / 10,
+        z: Math.round((g[2] - 4) * 10) / 10,
+        yaw: Math.PI,
+        scale: 1.25,
+        patrolAxis: moving ? 'x' : 'x',
+        patrolRange: moving ? 4.2 : 0,
+        patrolSpeed: moving ? 1.9 : 0,
+        phase: ti * 1.1
+      });
+    }
+
     const meta = {
       id: opts.id || courseIdForSeed(seed),
       dateKey: opts.dateKey || null,
@@ -409,6 +431,7 @@
       mechanics,
       mechanicsLabels: mechanics.map((m) => MECHANIC_LABELS[m]),
       gateCount: gates.length,
+      targetCount: targets.length,
       totalLengthMeters
     };
 
@@ -424,6 +447,7 @@
       surfCurves,
       pads,
       gates,
+      targets,
       finishLabelPos: { x, y: y + 10, z: finishZ }
     };
   }
@@ -481,7 +505,9 @@
       spawn: api.V3(bp.spawn.x, bp.spawn.y, bp.spawn.z),
       yaw: bp.yaw,
       course: gates,
-      bound: bp.bound
+      bound: bp.bound,
+      targetMode: 'gauntlet',
+      targets: bp.targets || []
     };
   }
 

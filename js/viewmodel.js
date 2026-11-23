@@ -146,7 +146,292 @@
         osc.stop(t0 + 0.45);
       });
     }
-    return { tick, reveal, bladeShing, balisongClack, spinWhoosh, mythicFlourish };
+    return { tick, reveal, bladeShing, balisongClack, spinWhoosh, mythicFlourish, _getCtx: getCtx };
+  })();
+
+  // ---------- Synthesized Web Audio Firearm & Combat SFX ----------
+  const WeaponAudio = (() => {
+    let noiseBuffer = null;
+    function getCtx() {
+      const c = CaseAudio._getCtx();
+      if (c && c.state === 'suspended') c.resume().catch(() => {});
+      return c;
+    }
+    function getNoise(c) {
+      if (noiseBuffer && noiseBuffer.sampleRate === c.sampleRate) return noiseBuffer;
+      const len = Math.floor(c.sampleRate * 0.45);
+      const buf = c.createBuffer(1, len, c.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      noiseBuffer = buf;
+      return buf;
+    }
+    function noiseBurst(c, startTime, dur, filterType, freq, q, peakGain) {
+      const src = c.createBufferSource();
+      src.buffer = getNoise(c);
+      const filter = c.createBiquadFilter();
+      filter.type = filterType;
+      filter.frequency.setValueAtTime(freq, startTime);
+      filter.Q.setValueAtTime(q, startTime);
+      const gain = c.createGain();
+      gain.gain.setValueAtTime(Math.max(0.0005, peakGain), startTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + dur);
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(c.destination);
+      src.start(startTime);
+      src.stop(startTime + dur + 0.01);
+    }
+    function fireRifle() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.11, 'bandpass', 1450, 0.85, 0.24);
+      noiseBurst(c, now, 0.05, 'highpass', 2600, 0.7, 0.14);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(190, now);
+      osc.frequency.exponentialRampToValueAtTime(48, now + 0.085);
+      g.gain.setValueAtTime(0.18, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.095);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    }
+    function fireAwp() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.34, 'lowpass', 1200, 0.7, 0.36);
+      noiseBurst(c, now, 0.14, 'bandpass', 2200, 0.9, 0.22);
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(140, now);
+      sub.frequency.exponentialRampToValueAtTime(32, now + 0.26);
+      sg.gain.setValueAtTime(0.32, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.3);
+      // Mechanical bolt cycle click-clack
+      [0.36, 0.56].forEach((offset, idx) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(idx === 0 ? 1580 : 1940, now + offset);
+        osc.frequency.exponentialRampToValueAtTime(540, now + offset + 0.035);
+        g.gain.setValueAtTime(0.036, now + offset);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.04);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.045);
+      });
+    }
+    function fireDeagle() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.18, 'bandpass', 1100, 0.75, 0.28);
+      noiseBurst(c, now, 0.07, 'highpass', 2100, 0.6, 0.16);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(44, now + 0.14);
+      g.gain.setValueAtTime(0.24, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    }
+    function fireWeapon(slot) {
+      if (slot === 'awp') fireAwp();
+      else if (slot === 'deagle') fireDeagle();
+      else fireRifle();
+    }
+    function dryFire() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(1250, now);
+      osc.frequency.exponentialRampToValueAtTime(480, now + 0.02);
+      g.gain.setValueAtTime(0.045, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.024);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.028);
+    }
+    function reloadStart() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      [0, 0.16].forEach((off, idx) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(idx === 0 ? 680 : 480, now + off);
+        osc.frequency.exponentialRampToValueAtTime(220, now + off + 0.05);
+        g.gain.setValueAtTime(0.06, now + off);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + off + 0.055);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(now + off);
+        osc.stop(now + off + 0.06);
+      });
+    }
+    function reloadFinish() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      [0, 0.09].forEach((off, idx) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(idx === 0 ? 940 : 1480, now + off);
+        osc.frequency.exponentialRampToValueAtTime(520, now + off + 0.036);
+        g.gain.setValueAtTime(0.048, now + off);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + off + 0.042);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(now + off);
+        osc.stop(now + off + 0.045);
+      });
+    }
+    function scopeZoom(stage) {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sine';
+      const base = stage === 2 ? 1240 : stage === 1 ? 920 : 620;
+      osc.frequency.setValueAtTime(base, now);
+      osc.frequency.exponentialRampToValueAtTime(base * 0.72, now + 0.04);
+      g.gain.setValueAtTime(0.045, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.05);
+    }
+    function weaponDraw() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.065, 'bandpass', 1800, 1.4, 0.055);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(520, now + 0.03);
+      osc.frequency.exponentialRampToValueAtTime(980, now + 0.08);
+      g.gain.setValueAtTime(0.042, now + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now + 0.03);
+      osc.stop(now + 0.095);
+    }
+    function hitmarker(isHeadshot) {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = isHeadshot ? 'sine' : 'triangle';
+      osc.frequency.setValueAtTime(isHeadshot ? 1960 : 1220, now);
+      osc.frequency.exponentialRampToValueAtTime(isHeadshot ? 2680 : 720, now + 0.055);
+      g.gain.setValueAtTime(isHeadshot ? 0.14 : 0.09, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + (isHeadshot ? 0.11 : 0.06));
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.12);
+    }
+    function targetShatter(isHeadshot) {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const freqs = isHeadshot ? [1560, 2093, 2637] : [1046, 1396];
+      freqs.forEach((f, i) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, now + i * 0.02);
+        osc.frequency.exponentialRampToValueAtTime(f * 1.18, now + i * 0.02 + 0.12);
+        g.gain.setValueAtTime(0.075, now + i * 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.02 + 0.15);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(now + i * 0.02);
+        osc.stop(now + i * 0.02 + 0.16);
+      });
+    }
+    function killConfirm() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      [659.25, 987.77, 1318.5].forEach((f, idx) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'triangle';
+        const t0 = now + idx * 0.035;
+        osc.frequency.setValueAtTime(f, t0);
+        g.gain.setValueAtTime(0.09, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.2);
+      });
+    }
+    function roundHorn(win) {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const notes = win ? [440, 554.37, 659.25, 880] : [392, 349.23, 293.66];
+      notes.forEach((f, idx) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'sawtooth';
+        const filt = c.createBiquadFilter();
+        filt.type = 'lowpass';
+        filt.frequency.value = 1400;
+        const t0 = now + idx * 0.08;
+        osc.frequency.setValueAtTime(f, t0);
+        g.gain.setValueAtTime(0.065, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
+        osc.connect(filt);
+        filt.connect(g);
+        g.connect(c.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.36);
+      });
+    }
+    return {
+      fireRifle,
+      fireAwp,
+      fireDeagle,
+      fireWeapon,
+      dryFire,
+      reloadStart,
+      reloadFinish,
+      scopeZoom,
+      weaponDraw,
+      hitmarker,
+      targetShatter,
+      killConfirm,
+      roundHorn
+    };
   })();
 
   // ---------- Procedural Studio Environment Map (PMREMGenerator) ----------
@@ -182,6 +467,7 @@
   // ---------- Procedural Knife Skin PBR Texture Generator ----------
   const skinCanvasCache = new Map();
   const gloveCanvasCache = new Map();
+  const weaponCanvasCache = new Map();
   const thumbCache = new Map();
 
   function skinCacheKey(item) {
@@ -761,6 +1047,433 @@
     });
   }
 
+  // ---------- Procedural Firearm PBR Skin Painter & Material ----------
+  function weaponCacheKey(item) {
+    const wt = (item && item.weaponType) || 'rifle';
+    const sk = (item && item.skinId) || 'factory_slate';
+    const sd = (item && item.patternSeed) || 0;
+    const fl = Math.round(((item && item.floatValue) || 0.09) * 50);
+    return `wpn_${wt}_${sk}_${sd}_${fl}`;
+  }
+
+  function paintWeaponToCanvases(weaponItem, size = 256) {
+    const item = KS.sanitizeWeaponItem(weaponItem || KS.createStarterWeapon('rifle'));
+    const key = weaponCacheKey(item) + '_' + size;
+    if (weaponCanvasCache.has(key)) return weaponCanvasCache.get(key);
+
+    const albedoCanvas = document.createElement('canvas');
+    albedoCanvas.width = size;
+    albedoCanvas.height = size;
+    const actx = albedoCanvas.getContext('2d');
+
+    const roughCanvas = document.createElement('canvas');
+    roughCanvas.width = size;
+    roughCanvas.height = size;
+    const rctx = roughCanvas.getContext('2d');
+
+    const skinId = item.skinId;
+    const seed = item.patternSeed || 0;
+    const flt = Math.max(0, Math.min(0.9999, Number(item.floatValue) || 0.09));
+    const wearFactor = Math.max(0, Math.min(1, (flt - 0.06) / 0.72));
+    const fadePct = skinId === 'fade' ? (item.bluePct || KS.computeFadePct(seed)) : 92;
+    const ox = KS.hash2D(seed, 17, 67) * 10;
+    const oy = KS.hash2D(seed, 31, 97) * 10;
+
+    const aImg = actx.createImageData(size, size);
+    const rImg = rctx.createImageData(size, size);
+    const ad = aImg.data;
+    const rd = rImg.data;
+
+    for (let py = 0; py < size; py++) {
+      const v = py / (size - 1);
+      for (let px = 0; px < size; px++) {
+        const u = px / (size - 1);
+        const idx = (py * size + px) * 4;
+        const micro = KS.fbm2D(u * 20, v * 20, seed + 13, 2);
+        let r = 46, g = 54, b = 64, rough = 128;
+
+        if (skinId === 'factory_slate') {
+          const brush = KS.fbm2D(u * 40, v * 8, 7, 2);
+          r = 38 + brush * 18; g = 46 + brush * 20; b = 56 + brush * 24;
+          if (Math.abs(v - 0.22) < 0.025) { r = 74; g = 216; b = 248; rough = 74; }
+          else rough = 136;
+        } else if (skinId === 'ultraviolet') {
+          r = 26 + micro * 16; g = 28 + micro * 16; b = 38 + micro * 20;
+          if (v > 0.76 || Math.abs(v - 0.18) < 0.03) { r = 104; g = 62; b = 228; rough = 82; }
+          else rough = 152;
+        } else if (skinId === 'redline') {
+          const carbon = ((Math.floor(u * 38) + Math.floor(v * 38)) & 1) ? 0.86 : 1.12;
+          r = (26 + micro * 12) * carbon;
+          g = (28 + micro * 12) * carbon;
+          b = (33 + micro * 14) * carbon;
+          if (Math.abs(v - 0.50) < 0.032 || Math.abs(v - 0.20) < 0.016) {
+            r = 232; g = 42; b = 46; rough = 66;
+          } else {
+            rough = 122;
+          }
+        } else if (skinId === 'damascus') {
+          const w1 = KS.fbm2D(u * 4 + ox, v * 4 + oy, seed + 11, 4);
+          const bands = Math.sin((u * 7 + v * 5 + w1 * 5.0) * Math.PI * 2) * 0.5 + 0.5;
+          const lum = 108 + bands * 114;
+          r = lum * 0.96; g = lum; b = lum * 1.05;
+          rough = 48 + (1 - bands) * 34;
+        } else if (skinId === 'vulcan') {
+          const d = (u * 1.3 + v * 0.65) % 1;
+          if (d < 0.26) { r = 236; g = 244; b = 252; rough = 84; }
+          else if (d < 0.42) { r = 24; g = 34; b = 48; rough = 124; }
+          else if (d < 0.60) { r = 36; g = 188; b = 252; rough = 64; }
+          else if (d < 0.78) { r = 34; g = 96; b = 214; rough = 88; }
+          else { r = 228; g = 238; b = 246; rough = 84; }
+        } else if (skinId === 'crimson_web') {
+          r = 156 + micro * 38; g = 18 + micro * 12; b = 24 + micro * 14;
+          rough = 92;
+        } else if (skinId === 'asiimov') {
+          const diag = u * 1.15 - v * 0.55;
+          if (Math.abs(diag - 0.28) < 0.14 || (v > 0.76 && u < 0.55)) {
+            r = 252; g = 114; b = 28; rough = 76;
+          } else if (Math.abs(diag - 0.56) < 0.11 || (v < 0.18 && u > 0.45)) {
+            r = 22; g = 24; b = 29; rough = 128;
+          } else {
+            r = 238 - micro * 12; g = 242 - micro * 12; b = 246 - micro * 10; rough = 94;
+          }
+        } else if (skinId === 'blaze') {
+          const flameWave = KS.fbm2D(u * 5 + ox, v * 8 + oy, seed + 29, 3);
+          const edge = 0.26 + flameWave * 0.44;
+          if (u < edge) {
+            const t = Math.max(0, Math.min(1, u / Math.max(0.01, edge)));
+            if (t < 0.45) {
+              const k = t / 0.45;
+              r = 255; g = 216 - k * 96; b = 68 - k * 42;
+            } else {
+              const k = (t - 0.45) / 0.55;
+              r = 252 - k * 34; g = 120 - k * 92; b = 26;
+            }
+            rough = 46;
+          } else {
+            r = 24 + micro * 16; g = 26 + micro * 16; b = 34 + micro * 20;
+            rough = 58;
+          }
+        } else if (skinId === 'neon_rider') {
+          const wave = Math.sin((u * 5.2 + v * 3.1 + (seed % 9) * 0.15) * Math.PI);
+          if (wave > 0.28) {
+            r = 244; g = 48; b = 188; rough = 60;
+          } else if (wave < -0.28) {
+            r = 32; g = 228; b = 252; rough = 58;
+          } else {
+            r = 38 + micro * 22; g = 24 + micro * 18; b = 88 + micro * 42; rough = 88;
+          }
+        } else if (skinId === 'printstream') {
+          const iri = Math.sin((u * 3 + v * 2.5) * Math.PI) * 0.5 + 0.5;
+          r = 234 + iri * 14; g = 236 + (1 - iri) * 14; b = 244 + iri * 10;
+          if (v > 0.78 || (Math.abs(u - 0.5) < 0.04 && Math.abs(v - 0.45) < 0.16)) {
+            r = 18; g = 20; b = 25; rough = 110;
+          } else {
+            rough = 46;
+          }
+        } else if (skinId === 'hyper_chroma') {
+          const wx = KS.fbm2D(u * 3.6 + ox, v * 3.6 + oy, seed + 19, 3);
+          const sw = Math.sin((u * 4 + v * 3 + wx * 4.5) * Math.PI) * 0.5 + 0.5;
+          if (sw < 0.34) {
+            const t = sw / 0.34;
+            r = 22 + t * 96; g = 228 - t * 140; b = 216 + t * 34;
+          } else if (sw < 0.68) {
+            const t = (sw - 0.34) / 0.34;
+            r = 118 + t * 128; g = 88 - t * 24; b = 250 - t * 98;
+          } else {
+            const t = (sw - 0.68) / 0.32;
+            r = 246 - t * 224; g = 64 + t * 164; b = 152 + t * 64;
+          }
+          rough = 42;
+        } else if (skinId === 'fade') {
+          const shift = (fadePct - 80) / 20;
+          const pos = Math.max(0, Math.min(1, u * 1.12 - (1 - shift) * 0.22 + (v - 0.5) * 0.14));
+          if (pos < 0.22) {
+            const t = pos / 0.22;
+            r = 200 + t * 44; g = 204 + t * 10; b = 210 - t * 70;
+          } else if (pos < 0.52) {
+            const t = (pos - 0.22) / 0.30;
+            r = 246; g = 196 - t * 118; b = 72 + t * 102;
+          } else if (pos < 0.80) {
+            const t = (pos - 0.52) / 0.28;
+            r = 244 - t * 112; g = 78 - t * 24; b = 178 + t * 58;
+          } else {
+            const t = (pos - 0.80) / 0.20;
+            r = 132 - t * 38; g = 52 - t * 10; b = 236 + t * 16;
+          }
+          rough = 34;
+        } else if (skinId === 'case_hardened') {
+          const ch = KS.evaluateCaseHardenedPixel(u, v, seed);
+          r = ch.r; g = ch.g; b = ch.b;
+          rough = ch.isBlue ? 44 : ch.isGold ? 56 : 70;
+        } else if (skinId === 'dragon_gold') {
+          const scale = Math.sin(u * 26 * Math.PI) * Math.sin(v * 20 * Math.PI);
+          const wave = KS.fbm2D(u * 4 + ox, v * 4 + oy, seed + 47, 3);
+          if (wave > 0.36) {
+            const sheen = 0.82 + 0.18 * (scale * 0.5 + 0.5);
+            r = 246 * sheen; g = 196 * sheen; b = 64 * sheen;
+            rough = 36;
+          } else {
+            r = 68 + wave * 92; g = 16 + wave * 18; b = 22 + wave * 18;
+            rough = 84;
+          }
+        }
+
+        if (wearFactor > 0.02 && skinId !== 'factory_slate') {
+          const sc = KS.fbm2D(u * 14 + 1.9, v * 14 + 4.3, seed + 521, 3);
+          const thresh = 0.88 - wearFactor * 0.58;
+          if (sc > thresh) {
+            const k = Math.min(1, (sc - thresh) * 4.5);
+            r = r * (1 - k) + 92 * k;
+            g = g * (1 - k) + 98 * k;
+            b = b * (1 - k) + 106 * k;
+            rough = Math.min(242, rough + k * 88);
+          }
+        }
+
+        ad[idx] = Math.max(0, Math.min(255, Math.round(r)));
+        ad[idx + 1] = Math.max(0, Math.min(255, Math.round(g)));
+        ad[idx + 2] = Math.max(0, Math.min(255, Math.round(b)));
+        ad[idx + 3] = 255;
+
+        const rv = Math.max(22, Math.min(245, Math.round(rough)));
+        rd[idx] = rv; rd[idx + 1] = rv; rd[idx + 2] = rv; rd[idx + 3] = 255;
+      }
+    }
+
+    actx.putImageData(aImg, 0, 0);
+    rctx.putImageData(rImg, 0, 0);
+
+    if (skinId === 'crimson_web') {
+      actx.save();
+      actx.strokeStyle = 'rgba(12, 10, 14, 0.86)';
+      actx.lineWidth = Math.max(1.2, size / 155);
+      for (let i = 0; i < 3; i++) {
+        const cx = (0.16 + KS.hash2D(seed, i * 19 + 5, 211) * 0.68) * size;
+        const cy = (0.18 + KS.hash2D(seed, i * 29 + 9, 307) * 0.64) * size;
+        const spokes = 7 + ((seed + i) % 3);
+        const rot = KS.hash2D(seed, i * 41, 131) * Math.PI * 2;
+        const maxR = size * 0.42;
+        for (let s = 0; s < spokes; s++) {
+          const ang = rot + (s / spokes) * Math.PI * 2;
+          actx.beginPath();
+          actx.moveTo(cx, cy);
+          actx.lineTo(cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR);
+          actx.stroke();
+        }
+        for (let ring = 1; ring <= 4; ring++) {
+          const rr = (ring / 4) * maxR;
+          actx.beginPath();
+          for (let s = 0; s <= spokes; s++) {
+            const ang = rot + (s / spokes) * Math.PI * 2;
+            const px = cx + Math.cos(ang) * rr;
+            const py = cy + Math.sin(ang) * rr;
+            if (s === 0) actx.moveTo(px, py);
+            else actx.lineTo(px, py);
+          }
+          actx.stroke();
+        }
+      }
+      actx.restore();
+    } else if (skinId === 'printstream') {
+      actx.save();
+      actx.strokeStyle = 'rgba(20, 24, 32, 0.72)';
+      actx.lineWidth = Math.max(1.2, size / 140);
+      actx.strokeRect(size * 0.08, size * 0.12, size * 0.84, size * 0.54);
+      actx.fillStyle = 'rgba(20, 24, 32, 0.8)';
+      actx.fillRect(size * 0.14, size * 0.22, size * 0.18, size * 0.05);
+      actx.fillRect(size * 0.68, size * 0.22, size * 0.16, size * 0.05);
+      actx.restore();
+    }
+
+    const result = { albedoCanvas, roughCanvas };
+    if (weaponCanvasCache.size > 48) {
+      const firstKey = weaponCanvasCache.keys().next().value;
+      weaponCanvasCache.delete(firstKey);
+    }
+    weaponCanvasCache.set(key, result);
+    return result;
+  }
+
+  function createWeaponMaterial(weaponItem, targetRenderer) {
+    const { albedoCanvas, roughCanvas } = paintWeaponToCanvases(weaponItem, 256);
+    const map = new THREE.CanvasTexture(albedoCanvas);
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.wrapS = THREE.ClampToEdgeWrapping;
+    map.wrapT = THREE.ClampToEdgeWrapping;
+    const maxAniso = targetRenderer ? targetRenderer.capabilities.getMaxAnisotropy() : 4;
+    map.anisotropy = Math.min(8, maxAniso);
+
+    const roughnessMap = new THREE.CanvasTexture(roughCanvas);
+    roughnessMap.wrapS = THREE.ClampToEdgeWrapping;
+    roughnessMap.wrapT = THREE.ClampToEdgeWrapping;
+
+    const sk = (weaponItem && weaponItem.skinId) || 'factory_slate';
+    const isMetallic = sk === 'fade' || sk === 'case_hardened' || sk === 'damascus' || sk === 'dragon_gold' || sk === 'blaze';
+    const isGlossy = isMetallic || sk === 'printstream' || sk === 'hyper_chroma' || sk === 'neon_rider';
+    return new THREE.MeshPhysicalMaterial({
+      map,
+      roughnessMap,
+      roughness: isGlossy ? 0.34 : 0.62,
+      metalness: isMetallic ? 0.86 : 0.34,
+      clearcoat: isGlossy ? 0.68 : 0.18,
+      clearcoatRoughness: 0.22,
+      envMapIntensity: isMetallic ? 1.45 : 1.15
+    });
+  }
+
+  // ---------- 2D Patterned Firearm Silhouette Thumbnail ----------
+  function renderWeaponThumbDataUrl(weaponItem) {
+    const item = KS.sanitizeWeaponItem(weaponItem || KS.createStarterWeapon('rifle'));
+    const key = weaponCacheKey(item);
+    if (thumbCache.has(key)) return thumbCache.get(key);
+
+    const W = 184, H = 96;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const { albedoCanvas } = paintWeaponToCanvases(item, 128);
+    const wt = item.weaponType;
+
+    const bg = ctx.createRadialGradient(W * 0.5, H * 0.5, 8, W * 0.5, H * 0.5, W * 0.62);
+    bg.addColorStop(0, 'rgba(34, 58, 82, 0.44)');
+    bg.addColorStop(1, 'rgba(7, 14, 24, 0.0)');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.translate(W * 0.5, H * 0.52);
+
+    const drawClippedBody = (pathFn) => {
+      ctx.save();
+      ctx.beginPath();
+      pathFn(ctx);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(albedoCanvas, -86, -34, 172, 68);
+      const sheen = ctx.createLinearGradient(-75, -24, 75, 24);
+      sheen.addColorStop(0, 'rgba(255,255,255,0.28)');
+      sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
+      sheen.addColorStop(1, 'rgba(0,0,0,0.34)');
+      ctx.fillStyle = sheen;
+      ctx.fillRect(-88, -36, 176, 72);
+      ctx.restore();
+      ctx.beginPath();
+      pathFn(ctx);
+      ctx.closePath();
+      ctx.strokeStyle = 'rgba(218, 244, 255, 0.44)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    };
+
+    if (wt === 'awp') {
+      // Dark steel barrel + muzzle brake
+      ctx.fillStyle = '#1b242e';
+      ctx.fillRect(14, -10, 62, 5.5);
+      ctx.fillStyle = '#2d3a48';
+      ctx.fillRect(72, -12, 11, 9.5);
+      // Scope mount & optic tube
+      ctx.fillStyle = '#161e28';
+      ctx.fillRect(-16, -24, 34, 8);
+      ctx.fillRect(-20, -25.5, 9, 11);
+      ctx.fillRect(14, -25, 8, 10);
+      ctx.fillRect(-10, -16, 4, 7);
+      ctx.fillRect(8, -16, 4, 7);
+      // Magazine
+      ctx.fillStyle = '#18202a';
+      ctx.fillRect(-6, 4, 14, 16);
+      // Main chassis body
+      drawClippedBody((g) => {
+        g.moveTo(-78, -6);
+        g.lineTo(-42, -11);
+        g.lineTo(28, -10);
+        g.lineTo(36, 0);
+        g.lineTo(8, 5);
+        g.lineTo(-22, 6);
+        g.lineTo(-32, 20);
+        g.lineTo(-44, 20);
+        g.lineTo(-38, 6);
+        g.lineTo(-78, 14);
+      });
+    } else if (wt === 'deagle') {
+      // Slanted dark grip
+      ctx.fillStyle = '#18202a';
+      ctx.beginPath();
+      ctx.moveTo(-42, 0);
+      ctx.lineTo(-14, 0);
+      ctx.lineTo(-22, 32);
+      ctx.lineTo(-52, 32);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(180,210,235,0.3)';
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+      // Trigger guard
+      ctx.strokeStyle = '#3c4c5c';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(-14, 2);
+      ctx.lineTo(8, 2);
+      ctx.lineTo(2, 15);
+      ctx.lineTo(-18, 15);
+      ctx.stroke();
+      // Heavy Desert Eagle slide & barrel shroud
+      drawClippedBody((g) => {
+        g.moveTo(-46, -18);
+        g.lineTo(44, -18);
+        g.lineTo(54, -8);
+        g.lineTo(54, 1);
+        g.lineTo(-42, 1);
+        g.lineTo(-50, -6);
+      });
+    } else {
+      // V-47 Rifle: barrel, gas tube, curved mag, sight
+      ctx.fillStyle = '#1a232e';
+      ctx.fillRect(36, -9, 44, 5.5);
+      ctx.fillRect(74, -10.5, 9, 8.5);
+      // Curved magazine
+      ctx.beginPath();
+      ctx.moveTo(4, 5);
+      ctx.quadraticCurveTo(10, 22, 20, 32);
+      ctx.lineTo(6, 34);
+      ctx.quadraticCurveTo(-4, 22, -8, 5);
+      ctx.closePath();
+      ctx.fillStyle = '#1a232e';
+      ctx.fill();
+      // Pistol grip
+      ctx.beginPath();
+      ctx.moveTo(-26, 4);
+      ctx.lineTo(-14, 4);
+      ctx.lineTo(-20, 24);
+      ctx.lineTo(-32, 24);
+      ctx.closePath();
+      ctx.fill();
+      // Reflex optic
+      ctx.fillStyle = '#1c2734';
+      ctx.fillRect(-16, -22, 18, 8);
+      ctx.fillStyle = '#65e7ff';
+      ctx.fillRect(-8, -20, 3, 3);
+      // Main receiver + stock + handguard
+      drawClippedBody((g) => {
+        g.moveTo(-78, -4);
+        g.lineTo(-42, -13);
+        g.lineTo(38, -13);
+        g.lineTo(42, -2);
+        g.lineTo(14, 5);
+        g.lineTo(-42, 5);
+        g.lineTo(-78, 14);
+      });
+    }
+
+    ctx.restore();
+    const url = c.toDataURL('image/png');
+    if (thumbCache.size > 160) {
+      const firstKey = thumbCache.keys().next().value;
+      thumbCache.delete(firstKey);
+    }
+    thumbCache.set(key, url);
+    return url;
+  }
+
   // ---------- 2D Patterned Glove Pair Silhouette Thumbnail ----------
   function renderGloveThumbDataUrl(gloveItem) {
     const item = KS.sanitizeGloveItem(gloveItem || KS.createStarterGlove());
@@ -909,6 +1622,7 @@
 
   // ---------- 2D Patterned Knife Silhouette Thumbnail ----------
   function renderKnifeThumbDataUrl(item) {
+    if (KS.isWeaponItem(item)) return renderWeaponThumbDataUrl(item);
     if (KS.isGloveItem(item)) return renderGloveThumbDataUrl(item);
     const key = `${item.knifeType}_${skinCacheKey(item)}`;
     if (thumbCache.has(key)) return thumbCache.get(key);
@@ -2732,6 +3446,294 @@
     return tier === 'uncommon' ? 2.15 : 2.10;
   }
 
+  // ---------- Composite 3D Firearm Models (V-47 Rifle, AWP Sniper, Deagle .50) ----------
+  function buildWeaponModel(weaponItem, targetRenderer) {
+    const item = KS.sanitizeWeaponItem(weaponItem || KS.createStarterWeapon('rifle'));
+    const wt = item.weaponType;
+    const g = new THREE.Group();
+
+    const skinMat = createWeaponMaterial(item, targetRenderer);
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x1a222c, roughness: 0.42, metalness: 0.78 });
+    const gunmetal = new THREE.MeshStandardMaterial({ color: 0x2a3542, roughness: 0.36, metalness: 0.84 });
+    const gripMat = new THREE.MeshStandardMaterial({ color: 0x121820, roughness: 0.82, metalness: 0.12 });
+    const accentGlow = new THREE.MeshBasicMaterial({ color: 0x65e7ff });
+    const flashMat = new THREE.MeshBasicMaterial({ color: 0xffe49c, transparent: true, opacity: 0.92, depthWrite: false });
+
+    const addFlash = (zPos, scale) => {
+      const fg = new THREE.Group();
+      const s1 = new THREE.Mesh(new THREE.OctahedronGeometry(0.036 * scale, 0), flashMat);
+      s1.scale.set(1.2, 1.2, 2.2);
+      const s2 = new THREE.Mesh(new THREE.OctahedronGeometry(0.028 * scale, 0), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false }));
+      s2.rotation.z = Math.PI / 4;
+      s2.scale.set(1.6, 0.35, 1.4);
+      fg.add(s1, s2);
+      fg.position.set(0, 0.025, zPos);
+      fg.visible = false;
+      g.add(fg);
+      g.userData.muzzleFlash = fg;
+    };
+
+    if (wt === 'awp') {
+      // Long chassis & thumbhole stock (textured with equipped AWP skin)
+      const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.056, 0.28), skinMat);
+      receiver.position.set(0, 0.02, -0.04);
+      const forend = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.046, 0.22), skinMat);
+      forend.position.set(0, 0.016, -0.26);
+      const stock = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.068, 0.22), skinMat);
+      stock.position.set(0, 0.002, 0.19);
+      const cheekRest = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.022, 0.11), gripMat);
+      cheekRest.position.set(0, 0.044, 0.18);
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.095, 0.044), gripMat);
+      grip.position.set(0, -0.045, 0.055);
+      grip.rotation.x = 0.24;
+      const mag = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.085, 0.068), darkMetal);
+      mag.position.set(0, -0.044, -0.075);
+
+      // Long fluted sniper barrel + rectangular muzzle brake
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.56, 12), gunmetal);
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.set(0, 0.036, -0.44);
+      const brake = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.026, 0.065), darkMetal);
+      brake.position.set(0, 0.036, -0.73);
+
+      // Dual-ring elevated tactical scope
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.22), darkMetal);
+      rail.position.set(0, 0.054, -0.06);
+      const ring1 = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.018, 12), darkMetal);
+      ring1.rotation.x = Math.PI / 2;
+      ring1.position.set(0, 0.082, 0.01);
+      const ring2 = ring1.clone();
+      ring2.position.set(0, 0.082, -0.12);
+      const scopeTube = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.26, 14), darkMetal);
+      scopeTube.rotation.x = Math.PI / 2;
+      scopeTube.position.set(0, 0.082, -0.06);
+      const scopeBell = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.016, 0.075, 14), gunmetal);
+      scopeBell.rotation.x = Math.PI / 2;
+      scopeBell.position.set(0, 0.082, -0.21);
+      const scopeEye = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.016, 0.055, 14), darkMetal);
+      scopeEye.rotation.x = Math.PI / 2;
+      scopeEye.position.set(0, 0.082, 0.085);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.017, 14), new THREE.MeshBasicMaterial({ color: 0x35b8ff }));
+      lens.position.set(0, 0.082, 0.114);
+
+      // Bolt handle group for animated bolt-action cycling
+      const boltGroup = new THREE.Group();
+      boltGroup.position.set(0.028, 0.034, 0.04);
+      const boltStem = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.042, 8), gunmetal);
+      boltStem.rotation.z = -Math.PI / 2.2;
+      boltStem.position.set(0.018, -0.005, 0);
+      const boltKnob = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 8), darkMetal);
+      boltKnob.position.set(0.038, -0.011, 0);
+      boltGroup.add(boltStem, boltKnob);
+      g.userData.boltGroup = boltGroup;
+
+      const trigGuard = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.026, 0.048), darkMetal);
+      trigGuard.position.set(0, -0.014, 0.002);
+      const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.018, 0.006), gunmetal);
+      trigger.position.set(0, -0.012, 0.008);
+      trigger.rotation.x = 0.25;
+
+      g.add(receiver, forend, stock, cheekRest, grip, mag, trigGuard, trigger, barrel, brake, rail, ring1, ring2, scopeTube, scopeBell, scopeEye, lens, boltGroup);
+      addFlash(-0.79, 1.45);
+    } else if (wt === 'deagle') {
+      // Heavy iconic beveled Desert Eagle slide & barrel shroud
+      const slide = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.044, 0.23), skinMat);
+      slide.position.set(0, 0.038, -0.065);
+      const topRib = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.010, 0.22), skinMat);
+      topRib.position.set(0, 0.062, -0.068);
+      const lowerFrame = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.026, 0.19), darkMetal);
+      lowerFrame.position.set(0, 0.008, -0.045);
+      const barrelMuzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.035, 10), gunmetal);
+      barrelMuzzle.rotation.x = Math.PI / 2;
+      barrelMuzzle.position.set(0, 0.036, -0.188);
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.033, 0.105, 0.046), gripMat);
+      grip.position.set(0, -0.048, 0.024);
+      grip.rotation.x = 0.26;
+      const trigGuard = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.026, 0.048), darkMetal);
+      trigGuard.position.set(0, -0.016, -0.026);
+      // Glowing tritium iron sights
+      const rearL = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.008, 0.008), darkMetal);
+      rearL.position.set(-0.010, 0.070, 0.036);
+      const rearR = rearL.clone();
+      rearR.position.x = 0.010;
+      const dotL = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.003, 0.003), accentGlow);
+      dotL.position.set(-0.010, 0.071, 0.041);
+      const dotR = dotL.clone();
+      dotR.position.x = 0.010;
+      const frontSight = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.010, 0.012), darkMetal);
+      frontSight.position.set(0, 0.070, -0.165);
+
+      g.add(slide, topRib, lowerFrame, barrelMuzzle, grip, trigGuard, rearL, rearR, dotL, dotR, frontSight);
+      addFlash(-0.22, 1.15);
+    } else {
+      // V-47 Precision Surf Rifle
+      const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.056, 0.24), skinMat);
+      receiver.position.set(0, 0.022, -0.03);
+      const handguard = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.046, 0.22), skinMat);
+      handguard.position.set(0, 0.022, -0.25);
+      const stock = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.062, 0.19), skinMat);
+      stock.position.set(0, 0.008, 0.175);
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.095, 0.040), gripMat);
+      grip.position.set(0, -0.044, 0.045);
+      grip.rotation.x = 0.26;
+      // Curved 30rd magazine
+      const magUpper = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.075, 0.052), darkMetal);
+      magUpper.position.set(0, -0.042, -0.095);
+      magUpper.rotation.x = -0.14;
+      const magLower = new THREE.Mesh(new THREE.BoxGeometry(0.027, 0.070, 0.050), darkMetal);
+      magLower.position.set(0, -0.102, -0.114);
+      magLower.rotation.x = -0.36;
+      // Steel barrel + gas block + flash hider
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.012, 0.28, 10), gunmetal);
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.set(0, 0.028, -0.42);
+      const flashHider = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.014, 0.055, 10), darkMetal);
+      flashHider.rotation.x = Math.PI / 2;
+      flashHider.position.set(0, 0.028, -0.57);
+      // Top Picatinny rail + holographic reflex optic
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.010, 0.34), darkMetal);
+      rail.position.set(0, 0.054, -0.10);
+      const opticBase = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.014, 0.072), darkMetal);
+      opticBase.position.set(0, 0.064, -0.01);
+      const opticFrameL = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.028, 0.055), gunmetal);
+      opticFrameL.position.set(-0.014, 0.082, -0.01);
+      const opticFrameR = opticFrameL.clone();
+      opticFrameR.position.x = 0.014;
+      const opticTop = new THREE.Mesh(new THREE.BoxGeometry(0.033, 0.005, 0.055), gunmetal);
+      opticTop.position.set(0, 0.096, -0.01);
+      const holoDot = new THREE.Mesh(new THREE.SphereGeometry(0.0024, 6, 6), accentGlow);
+      holoDot.position.set(0, 0.081, -0.01);
+
+      const trigGuard = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.026, 0.048), darkMetal);
+      trigGuard.position.set(0, -0.014, -0.006);
+      const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.018, 0.006), gunmetal);
+      trigger.position.set(0, -0.012, 0.000);
+      trigger.rotation.x = 0.25;
+
+      g.add(receiver, handguard, stock, grip, trigGuard, trigger, magUpper, magLower, barrel, flashHider, rail, opticBase, opticFrameL, opticFrameR, opticTop, holoDot);
+      addFlash(-0.62, 1.0);
+    }
+
+    g.userData.weaponType = wt;
+    return g;
+  }
+
+  // Exact anatomical grip constants & pre-allocated scratch math (zero GC per frame)
+  const RIGHT_HAND_GRIP_ROLL = -1.42; // Rolls right hand so back faces +X, palm faces -X, thumb/index at +Y, fingers wrap grip front
+  const _wAnchorLocal = new THREE.Vector3();
+  const _wLeftPocketLocal = new THREE.Vector3();
+  const _wWorldPos = new THREE.Vector3();
+  const _wWorldQuat = new THREE.Quaternion();
+  const _wLeftRelQuat = new THREE.Quaternion();
+  const _wLeftEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+  const _wOffsetVec = new THREE.Vector3();
+  const _wInvRootMat = new THREE.Matrix4();
+  const _wRootQuat = new THREE.Quaternion();
+  const _wInvRootQuat = new THREE.Quaternion();
+
+  const WEAPON_GRIP_SPECS = {
+    rifle: {
+      // Pistol grip center in weapon-local space -> locked into right hand's closed-finger palm pocket
+      gripCenter: [0.0, -0.044, 0.045],
+      rightPocket: [0.003, -0.029, -0.042],
+      // Left hand cradles bottom of handguard
+      supportAnchor: [0.0, -0.010, -0.255],
+      leftPocket: [0.002, -0.025, -0.032],
+      leftRelEuler: [0.16, -0.46, 2.08],
+      rightPose: { index: 0.42, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68 },
+      leftPose: { index: 0.68, middle: 0.74, ring: 0.78, pinky: 0.76, thumb: 0.36 }
+    },
+    awp: {
+      gripCenter: [0.0, -0.045, 0.055],
+      rightPocket: [0.003, -0.029, -0.042],
+      supportAnchor: [0.0, -0.014, -0.275],
+      leftPocket: [0.002, -0.025, -0.032],
+      leftRelEuler: [0.16, -0.48, 2.08],
+      rightPose: { index: 0.42, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68 },
+      leftPose: { index: 0.66, middle: 0.72, ring: 0.76, pinky: 0.74, thumb: 0.36 }
+    },
+    deagle: {
+      gripCenter: [0.0, -0.048, 0.024],
+      rightPocket: [0.003, -0.029, -0.042],
+      // Classic two-handed pistol hold: left palm wraps snugly over left side of grip & right fingertips
+      supportAnchor: [-0.015, -0.046, 0.016],
+      leftPocket: [0.0, -0.029, -0.036],
+      leftRelEuler: [0.06, -0.34, 1.48],
+      rightPose: { index: 0.44, middle: 0.92, ring: 0.95, pinky: 0.95, thumb: 0.64 },
+      leftPose: { index: 0.78, middle: 0.86, ring: 0.90, pinky: 0.90, thumb: 0.42 }
+    }
+  };
+
+  function applyWeaponSocketTransform(mesh, wt) {
+    if (!mesh) return;
+    const spec = WEAPON_GRIP_SPECS[wt] || WEAPON_GRIP_SPECS.rifle;
+    // Counter-roll the firearm upright inside rightHand.knifeSocket so rightHand wraps cleanly around the vertical pistol grip
+    const counterRoll = -RIGHT_HAND_GRIP_ROLL;
+    mesh.rotation.order = 'XYZ';
+    mesh.rotation.set(0, 0, counterRoll);
+
+    const cosR = Math.cos(counterRoll);
+    const sinR = Math.sin(counterRoll);
+    const gx = spec.gripCenter[0];
+    const gy = spec.gripCenter[1];
+    const gz = spec.gripCenter[2];
+    const rotGx = gx * cosR - gy * sinR;
+    const rotGy = gx * sinR + gy * cosR;
+
+    mesh.position.set(
+      spec.rightPocket[0] - rotGx,
+      spec.rightPocket[1] - rotGy,
+      spec.rightPocket[2] - gz
+    );
+  }
+
+  /**
+   * Solves exact left-hand position & orientation in rig.rootRig space so the left gloved hand
+   * stays welded to the firearm's forend/handguard (or Deagle support grip) through recoil, sway,
+   * surf banking, reload mag-swap drop, and 3D Armory preview inspection.
+   */
+  function lockSupportHandToWeapon(rigObj, weaponMesh, wt, reloadArc, inspEnv) {
+    if (!rigObj || !weaponMesh) return;
+    const spec = WEAPON_GRIP_SPECS[wt] || WEAPON_GRIP_SPECS.rifle;
+
+    rigObj.rootRig.updateMatrixWorld(true);
+    _wInvRootMat.copy(rigObj.rootRig.matrixWorld).invert();
+    rigObj.rootRig.getWorldQuaternion(_wRootQuat);
+    _wInvRootQuat.copy(_wRootQuat).invert();
+
+    // Target support anchor on the weapon mesh -> rootRig local coordinates
+    _wAnchorLocal.set(
+      spec.supportAnchor[0],
+      spec.supportAnchor[1] - reloadArc * 0.115,
+      spec.supportAnchor[2] + reloadArc * (wt === 'deagle' ? 0.04 : 0.14)
+    );
+    _wWorldPos.copy(_wAnchorLocal).applyMatrix4(weaponMesh.matrixWorld).applyMatrix4(_wInvRootMat);
+
+    // Weapon orientation in rootRig space
+    weaponMesh.getWorldQuaternion(_wWorldQuat);
+    _wWorldQuat.premultiply(_wInvRootQuat);
+
+    // Left hand orientation relative to weapon
+    _wLeftEuler.set(
+      spec.leftRelEuler[0] - reloadArc * 0.35,
+      spec.leftRelEuler[1] + reloadArc * 0.18,
+      spec.leftRelEuler[2] + inspEnv * 0.14 - reloadArc * 0.28,
+      'YXZ'
+    );
+    _wLeftRelQuat.setFromEuler(_wLeftEuler);
+    _wWorldQuat.multiply(_wLeftRelQuat);
+
+    // Shift leftHandPivot so its palm-cradle pocket lands exactly on the weapon support anchor
+    _wLeftPocketLocal.set(spec.leftPocket[0], spec.leftPocket[1], spec.leftPocket[2]);
+    _wOffsetVec.copy(_wLeftPocketLocal).applyQuaternion(_wWorldQuat);
+
+    rigObj.leftHandPivot.position.copy(_wWorldPos).sub(_wOffsetVec);
+    rigObj.leftHandPivot.quaternion.copy(_wWorldQuat);
+
+    rigObj.setHandPose(rigObj.rightHand, spec.rightPose);
+    rigObj.setHandPose(rigObj.leftHand, spec.leftPose);
+  }
+
   // ---------- Main First-Person Viewmodel Overlay Pass ----------
   const ViewmodelSystem = (() => {
     let vmScene = null;
@@ -2739,11 +3741,33 @@
     let studioEnv = null;
     let rig = null;
     let currentKnifeMesh = null;
+    let currentWeaponMeshes = { rifle: null, awp: null, deagle: null };
+    let currentWeaponItems = {
+      rifle: KS.createStarterWeapon('rifle'),
+      awp: KS.createStarterWeapon('awp'),
+      deagle: KS.createStarterWeapon('deagle')
+    };
+    let activeSlot = 'knife'; // 'rifle' | 'awp' | 'deagle' | 'knife'
+    let isScoped = false;
     let currentItem = null;
     let currentGlove = KS.createStarterGlove();
     let mainRenderer = null;
 
     const vmOffset = { offsetX: 0, offsetY: 0, offsetZ: 0, fov: 62 };
+
+    const weaponAnim = {
+      recoilKick: 0,
+      recoilPitch: 0,
+      flashTimer: 0,
+      reloadT: 1,
+      reloadDuration: 1.6,
+      drawT: 1,
+      drawDuration: 0.36,
+      inspectT: 1,
+      inspectDuration: 2.1,
+      boltT: 1,
+      slashT: 1
+    };
 
     const animState = {
       drawT: 1,
@@ -2815,6 +3839,94 @@
       applyOffsetToRig();
     }
 
+    function syncActiveMeshVisibility() {
+      if (currentKnifeMesh) currentKnifeMesh.visible = activeSlot === 'knife';
+      for (const wt of ['rifle', 'awp', 'deagle']) {
+        const m = currentWeaponMeshes[wt];
+        if (m) m.visible = activeSlot === wt;
+      }
+      if (rig && rig.rootRig) {
+        rig.rootRig.visible = !isScoped;
+      }
+    }
+
+    function equipWeaponSkin(weaponItem) {
+      if (!vmScene || !rig) return;
+      const clean = KS.sanitizeWeaponItem(weaponItem);
+      const wt = clean.weaponType;
+      currentWeaponItems[wt] = clean;
+      if (currentWeaponMeshes[wt]) {
+        rig.knifeSocket.remove(currentWeaponMeshes[wt]);
+        disposeGroupResources(currentWeaponMeshes[wt]);
+        currentWeaponMeshes[wt] = null;
+      }
+      const mesh = buildWeaponModel(clean, mainRenderer);
+      applyWeaponSocketTransform(mesh, wt);
+      rig.knifeSocket.add(mesh);
+      currentWeaponMeshes[wt] = mesh;
+      syncActiveMeshVisibility();
+    }
+
+    function ensureWeaponMesh(wt) {
+      if (!currentWeaponMeshes[wt] && rig && vmScene) {
+        equipWeaponSkin(currentWeaponItems[wt] || KS.createStarterWeapon(wt));
+      }
+    }
+
+    function setActiveSlot(slot, playDraw = true) {
+      const valid = slot === 'rifle' || slot === 'awp' || slot === 'deagle' || slot === 'knife' ? slot : 'knife';
+      const changed = activeSlot !== valid;
+      activeSlot = valid;
+      if (valid !== 'awp') isScoped = false;
+      if (valid !== 'knife') ensureWeaponMesh(valid);
+      syncActiveMeshVisibility();
+      if (playDraw && changed) {
+        if (valid === 'knife') {
+          triggerDraw();
+        } else {
+          weaponAnim.drawT = 0;
+          weaponAnim.drawDuration = valid === 'awp' ? 0.44 : valid === 'deagle' ? 0.30 : 0.36;
+          weaponAnim.reloadT = 1;
+          weaponAnim.inspectT = 1;
+          weaponAnim.recoilKick = 0;
+          weaponAnim.recoilPitch = 0;
+          WeaponAudio.weaponDraw();
+        }
+      }
+    }
+
+    function triggerFireRecoil(slot) {
+      const s = slot || activeSlot;
+      if (s === 'knife') {
+        weaponAnim.slashT = 0;
+        CaseAudio.spinWhoosh(1.22);
+        return;
+      }
+      weaponAnim.inspectT = 1;
+      weaponAnim.recoilKick = s === 'awp' ? 0.088 : s === 'deagle' ? 0.058 : 0.030;
+      weaponAnim.recoilPitch = s === 'awp' ? 0.24 : s === 'deagle' ? 0.20 : 0.075;
+      weaponAnim.flashTimer = 0.048;
+      if (s === 'awp') weaponAnim.boltT = 0;
+      const mesh = currentWeaponMeshes[s];
+      if (mesh && mesh.userData.muzzleFlash) {
+        mesh.userData.muzzleFlash.visible = true;
+        mesh.userData.muzzleFlash.rotation.z = Math.random() * Math.PI * 2;
+      }
+    }
+
+    function triggerReload(duration) {
+      if (activeSlot === 'knife') return;
+      weaponAnim.inspectT = 1;
+      weaponAnim.reloadT = 0;
+      weaponAnim.reloadDuration = Math.max(0.6, Number(duration) || 1.6);
+      WeaponAudio.reloadStart();
+    }
+
+    function setScoped(scoped) {
+      isScoped = Boolean(scoped) && activeSlot === 'awp';
+      if (rig && rig.rootRig) rig.rootRig.visible = !isScoped;
+    }
+
     function equipKnife(item, playDraw = true) {
       if (!vmScene || !rig) return;
       if (currentKnifeMesh) {
@@ -2826,7 +3938,8 @@
       currentKnifeMesh = buildKnifeModel(currentItem, mainRenderer);
       applyContactGripSocket(currentKnifeMesh, currentItem.knifeType);
       rig.knifeSocket.add(currentKnifeMesh);
-      if (playDraw) triggerDraw();
+      syncActiveMeshVisibility();
+      if (playDraw && activeSlot === 'knife') triggerDraw();
       else {
         animState.drawT = 1;
         animState.inspectT = 1;
@@ -2853,6 +3966,13 @@
     }
 
     function triggerInspect(forceTier) {
+      if (activeSlot !== 'knife') {
+        if (weaponAnim.reloadT < 1) return null;
+        weaponAnim.inspectT = 0;
+        weaponAnim.inspectDuration = 2.05;
+        WeaponAudio.weaponDraw();
+        return { tier: 'normal', weaponType: activeSlot };
+      }
       if (!currentItem) return null;
       const kt = currentItem.knifeType;
 
@@ -2920,9 +4040,58 @@
       swayY = Math.max(-0.04, Math.min(0.04, swayY + dy * 0.00014));
     }
 
+    function updateWeaponViewmodel(dt, bobX, bobY, isSurf) {
+      const wt = activeSlot;
+      const mesh = currentWeaponMeshes[wt];
+      if (!mesh) return;
+
+      weaponAnim.recoilKick = Math.max(0, weaponAnim.recoilKick - dt * 0.34);
+      weaponAnim.recoilPitch = Math.max(0, weaponAnim.recoilPitch - dt * 1.15);
+      if (weaponAnim.flashTimer > 0) {
+        weaponAnim.flashTimer -= dt;
+        if (weaponAnim.flashTimer <= 0 && mesh.userData.muzzleFlash) {
+          mesh.userData.muzzleFlash.visible = false;
+        }
+      }
+      if (weaponAnim.drawT < 1) weaponAnim.drawT = Math.min(1, weaponAnim.drawT + dt / weaponAnim.drawDuration);
+      if (weaponAnim.reloadT < 1) weaponAnim.reloadT = Math.min(1, weaponAnim.reloadT + dt / weaponAnim.reloadDuration);
+      if (weaponAnim.inspectT < 1) weaponAnim.inspectT = Math.min(1, weaponAnim.inspectT + dt / weaponAnim.inspectDuration);
+      if (weaponAnim.boltT < 1) weaponAnim.boltT = Math.min(1, weaponAnim.boltT + dt / 0.85);
+
+      const drawDip = (1 - smoothstep(0, 1, weaponAnim.drawT)) * 0.22;
+      const reloadArc = weaponAnim.reloadT < 1 ? Math.sin(weaponAnim.reloadT * Math.PI) : 0;
+      const inspEnv = weaponAnim.inspectT < 1 ? Math.sin(weaponAnim.inspectT * Math.PI) : 0;
+      const inspWave = weaponAnim.inspectT < 1 ? Math.sin(weaponAnim.inspectT * Math.PI * 2) : 0;
+      const boltArc = wt === 'awp' && weaponAnim.boltT < 1 ? Math.sin(weaponAnim.boltT * Math.PI) : 0;
+
+      // Base right-hand pistol-grip posture: hand rolled -1.42 rad so fingers wrap vertical pistol grip
+      let rx = (wt === 'deagle' ? 0.138 : wt === 'awp' ? 0.168 : 0.162) + bobX * 0.85 + swayX;
+      let ry = (wt === 'deagle' ? -0.152 : wt === 'awp' ? -0.172 : -0.166) - bobY * 0.85 + swayY + crouchDip - drawDip - reloadArc * 0.06;
+      let rz = (wt === 'deagle' ? -0.320 : wt === 'awp' ? -0.252 : -0.268) + weaponAnim.recoilKick;
+
+      let rRotX = 0.03 + swayY * 1.1 + weaponAnim.recoilPitch - drawDip * 1.35 - reloadArc * 0.28 + inspEnv * 0.14;
+      let rRotY = (wt === 'deagle' ? 0.06 : 0.05) + swayX * 1.3 + inspEnv * 0.62 - reloadArc * 0.22;
+      let rRotZ = RIGHT_HAND_GRIP_ROLL - bankRoll * 0.85 + reloadArc * 0.38 + inspWave * 0.26 - boltArc * 0.14;
+
+      if (isSurf) {
+        ry += 0.012;
+        rRotZ -= bankRoll * 0.24;
+      }
+
+      rig.rightHandPivot.position.set(rx, ry, rz);
+      rig.rightHandPivot.rotation.set(rRotX, rRotY, rRotZ);
+
+      applyWeaponSocketTransform(mesh, wt);
+      lockSupportHandToWeapon(rig, mesh, wt, reloadArc, inspEnv);
+
+      if (mesh.userData.boltGroup) {
+        mesh.userData.boltGroup.rotation.z = boltArc * 0.85;
+        mesh.userData.boltGroup.position.z = 0.04 + boltArc * 0.055;
+      }
+    }
+
     function update(dt, playerState) {
-      if (!rig || !currentKnifeMesh || !currentItem) return;
-      const kt = currentItem.knifeType;
+      if (!rig || !currentItem) return;
       const damp = Math.min(1, dt * 11);
 
       swayX += (0 - swayX) * Math.min(1, dt * 10);
@@ -2942,17 +4111,27 @@
       const bobX = Math.cos(bobPhase) * bobAmp;
       const bobY = Math.abs(Math.sin(bobPhase)) * bobAmp * 1.15;
 
+      if (activeSlot !== 'knife') {
+        updateWeaponViewmodel(dt, bobX, bobY, isSurf);
+        return;
+      }
+
+      if (!currentKnifeMesh) return;
+      const kt = currentItem.knifeType;
+
       if (animState.drawT < 1) animState.drawT = Math.min(1, animState.drawT + dt / animState.drawDuration);
       if (animState.inspectT < 1) animState.inspectT = Math.min(1, animState.inspectT + dt / animState.inspectDuration);
+      if (weaponAnim.slashT < 1) weaponAnim.slashT = Math.min(1, weaponAnim.slashT + dt / 0.28);
 
       evaluateViewmodelChoreography(kt, animState, _animOut, true);
+      const slashArc = weaponAnim.slashT < 1 ? Math.sin(weaponAnim.slashT * Math.PI) : 0;
 
-      let rx = _animOut.rx + bobX + swayX;
-      let ry = _animOut.ry - bobY + swayY + crouchDip;
-      const rz = _animOut.rz;
-      let rRotX = _animOut.rRotX + swayY * 1.3;
-      const rRotY = _animOut.rRotY + swayX * 1.6;
-      let rRotZ = _animOut.rRotZ - bankRoll;
+      let rx = _animOut.rx + bobX + swayX - slashArc * 0.14;
+      let ry = _animOut.ry - bobY + swayY + crouchDip - slashArc * 0.04;
+      const rz = _animOut.rz - slashArc * 0.09;
+      let rRotX = _animOut.rRotX + swayY * 1.3 - slashArc * 0.55;
+      const rRotY = _animOut.rRotY + swayX * 1.6 + slashArc * 0.65;
+      let rRotZ = _animOut.rRotZ - bankRoll + slashArc * 0.72;
 
       const lx = _animOut.lx - bobX * 0.55 + swayX * 0.65;
       const ly = _animOut.ly - bobY * 0.45 + swayY * 0.65 + crouchDip;
@@ -2989,7 +4168,7 @@
     }
 
     function render(renderer) {
-      if (!vmScene || !vmCamera) return;
+      if (!vmScene || !vmCamera || isScoped) return;
       const prevAutoClear = renderer.autoClear;
       renderer.autoClear = false;
       renderer.clearDepth();
@@ -3001,6 +4180,12 @@
       init,
       equipKnife,
       equipGlove,
+      equipWeaponSkin,
+      setActiveSlot,
+      getActiveSlot: () => activeSlot,
+      triggerFireRecoil,
+      triggerReload,
+      setScoped,
       applySettings,
       triggerDraw,
       triggerInspect,
@@ -3009,7 +4194,8 @@
       render,
       getCurrentItem: () => currentItem,
       getCurrentGlove: () => currentGlove,
-      getInspectState: () => ({ active: animState.inspectT < 1, tier: animState.inspectTier, progress: animState.inspectT }),
+      getCurrentWeaponItem: (wt) => currentWeaponItems[wt || activeSlot] || null,
+      getInspectState: () => ({ active: animState.inspectT < 1 || weaponAnim.inspectT < 1, tier: animState.inspectTier, progress: animState.inspectT }),
       getGloveMaterials: () => (rig ? rig.gloveMaterials : null)
     };
   })();
@@ -3030,7 +4216,9 @@
     let comboKnifeMesh = null;
 
     let previewMode = 'combo'; // 'combo' | 'solo'
+    let previewKind = 'knife'; // 'knife' | 'weapon'
     let currentKnife = KS.createStarterKnife();
+    let currentWeapon = KS.createStarterWeapon('rifle');
     let currentGlove = KS.createStarterGlove();
 
     let yaw = 0.08;
@@ -3130,33 +4318,43 @@
 
     function rebuildModels() {
       if (!pRenderer) return;
-      // Rebuild solo knife mesh
+      // Rebuild solo mesh (knife or firearm)
       if (soloKnifeMesh) {
         soloPivot.remove(soloKnifeMesh);
         disposeGroupResources(soloKnifeMesh);
         soloKnifeMesh = null;
       }
-      soloKnifeMesh = buildKnifeModel(currentKnife, pRenderer);
+      soloKnifeMesh = previewKind === 'weapon'
+        ? buildWeaponModel(currentWeapon, pRenderer)
+        : buildKnifeModel(currentKnife, pRenderer);
+      if (previewKind === 'weapon') {
+        soloKnifeMesh.rotation.y = Math.PI / 2;
+      }
       const box = new THREE.Box3().setFromObject(soloKnifeMesh);
       const center = new THREE.Vector3();
       const size = new THREE.Vector3();
       box.getCenter(center);
       box.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z, 0.2);
-      const fitScale = 0.38 / maxDim;
+      const fitScale = (previewKind === 'weapon' ? 0.44 : 0.38) / maxDim;
       soloKnifeMesh.scale.setScalar(fitScale);
       soloKnifeMesh.position.set(-center.x * fitScale, -center.y * fitScale, -center.z * fitScale);
       soloPivot.add(soloKnifeMesh);
 
-      // Rebuild combo knife mesh + apply gloves to preview hands
+      // Rebuild combo mesh + apply gloves to preview hands
       if (comboKnifeMesh) {
         comboRig.knifeSocket.remove(comboKnifeMesh);
         disposeGroupResources(comboKnifeMesh);
         comboKnifeMesh = null;
       }
       comboRig.applyGlove(currentGlove, pRenderer);
-      comboKnifeMesh = buildKnifeModel(currentKnife, pRenderer);
-      applyContactGripSocket(comboKnifeMesh, currentKnife.knifeType);
+      if (previewKind === 'weapon') {
+        comboKnifeMesh = buildWeaponModel(currentWeapon, pRenderer);
+        applyWeaponSocketTransform(comboKnifeMesh, currentWeapon.weaponType);
+      } else {
+        comboKnifeMesh = buildKnifeModel(currentKnife, pRenderer);
+        applyContactGripSocket(comboKnifeMesh, currentKnife.knifeType);
+      }
       comboRig.knifeSocket.add(comboKnifeMesh);
 
       applyModeVisibility();
@@ -3168,9 +4366,15 @@
       comboPivot.visible = isCombo;
       soloPivot.visible = !isCombo;
       if (isCombo) {
-        pCamera.fov = 44;
-        pCamera.position.set(0, 0.07, 0.35);
-        pCamera.lookAt(0, 0.01, 0);
+        pCamera.fov = previewKind === 'weapon' ? 44 : 44;
+        if (previewKind === 'weapon') {
+          const isPistol = currentWeapon && currentWeapon.weaponType === 'deagle';
+          pCamera.position.set(0.03, 0.08, isPistol ? 0.50 : 0.78);
+          pCamera.lookAt(0.0, -0.015, 0.0);
+        } else {
+          pCamera.position.set(0, 0.07, 0.35);
+          pCamera.lookAt(0, 0.01, 0);
+        }
       } else {
         pCamera.fov = 36;
         pCamera.position.set(0, 0.015, 0.47);
@@ -3183,6 +4387,7 @@
       ensureInit(canvas);
       resize();
       const options = opts || {};
+      previewKind = 'knife';
       currentKnife = KS.sanitizeKnifeItem(knifeItem || currentKnife || KS.createStarterKnife());
       currentGlove = KS.sanitizeGloveItem(gloveItem || currentGlove || KS.createStarterGlove());
       if (options.mode === 'solo' || options.mode === 'combo') {
@@ -3201,6 +4406,27 @@
       startLoop();
     }
 
+    function showWeaponCombo(canvas, weaponItem, gloveItem, opts) {
+      ensureInit(canvas);
+      resize();
+      const options = opts || {};
+      previewKind = 'weapon';
+      currentWeapon = KS.sanitizeWeaponItem(weaponItem || currentWeapon || KS.createStarterWeapon('rifle'));
+      currentGlove = KS.sanitizeGloveItem(gloveItem || currentGlove || KS.createStarterGlove());
+      if (options.mode === 'solo' || options.mode === 'combo') {
+        previewMode = options.mode;
+      }
+      rebuildModels();
+
+      yaw = previewMode === 'combo' ? -0.78 : 0.22;
+      pitch = previewMode === 'combo' ? 0.06 : 0.08;
+      soloTrickT = 1;
+      comboAnimState.drawT = 1;
+      comboAnimState.inspectT = 1;
+      active = true;
+      startLoop();
+    }
+
     function showKnife(canvas, knifeItem, gloveItem) {
       showCombo(canvas, knifeItem, gloveItem || currentGlove, { mode: previewMode });
     }
@@ -3208,12 +4434,23 @@
     function setMode(mode) {
       previewMode = mode === 'solo' ? 'solo' : 'combo';
       applyModeVisibility();
-      yaw = previewMode === 'combo' ? 0.0 : 0.28;
-      pitch = previewMode === 'combo' ? 0.04 : 0.10;
+      yaw = previewMode === 'combo' ? (previewKind === 'weapon' ? -0.78 : 0.0) : 0.28;
+      pitch = previewMode === 'combo' ? (previewKind === 'weapon' ? 0.06 : 0.04) : 0.10;
       renderOnce();
     }
 
     function playTrick(tier = 'normal') {
+      if (previewKind === 'weapon') {
+        comboAnimState.inspectT = 0;
+        comboAnimState.inspectDuration = 1.9;
+        soloTrickT = 0;
+        WeaponAudio.weaponDraw();
+        if (!active) {
+          active = true;
+          startLoop();
+        }
+        return;
+      }
       const kt = currentKnife.knifeType;
       if (previewMode === 'combo') {
         const cleanTier = tier === 'mythic' ? 'mythic' : tier === 'uncommon' ? 'uncommon' : 'normal';
@@ -3241,6 +4478,23 @@
 
     function updateComboRig(dt) {
       if (!comboRig || !comboKnifeMesh) return;
+      if (previewKind === 'weapon') {
+        const wt = currentWeapon.weaponType;
+        if (comboAnimState.inspectT < 1) {
+          comboAnimState.inspectT = Math.min(1, comboAnimState.inspectT + dt / comboAnimState.inspectDuration);
+        }
+        const insp = comboAnimState.inspectT < 1 ? Math.sin(comboAnimState.inspectT * Math.PI) : 0;
+        const twist = comboAnimState.inspectT < 1 ? Math.sin(comboAnimState.inspectT * Math.PI * 2) : 0;
+
+        const zCenter = wt === 'deagle' ? -0.26 : wt === 'awp' ? -0.09 : -0.13;
+        const yCenter = wt === 'deagle' ? -0.182 : -0.198;
+        comboRig.rightHandPivot.position.set(0.02, yCenter + insp * 0.016, zCenter);
+        comboRig.rightHandPivot.rotation.set(0.04 + insp * 0.12, 0.04 + insp * 0.54, RIGHT_HAND_GRIP_ROLL + twist * 0.22);
+        applyWeaponSocketTransform(comboKnifeMesh, wt);
+        lockSupportHandToWeapon(comboRig, comboKnifeMesh, wt, 0, insp);
+        return;
+      }
+
       const kt = currentKnife.knifeType;
       if (comboAnimState.inspectT < 1) {
         comboAnimState.inspectT = Math.min(1, comboAnimState.inspectT + dt / comboAnimState.inspectDuration);
@@ -3287,8 +4541,10 @@
 
       if (previewMode === 'combo') {
         if (!dragging && comboAnimState.inspectT >= 1) {
-          // Gentle subtle breathing sway around the forward surf camera angle
-          yaw = Math.sin(now * 0.00075) * 0.28;
+          // Gentle subtle breathing sway around the optimal camera angle (3/4 side profile for firearms, forward surf angle for knives)
+          const baseYaw = previewKind === 'weapon' ? -0.78 : 0.0;
+          const swayAmp = previewKind === 'weapon' ? 0.20 : 0.28;
+          yaw = baseYaw + Math.sin(now * 0.00075) * swayAmp;
         }
         updateComboRig(dt);
         if (comboPivot) {
@@ -3358,6 +4614,7 @@
 
     return {
       showCombo,
+      showWeaponCombo,
       showKnife,
       setMode,
       getMode: () => previewMode,
@@ -3370,6 +4627,8 @@
   root.ViewmodelSystem = ViewmodelSystem;
   root.ArmoryPreview = ArmoryPreview;
   root.CaseAudio = CaseAudio;
+  root.WeaponAudio = WeaponAudio;
   root.renderKnifeThumbDataUrl = renderKnifeThumbDataUrl;
   root.renderGloveThumbDataUrl = renderGloveThumbDataUrl;
+  root.renderWeaponThumbDataUrl = renderWeaponThumbDataUrl;
 })(typeof self !== 'undefined' ? self : globalThis);

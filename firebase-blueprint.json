@@ -180,7 +180,7 @@
         },
         "keybinds": {
           "type": "object",
-          "description": "Native map of all 12 gameplay action input tokens (KeyboardEvent.code or Mouse0..Mouse4).",
+          "description": "Native map of all 19 gameplay and combat action input tokens (KeyboardEvent.code or Mouse0..Mouse4).",
           "properties": {
             "forward": { "type": "string", "minLength": 1, "maxLength": 24 },
             "back": { "type": "string", "minLength": 1, "maxLength": 24 },
@@ -190,6 +190,13 @@
             "slide": { "type": "string", "minLength": 1, "maxLength": 24 },
             "grapple": { "type": "string", "minLength": 1, "maxLength": 24 },
             "burst": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "fire": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "altFire": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "reload": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "slotRifle": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "slotAwp": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "slotDeagle": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "slotKnife": { "type": "string", "minLength": 1, "maxLength": 24 },
             "restart": { "type": "string", "minLength": 1, "maxLength": 24 },
             "checkpoint": { "type": "string", "minLength": 1, "maxLength": 24 },
             "ghost": { "type": "string", "minLength": 1, "maxLength": 24 },
@@ -204,6 +211,13 @@
             "slide",
             "grapple",
             "burst",
+            "fire",
+            "altFire",
+            "reload",
+            "slotRifle",
+            "slotAwp",
+            "slotDeagle",
+            "slotKnife",
             "restart",
             "checkpoint",
             "ghost",
@@ -257,6 +271,24 @@
           "minLength": 1,
           "maxLength": 64
         },
+        "equippedRifleId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "equippedAwpId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "equippedDeagleId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 64
+        },
         "caseCounts": {
           "type": "object",
           "properties": {
@@ -287,6 +319,9 @@
         "uid",
         "equippedKnifeId",
         "equippedGloveId",
+        "equippedRifleId",
+        "equippedAwpId",
+        "equippedDeagleId",
         "caseCounts",
         "totalOpened",
         "lastDailyDropDate",
@@ -447,44 +482,187 @@
         "caseId",
         "createdAt"
       ]
+    },
+    "WeaponItem": {
+      "title": "WeaponItem",
+      "description": "An individual unboxed or starter 3D firearm skin owned by a player.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "weaponType": {
+          "type": "string",
+          "enum": ["rifle", "awp", "deagle"]
+        },
+        "skinId": {
+          "type": "string",
+          "enum": [
+            "factory_slate",
+            "ultraviolet",
+            "redline",
+            "damascus",
+            "vulcan",
+            "crimson_web",
+            "asiimov",
+            "blaze",
+            "neon_rider",
+            "printstream",
+            "hyper_chroma",
+            "fade",
+            "case_hardened",
+            "dragon_gold"
+          ]
+        },
+        "rarity": {
+          "type": "string",
+          "enum": ["milspec", "restricted", "classified", "covert", "gold"]
+        },
+        "patternSeed": { "type": "integer" },
+        "floatValue": { "type": "number" },
+        "wearGrade": {
+          "type": "string",
+          "enum": ["FN", "MW", "FT", "WW", "BS"]
+        },
+        "specialTag": {
+          "type": "string",
+          "enum": ["", "BLUE GEM", "RUBY", "SAPPHIRE", "BLACK PEARL", "FIRE & ICE", "FULL FADE", "PHASE 1", "PHASE 2", "PHASE 3", "PHASE 4"]
+        },
+        "bluePct": { "type": "integer" },
+        "caseId": {
+          "type": "string",
+          "enum": ["starter", "velocity", "chroma", "spectrum"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "id",
+        "weaponType",
+        "skinId",
+        "rarity",
+        "patternSeed",
+        "floatValue",
+        "wearGrade",
+        "specialTag",
+        "bluePct",
+        "caseId",
+        "createdAt"
+      ]
+    },
+    "Lobby": {
+      "title": "Lobby",
+      "description": "Public or private WebRTC arena room listed on the serverless Servers board.",
+      "type": "object",
+      "properties": {
+        "lobbyId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "minLength": 1, "maxLength": 64 },
+        "hostUid": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "minLength": 1, "maxLength": 128 },
+        "hostName": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "roomName": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "mapId": { "type": "string", "enum": ["arena_surf", "arena_aim"] },
+        "mode": { "type": "string", "enum": ["duel_1v1", "ffa_4p"] },
+        "maxPlayers": { "type": "integer" },
+        "playerCount": { "type": "integer" },
+        "status": { "type": "string", "enum": ["open", "in_progress", "closed"] },
+        "isPrivate": { "type": "boolean" },
+        "joinCode": { "type": "string", "minLength": 0, "maxLength": 4 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "heartbeatAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "lobbyId",
+        "hostUid",
+        "hostName",
+        "roomName",
+        "mapId",
+        "mode",
+        "maxPlayers",
+        "playerCount",
+        "status",
+        "isPrivate",
+        "joinCode",
+        "createdAt",
+        "heartbeatAt"
+      ]
+    },
+    "LobbyPeer": {
+      "title": "LobbyPeer",
+      "description": "WebRTC SDP offer/answer and ICE candidate signaling document for a joining peer.",
+      "type": "object",
+      "properties": {
+        "peerUid": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "minLength": 1, "maxLength": 128 },
+        "hostUid": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "minLength": 1, "maxLength": 128 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "offerSdp": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "answerSdp": { "type": "string", "minLength": 0, "maxLength": 16384 },
+        "offerCandidates": { "type": "array" },
+        "answerCandidates": { "type": "array" },
+        "state": { "type": "string", "enum": ["offering", "answered", "closed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "peerUid",
+        "hostUid",
+        "displayName",
+        "offerSdp",
+        "answerSdp",
+        "offerCandidates",
+        "answerCandidates",
+        "state",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
     "/dailyCourses/{dateKey}": {
-      "schema": {
-        "$ref": "#/entities/DailyCourse"
-      },
+      "schema": { "$ref": "#/entities/DailyCourse" },
       "description": "Shared daily course registry indexed by UTC date (YYYY-MM-DD)."
     },
     "/dailyCourses/{dateKey}/runs/{uid}": {
-      "schema": {
-        "$ref": "#/entities/DailyRun"
-      },
+      "schema": { "$ref": "#/entities/DailyRun" },
       "description": "Per-player personal best leaderboard records for each daily course."
     },
     "/userSettings/{uid}": {
-      "schema": {
-        "$ref": "#/entities/UserSettings"
-      },
+      "schema": { "$ref": "#/entities/UserSettings" },
       "description": "Private owner-only user preferences and control bindings."
     },
     "/userInventory/{uid}": {
-      "schema": {
-        "$ref": "#/entities/UserInventory"
-      },
-      "description": "Private owner-only inventory summary, case counts, equipped knife, and equipped gloves."
+      "schema": { "$ref": "#/entities/UserInventory" },
+      "description": "Private owner-only inventory summary, case counts, equipped knife, gloves, and firearm skins."
     },
     "/userInventory/{uid}/knives/{knifeId}": {
-      "schema": {
-        "$ref": "#/entities/KnifeItem"
-      },
+      "schema": { "$ref": "#/entities/KnifeItem" },
       "description": "Private owner-only subcollection of unboxed and starter knives."
     },
     "/userInventory/{uid}/gloves/{gloveId}": {
-      "schema": {
-        "$ref": "#/entities/GloveItem"
-      },
+      "schema": { "$ref": "#/entities/GloveItem" },
       "description": "Private owner-only subcollection of unboxed and starter gloves."
+    },
+    "/userInventory/{uid}/weapons/{weaponId}": {
+      "schema": { "$ref": "#/entities/WeaponItem" },
+      "description": "Private owner-only subcollection of unboxed and starter firearm skins."
+    },
+    "/lobbies/{lobbyId}": {
+      "schema": { "$ref": "#/entities/Lobby" },
+      "description": "Serverless WebRTC arena lobby directory for 1v1 Duel and 4P FFA."
+    },
+    "/lobbies/{lobbyId}/peers/{peerUid}": {
+      "schema": { "$ref": "#/entities/LobbyPeer" },
+      "description": "Transient WebRTC SDP offer/answer and ICE candidate signaling docs."
     }
   }
 }

@@ -52,7 +52,15 @@ function buildCourse1(){
     [0,9,536,9, 0,4.05,516],[0,7,562,6],[0,15,690,8]
   ]);
   gateText('START',0,10,8,'#65e7ff');gateText('FINISH',0,22,690,'#ff9b55');
-  return {id:'course1',spawn:V3(0,0,-10),yaw:Math.PI,course:gates,bound:0};
+  const gauntletTargets=[
+    {id:'c1_t1',x:-5.5,y:11.2,z:82,yaw:Math.PI,scale:1.15},
+    {id:'c1_t2',x:5.2,y:11.0,z:148,yaw:Math.PI,scale:1.15},
+    {id:'c1_t3',x:0,y:12.6,z:254,yaw:Math.PI,scale:1.2,patrolAxis:'x',patrolRange:2.8,patrolSpeed:2.1,phase:0.5},
+    {id:'c1_t4',x:-7.5,y:2.2,z:344,yaw:Math.PI,scale:1.3},
+    {id:'c1_t5',x:5.5,y:6.8,z:482,yaw:Math.PI,scale:1.15},
+    {id:'c1_t6',x:0,y:15.5,z:648,yaw:Math.PI,scale:1.25,patrolAxis:'x',patrolRange:4.5,patrolSpeed:2.0,phase:1.4}
+  ];
+  return {id:'course1',spawn:V3(0,0,-10),yaw:Math.PI,course:gates,bound:0,targetMode:'gauntlet',targets:gauntletTargets};
 }
 
 // SURF 01 — "SKYLINE DRIFT": dedicated Counter-Strike linear multi-ramp surf map.
@@ -148,6 +156,14 @@ function buildSurfMap1(){
   gateText('START',0,58,6,'#65e7ff');
   gateText('FINISH',deckX,finY+11,finZ0+36,'#ff9b55');
 
+  const surfTargets=[
+    {id:'s1_t1',x:-8.5,y:42.5,z:52,yaw:Math.PI,scale:1.35},
+    {id:'s1_t2',x:0,y:26.5,z:168,yaw:Math.PI,scale:1.3},
+    {id:'s1_t3',x:deckX-6,y:deckY+3.2,z:deckZ0+18,yaw:Math.PI,scale:1.3},
+    {id:'s1_t4',x:deckX+6,y:-6.5,z:launchZ1+4,yaw:Math.PI,scale:1.4},
+    {id:'s1_t5',x:deckX,y:finY+4.5,z:finZ0+16,yaw:Math.PI,scale:1.35,patrolAxis:'x',patrolRange:5.5,patrolSpeed:2.0,phase:0.8}
+  ];
+
   return {
     id:'surf1',
     spawn:V3(0,48,-8),
@@ -155,7 +171,9 @@ function buildSurfMap1(){
     course:gates,
     bound:0,
     killY:-42,
-    surfHint:true
+    surfHint:true,
+    targetMode:'gauntlet',
+    targets:surfTargets
   };
 }
 

@@ -21,6 +21,7 @@ import {
   where,
   orderBy,
   limit,
+  onSnapshot,
   serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
@@ -476,6 +477,15 @@ async function loadUserInventory() {
     handleFirestoreError(error, OperationType.LIST, glovesPath);
   }
 
+  const weaponsPath = `userInventory/${uid}/weapons`;
+  let weaponsSnap;
+  try {
+    const wq = query(collection(db, 'userInventory', uid, 'weapons'), where('uid', '==', uid), limit(250));
+    weaponsSnap = await getDocs(wq);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, weaponsPath);
+  }
+
   const knives = [];
   if (knivesSnap) {
     knivesSnap.forEach((docSnap) => {
@@ -488,15 +498,25 @@ async function loadUserInventory() {
       gloves.push(window.KnivesSystem.sanitizeGloveItem(docSnap.data()));
     });
   }
+  const weapons = [];
+  if (weaponsSnap) {
+    weaponsSnap.forEach((docSnap) => {
+      weapons.push(window.KnivesSystem.sanitizeWeaponItem(docSnap.data()));
+    });
+  }
   const data = snap.data();
   const clean = window.KnivesSystem.sanitizeInventory({
     equippedKnifeId: data.equippedKnifeId,
     equippedGloveId: data.equippedGloveId,
+    equippedRifleId: data.equippedRifleId,
+    equippedAwpId: data.equippedAwpId,
+    equippedDeagleId: data.equippedDeagleId,
     caseCounts: data.caseCounts,
     totalOpened: data.totalOpened,
     lastDailyDropDate: data.lastDailyDropDate,
     knives,
-    gloves
+    gloves,
+    weapons
   });
   return { inventory: clean, exists: true, cloudSynced: true };
 }
@@ -523,6 +543,9 @@ async function saveUserInventorySummary(inventory) {
       await updateDoc(invRef, {
         equippedKnifeId: payload.equippedKnifeId,
         equippedGloveId: payload.equippedGloveId,
+        equippedRifleId: payload.equippedRifleId,
+        equippedAwpId: payload.equippedAwpId,
+        equippedDeagleId: payload.equippedDeagleId,
         caseCounts: payload.caseCounts,
         totalOpened: Math.max(payload.totalOpened, existingSnap.data().totalOpened || 0),
         lastDailyDropDate: payload.lastDailyDropDate,
@@ -623,6 +646,336 @@ async function deleteCloudGlove(gloveId) {
   }
 }
 
+async function saveCloudWeapon(weaponItem, fullInventory) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+    return { saved: false };
+  }
+  await saveUserInventorySummary(fullInventory);
+  const uid = currentUser.uid;
+  const payload = window.KnivesSystem.toCloudWeaponPayload(weaponItem, uid);
+  const weaponPath = `userInventory/${uid}/weapons/${payload.id}`;
+  const weaponRef = doc(db, 'userInventory', uid, 'weapons', payload.id);
+
+  try {
+    const existingSnap = await getDoc(weaponRef);
+    if (existingSnap.exists()) return { saved: true };
+    await setDoc(weaponRef, {
+      ...payload,
+      createdAt: serverTimestamp()
+    });
+    return { saved: true };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, weaponPath);
+  }
+}
+
+async function deleteCloudWeapon(weaponId) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) return { deleted: false };
+  const uid = currentUser.uid;
+  const weaponPath = `userInventory/${uid}/weapons/${weaponId}`;
+  const weaponRef = doc(db, 'userInventory', uid, 'weapons', weaponId);
+  try {
+    await deleteDoc(weaponRef);
+    return { deleted: true };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, weaponPath);
+  }
+}
+
+// ---------- Serverless WebRTC Lobby Directory & Signaling ----------
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for (let i = 0; i < 4; i++) {
+    out += chars[Math.floor(Math.random() * chars.length) % chars.length];
+  }
+  return out;
+}
+
+function generateLobbyId(isPrivate, joinCode) {
+  if (isPrivate && joinCode) {
+    return 'code_' + joinCode;
+  }
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let tail = '';
+  for (let i = 0; i < 8; i++) {
+    tail += chars[Math.floor(Math.random() * chars.length) % chars.length];
+  }
+  return 'lob_' + Date.now().toString(36) + '_' + tail;
+}
+
+function normalizeLobbyDoc(docSnap) {
+  const d = docSnap.data();
+  const hb = d.heartbeatAt && typeof d.heartbeatAt.toMillis === 'function' ? d.heartbeatAt.toMillis() : Date.now();
+  return {
+    lobbyId: d.lobbyId || docSnap.id,
+    hostUid: d.hostUid,
+    hostName: d.hostName || 'Host',
+    roomName: d.roomName || 'Velocity Arena',
+    mapId: d.mapId || 'arena_aim',
+    mode: d.mode || 'duel_1v1',
+    maxPlayers: d.maxPlayers || 2,
+    playerCount: d.playerCount || 1,
+    status: d.status || 'open',
+    isPrivate: Boolean(d.isPrivate),
+    joinCode: d.joinCode || '',
+    heartbeatMs: hb
+  };
+}
+
+function subscribePublicLobbies(onUpdate, onError) {
+  if (!db || !currentUser || !currentUser.emailVerified) {
+    if (typeof onUpdate === 'function') onUpdate([]);
+    return () => {};
+  }
+  const q = query(
+    collection(db, 'lobbies'),
+    where('isPrivate', '==', false),
+    where('status', 'in', ['open', 'in_progress']),
+    limit(30)
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const now = Date.now();
+      const lobbies = [];
+      snap.forEach((docSnap) => {
+        const item = normalizeLobbyDoc(docSnap);
+        // Filter out stale rooms whose host stopped heartbeating > 35s ago
+        if (now - item.heartbeatMs <= 35000) {
+          lobbies.push(item);
+        }
+      });
+      lobbies.sort((a, b) => b.heartbeatMs - a.heartbeatMs);
+      if (typeof onUpdate === 'function') onUpdate(lobbies);
+    },
+    (error) => {
+      if (typeof onError === 'function') onError(error);
+      else console.warn('Public lobby subscription error:', error);
+    }
+  );
+}
+
+async function createLobby(opts) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) {
+    throw new Error('Sign in with a verified Google account to host a server.');
+  }
+  const mode = opts && opts.mode === 'ffa_4p' ? 'ffa_4p' : 'duel_1v1';
+  const mapId = opts && opts.mapId === 'arena_surf' ? 'arena_surf' : 'arena_aim';
+  const maxPlayers = mode === 'ffa_4p' ? 4 : 2;
+  const isPrivate = Boolean(opts && opts.isPrivate);
+  const hostName = sanitizeDisplayName(currentUser).slice(0, 32) || 'Host';
+  const rawRoom = String((opts && opts.roomName) || '').replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 32);
+  const roomName = rawRoom || `${hostName}'s ${mode === 'ffa_4p' ? 'FFA' : '1v1'}`;
+
+  let joinCode = isPrivate ? generateRoomCode() : '';
+  let lobbyId = generateLobbyId(isPrivate, joinCode);
+
+  // If private code collides with an active room, retry a few times
+  if (isPrivate) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const checkRef = doc(db, 'lobbies', lobbyId);
+      try {
+        const existing = await getDoc(checkRef);
+        if (!existing.exists()) break;
+        joinCode = generateRoomCode();
+        lobbyId = generateLobbyId(true, joinCode);
+      } catch (_) {
+        break;
+      }
+    }
+  }
+
+  const ref = doc(db, 'lobbies', lobbyId);
+  const payload = {
+    lobbyId,
+    hostUid: currentUser.uid,
+    hostName,
+    roomName,
+    mapId,
+    mode,
+    maxPlayers,
+    playerCount: 1,
+    status: 'open',
+    isPrivate,
+    joinCode,
+    createdAt: serverTimestamp(),
+    heartbeatAt: serverTimestamp()
+  };
+
+  try {
+    await setDoc(ref, payload);
+    return {
+      lobbyId,
+      hostUid: currentUser.uid,
+      hostName,
+      roomName,
+      mapId,
+      mode,
+      maxPlayers,
+      playerCount: 1,
+      status: 'open',
+      isPrivate,
+      joinCode
+    };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, `lobbies/${lobbyId}`);
+  }
+}
+
+async function updateLobby(lobbyId, patch) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId) return;
+  const ref = doc(db, 'lobbies', lobbyId);
+  const body = { heartbeatAt: serverTimestamp() };
+  if (patch && typeof patch.playerCount === 'number') body.playerCount = Math.max(1, Math.min(4, Math.floor(patch.playerCount)));
+  if (patch && typeof patch.status === 'string') body.status = patch.status;
+  if (patch && typeof patch.mapId === 'string') body.mapId = patch.mapId;
+  if (patch && typeof patch.mode === 'string') {
+    body.mode = patch.mode;
+    body.maxPlayers = patch.mode === 'ffa_4p' ? 4 : 2;
+  }
+  try {
+    await updateDoc(ref, body);
+  } catch (error) {
+    console.warn('Lobby update failed:', error);
+  }
+}
+
+async function closeLobby(lobbyId) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId) return;
+  try {
+    // Clean up peer docs owned by this lobby first
+    const peersQ = query(collection(db, 'lobbies', lobbyId, 'peers'), where('hostUid', '==', currentUser.uid), limit(20));
+    const peersSnap = await getDocs(peersQ);
+    const deletes = [];
+    peersSnap.forEach((pSnap) => deletes.push(deleteDoc(pSnap.ref).catch(() => {})));
+    await Promise.all(deletes);
+  } catch (_) {}
+  try {
+    await deleteDoc(doc(db, 'lobbies', lobbyId));
+  } catch (_) {}
+}
+
+async function getLobbyById(lobbyId) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId) return null;
+  try {
+    const snap = await getDoc(doc(db, 'lobbies', lobbyId));
+    if (!snap.exists()) return null;
+    const item = normalizeLobbyDoc(snap);
+    if (item.status === 'closed' || Date.now() - item.heartbeatMs > 40000) return null;
+    return item;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, `lobbies/${lobbyId}`);
+  }
+}
+
+async function findLobbyByCode(rawCode) {
+  const code = String(rawCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+  if (code.length !== 4) return null;
+  return getLobbyById('code_' + code);
+}
+
+function subscribeLobbyPeers(lobbyId, onPeers) {
+  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId) return () => {};
+  const q = query(
+    collection(db, 'lobbies', lobbyId, 'peers'),
+    where('hostUid', '==', currentUser.uid),
+    limit(16)
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const peers = [];
+      snap.forEach((pSnap) => peers.push(pSnap.data()));
+      if (typeof onPeers === 'function') onPeers(peers);
+    },
+    (error) => console.warn('Lobby peers snapshot error:', error)
+  );
+}
+
+function subscribePeerDoc(lobbyId, peerUid, onPeer) {
+  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId || !peerUid) return () => {};
+  const ref = doc(db, 'lobbies', lobbyId, 'peers', peerUid);
+  return onSnapshot(
+    ref,
+    (snap) => {
+      if (typeof onPeer === 'function') onPeer(snap.exists() ? snap.data() : null);
+    },
+    (error) => console.warn('Peer doc snapshot error:', error)
+  );
+}
+
+async function writePeerOffer(lobbyId, hostUid, offerSdp, offerCandidates) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) {
+    throw new Error('Sign in with a verified Google account to join a server.');
+  }
+  const peerUid = currentUser.uid;
+  const displayName = sanitizeDisplayName(currentUser).slice(0, 32) || 'Runner';
+  const ref = doc(db, 'lobbies', lobbyId, 'peers', peerUid);
+  const cands = Array.isArray(offerCandidates) ? offerCandidates.slice(0, 30) : [];
+  try {
+    await setDoc(ref, {
+      peerUid,
+      hostUid,
+      displayName,
+      offerSdp: String(offerSdp || '').slice(0, 16384),
+      answerSdp: '',
+      offerCandidates: cands,
+      answerCandidates: [],
+      state: 'offering',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, `lobbies/${lobbyId}/peers/${peerUid}`);
+  }
+}
+
+async function updatePeerOfferCandidates(lobbyId, offerCandidates) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) return;
+  const peerUid = currentUser.uid;
+  const ref = doc(db, 'lobbies', lobbyId, 'peers', peerUid);
+  try {
+    await updateDoc(ref, {
+      offerCandidates: Array.isArray(offerCandidates) ? offerCandidates.slice(0, 30) : [],
+      state: 'offering',
+      updatedAt: serverTimestamp()
+    });
+  } catch (_) {}
+}
+
+async function writePeerAnswer(lobbyId, peerUid, answerSdp, answerCandidates) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) return;
+  const ref = doc(db, 'lobbies', lobbyId, 'peers', peerUid);
+  try {
+    await updateDoc(ref, {
+      answerSdp: String(answerSdp || '').slice(0, 16384),
+      answerCandidates: Array.isArray(answerCandidates) ? answerCandidates.slice(0, 30) : [],
+      state: 'answered',
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.warn('writePeerAnswer failed:', error);
+  }
+}
+
+async function deletePeerDoc(lobbyId, peerUid) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId || !peerUid) return;
+  try {
+    await deleteDoc(doc(db, 'lobbies', lobbyId, 'peers', peerUid));
+  } catch (_) {}
+}
+
 async function signInWithGoogle() {
   await ready;
   if (!auth) throw new Error('Firebase Auth is not initialized.');
@@ -661,6 +1014,20 @@ window.DailyBackend = {
   saveCloudKnife,
   deleteCloudKnife,
   saveCloudGlove,
-  deleteCloudGlove
+  deleteCloudGlove,
+  saveCloudWeapon,
+  deleteCloudWeapon,
+  subscribePublicLobbies,
+  createLobby,
+  updateLobby,
+  closeLobby,
+  getLobbyById,
+  findLobbyByCode,
+  subscribeLobbyPeers,
+  subscribePeerDoc,
+  writePeerOffer,
+  updatePeerOfferCandidates,
+  writePeerAnswer,
+  deletePeerDoc
 };
 window.dispatchEvent(new Event('daily-backend-ready'));
