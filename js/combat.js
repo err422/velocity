@@ -15,7 +15,17 @@
   const FFA_WIN_KILLS = 15;
   const SLOTS = Object.freeze(['primary', 'secondary', 'melee']);
 
-  // ---------- Pure Testable Gauntlet & Match Helpers ----------
+  // ---------- Pure Testable Helpers ----------
+  function advanceAdsProgress(progress, adsTarget, dt, duration) {
+    const current = Math.max(0, Math.min(1, Number(progress) || 0));
+    const deltaTime = Math.max(0, Number(dt) || 0);
+    const transitionTime = Math.max(0.08, Number(duration) || 0.20);
+    const step = deltaTime / transitionTime;
+    return adsTarget
+      ? Math.min(1, current + step)
+      : Math.max(0, current - step * 1.25);
+  }
+
   function computeGauntletSummary(rawTime, targetsHit, targetsTotal) {
     const cleanRaw = Math.max(0, Number(rawTime) || 0);
     const total = Math.max(0, Math.floor(Number(targetsTotal) || 0));
@@ -71,6 +81,7 @@
       DUEL_WIN_ROUNDS,
       FFA_WIN_KILLS,
       SLOTS,
+      advanceAdsProgress,
       computeGauntletSummary,
       evaluateDuelRoundResult,
       evaluateFfaScoreboard
@@ -1261,16 +1272,12 @@
     if (state.hitmarkerTimer > 0) state.hitmarkerTimer = Math.max(0, state.hitmarkerTimer - dt);
     if (state.damageFlashTimer > 0) state.damageFlashTimer = Math.max(0, state.damageFlashTimer - dt);
 
-    // One ADS timeline for camera, weapon alignment, and scope overlay.
-    // Wait for the weapon draw/reload animation before starting the shared transition.
+    // ADS follows only the input/reload state. Viewmodel draw readiness must
+    // never reverse the transition while the player is still holding aim.
     const activeBuild = getActiveBuild(state.activeSlot);
-    const viewmodelReady = !root.ViewmodelSystem
-      || typeof root.ViewmodelSystem.isAdsReady !== 'function'
-      || root.ViewmodelSystem.isAdsReady();
-    const adsTarget = activeBuild && state.adsHeld && !state.reloading && viewmodelReady ? 1 : 0;
-    const adsDur = activeBuild ? Math.max(0.08, activeBuild.adsTimeSec) : 0.18;
-    if (adsTarget > state.adsProgress) state.adsProgress = Math.min(1, state.adsProgress + dt / adsDur);
-    else state.adsProgress = Math.max(0, state.adsProgress - (dt / adsDur) * 1.25);
+    const adsTarget = Boolean(activeBuild && state.adsHeld && !state.reloading);
+    const adsDur = activeBuild ? activeBuild.adsTimeSec : 0.18;
+    state.adsProgress = advanceAdsProgress(state.adsProgress, adsTarget, dt, adsDur);
 
     if (state.reloading) {
       state.reloadTimer -= dt;
@@ -1383,6 +1390,7 @@
     DUEL_WIN_ROUNDS,
     FFA_WIN_KILLS,
     SLOTS,
+    advanceAdsProgress,
     computeGauntletSummary,
     evaluateDuelRoundResult,
     evaluateFfaScoreboard,

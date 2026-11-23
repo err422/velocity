@@ -5018,7 +5018,7 @@
       rifle:   { optic: [0, 0.054, -0.02],  muzzle: [0, 0.020, -0.60],  under: [0, -0.012, -0.27], mag: [0, -0.095, -0.12], grip: [0, -0.046, 0.052], stock: [0, 0.008, 0.14], ironEyeY: 0.060 },
       smg:     { optic: [0, 0.053, -0.06],  muzzle: [0, 0.006, -0.39],  under: [0, -0.028, -0.22], mag: [0, -0.115, -0.135], grip: [0, -0.048, 0.045], stock: [0, 0.006, 0.09], ironEyeY: 0.062 },
       shotgun: { optic: [0, 0.049, -0.03],  muzzle: [0, 0.026, -0.63],  under: [0, -0.026, -0.31], mag: [0, -0.002, -0.44], grip: [0, -0.044, 0.072], stock: [0, 0.002, 0.08], ironEyeY: 0.046 },
-      awp:     { optic: [0, 0.064, -0.04],  muzzle: [0, 0.038, -0.78],  under: [0, -0.014, -0.30], mag: [0, -0.055, -0.075], grip: [0, -0.045, 0.055], stock: [0, 0.004, 0.16], ironEyeY: 0.066 },
+      awp:     { optic: [0, 0.064, -0.04],  muzzle: [0, 0.038, -0.78],  under: [0, -0.014, -0.30], mag: [0, -0.055, -0.075], grip: [0, -0.045, 0.055], stock: [0, 0.004, 0.16], ironEyeY: 0.094 },
       deagle:  { optic: [0, 0.052, -0.05],  muzzle: [0, 0.028, -0.255], under: [0, -0.004, -0.14], mag: [0, -0.098, 0.036], grip: [0, -0.048, 0.034], stock: null,              ironEyeY: 0.056 },
       pistol:  { optic: [0, 0.044, -0.04],  muzzle: [0, 0.024, -0.22],  under: [0, -0.010, -0.12], mag: [0, -0.098, 0.044], grip: [0, -0.048, 0.038], stock: null,              ironEyeY: 0.049 }
     };
@@ -5752,7 +5752,6 @@
     let isScoped = false;
     let adsActive = false;
     let adsProgress = 0;
-    let adsDuration = 0.20;
     let adsScopedOptic = false;
     let currentItem = null;
     let currentGlove = KS.createStarterGlove();
@@ -5980,16 +5979,11 @@
 
     function setAdsState(active, durationSec, isScopedOptic) {
       adsActive = Boolean(active) && activeSlot !== 'knife';
-      adsDuration = Math.max(0.08, Number(durationSec) || 0.20);
       adsScopedOptic = Boolean(isScopedOptic);
       if (!adsActive) {
         isScoped = false;
         if (rig && rig.rootRig) rig.rootRig.visible = true;
       }
-    }
-
-    function isAdsReady() {
-      return activeSlot !== 'knife' && weaponAnim.reloadT >= 1 && weaponAnim.drawT >= 0.85;
     }
 
     function equipKnife(item, playDraw = true) {
@@ -6169,11 +6163,11 @@
 
       evaluateWeaponChoreography(wt, weaponAnim, _weaponOut, true);
 
-      const drawDip = (1 - smoothstep(0, 1, weaponAnim.drawT)) * 0.22;
+      const adsEase = smoothstep(0, 1, adsProgress);
+      // Weapon draw should not tug the model away from the sight line after ADS starts.
+      const drawDip = (1 - smoothstep(0, 1, weaponAnim.drawT)) * 0.22 * (1 - adsEase);
       const reloadArc = weaponAnim.reloadT < 1 ? Math.sin(weaponAnim.reloadT * Math.PI) : 0;
       const boltArc = (wt === 'awp' || wt === 'shotgun') && weaponAnim.boltT < 1 ? Math.sin(weaponAnim.boltT * Math.PI) : 0;
-
-      const adsEase = smoothstep(0, 1, adsProgress);
       // Fully stabilize the weapon at full ADS; do not retain surf bank or idle sway.
       const motionDamp = 1 - adsEase;
 
@@ -6312,7 +6306,6 @@
       triggerReload,
       setScoped,
       setAdsState,
-      isAdsReady,
       getAdsProgress: () => adsProgress,
       applySettings,
       triggerDraw,

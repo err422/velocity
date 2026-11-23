@@ -2,6 +2,19 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const CombatSystem = require('../js/combat.js');
 
+test('ADS progress cannot move back toward hip-fire while aim remains held', () => {
+  let progress = 0;
+  for (let i = 0; i < 90; i++) {
+    const next = CombatSystem.advanceAdsProgress(progress, true, 1 / 60, 0.20);
+    assert.ok(next >= progress, 'held ADS must never reverse toward hip-fire');
+    progress = next;
+  }
+  assert.equal(progress, 1);
+
+  const released = CombatSystem.advanceAdsProgress(progress, false, 1 / 60, 0.20);
+  assert.ok(released < progress, 'releasing aim should return toward hip-fire');
+});
+
 test('computeGauntletSummary gives CLEAN RUN (+0.0s) when all targets hit and +1.0s per missed target', () => {
   const clean = CombatSystem.computeGauntletSummary(18.42, 6, 6);
   assert.equal(clean.cleanRun, true);
