@@ -139,6 +139,511 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function isValidInputToken(tok) {
+      return tok is string
+        && tok.size() >= 1
+        && tok.size() <= 24
+        && tok.matches('^[A-Za-z0-9_]+$')
+        && tok != 'Escape';
+    }
+
+    function isValidCrosshairMap(c) {
+      return c is map
+        && c.keys().hasAll(['style', 'size', 'color'])
+        && c.keys().hasOnly(['style', 'size', 'color'])
+        && c.style is string
+        && c.style.size() >= 3
+        && c.style.size() <= 12
+        && c.style in ['cross', 'dot', 'cross-dot', 'circle', 'none']
+        && c.size is number
+        && c.size >= 8
+        && c.size <= 28
+        && c.color is string
+        && c.color.size() == 7
+        && c.color in ['#c9f8ff', '#ffffff', '#7dff8b', '#ff9b55', '#ff5e8a'];
+    }
+
+    function isValidKeybindsMap(k) {
+      return k is map
+        && k.keys().hasAll([
+          'forward',
+          'back',
+          'left',
+          'right',
+          'jump',
+          'slide',
+          'grapple',
+          'burst',
+          'restart',
+          'checkpoint',
+          'ghost',
+          'inspect'
+        ])
+        && k.keys().hasOnly([
+          'forward',
+          'back',
+          'left',
+          'right',
+          'jump',
+          'slide',
+          'grapple',
+          'burst',
+          'restart',
+          'checkpoint',
+          'ghost',
+          'inspect'
+        ])
+        && isValidInputToken(k.forward)
+        && isValidInputToken(k.back)
+        && isValidInputToken(k.left)
+        && isValidInputToken(k.right)
+        && isValidInputToken(k.jump)
+        && isValidInputToken(k.slide)
+        && isValidInputToken(k.grapple)
+        && isValidInputToken(k.burst)
+        && isValidInputToken(k.restart)
+        && isValidInputToken(k.checkpoint)
+        && isValidInputToken(k.ghost)
+        && isValidInputToken(k.inspect);
+    }
+
+    function isValidViewmodelMap(v) {
+      return v is map
+        && v.keys().hasAll(['offsetX', 'offsetY', 'offsetZ', 'fov'])
+        && v.keys().hasOnly(['offsetX', 'offsetY', 'offsetZ', 'fov'])
+        && v.offsetX is number
+        && v.offsetX >= -2.5
+        && v.offsetX <= 2.5
+        && v.offsetY is number
+        && v.offsetY >= -2.5
+        && v.offsetY <= 2.5
+        && v.offsetZ is number
+        && v.offsetZ >= -2.5
+        && v.offsetZ <= 2.5
+        && v.fov is number
+        && v.fov >= 54
+        && v.fov <= 72;
+    }
+
+    function isValidUserSettingsShape(data, uid) {
+      return data.keys().hasAll([
+          'uid',
+          'displayName',
+          'sensitivity',
+          'invertY',
+          'baseFov',
+          'crosshair',
+          'viewmodel',
+          'keybinds',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'sensitivity',
+          'invertY',
+          'baseFov',
+          'crosshair',
+          'viewmodel',
+          'keybinds',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() >= 0
+        && data.displayName.size() <= 32
+        && data.sensitivity is number
+        && data.sensitivity >= 0.2
+        && data.sensitivity <= 4.0
+        && data.invertY is bool
+        && data.baseFov is number
+        && data.baseFov >= 70
+        && data.baseFov <= 115
+        && isValidCrosshairMap(data.crosshair)
+        && isValidViewmodelMap(data.viewmodel)
+        && isValidKeybindsMap(data.keybinds)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserSettingsCreate(data, uid) {
+      return isValidUserSettingsShape(data, uid)
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isValidUserSettingsUpdate(data, uid) {
+      return isValidUserSettingsShape(data, uid)
+        && data.updatedAt == request.time;
+    }
+
+    function isValidCaseCountsMap(c) {
+      return c is map
+        && c.keys().hasAll(['velocity', 'chroma', 'spectrum'])
+        && c.keys().hasOnly(['velocity', 'chroma', 'spectrum'])
+        && c.velocity is int
+        && c.velocity >= 0
+        && c.velocity <= 999
+        && c.chroma is int
+        && c.chroma >= 0
+        && c.chroma <= 999
+        && c.spectrum is int
+        && c.spectrum >= 0
+        && c.spectrum <= 999;
+    }
+
+    function isValidUserInventoryShape(data, uid) {
+      return data.keys().hasAll([
+          'uid',
+          'equippedKnifeId',
+          'equippedGloveId',
+          'caseCounts',
+          'totalOpened',
+          'lastDailyDropDate',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'equippedKnifeId',
+          'equippedGloveId',
+          'caseCounts',
+          'totalOpened',
+          'lastDailyDropDate',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && data.equippedKnifeId is string
+        && data.equippedKnifeId.size() >= 1
+        && data.equippedKnifeId.size() <= 64
+        && data.equippedKnifeId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.equippedGloveId is string
+        && data.equippedGloveId.size() >= 1
+        && data.equippedGloveId.size() <= 64
+        && data.equippedGloveId.matches('^[a-zA-Z0-9_\\-]+$')
+        && isValidCaseCountsMap(data.caseCounts)
+        && data.totalOpened is int
+        && data.totalOpened >= 0
+        && data.totalOpened <= 99999
+        && data.lastDailyDropDate is string
+        && data.lastDailyDropDate.size() >= 0
+        && data.lastDailyDropDate.size() <= 10
+        && (data.lastDailyDropDate == '' || data.lastDailyDropDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserInventoryCreate(data, uid) {
+      return isValidUserInventoryShape(data, uid)
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isValidUserInventoryUpdate(data, uid) {
+      return isValidUserInventoryShape(data, uid)
+        && data.updatedAt == request.time;
+    }
+
+    function isValidKnifeItemCreate(data, uid, knifeId) {
+      return data.keys().hasAll([
+          'uid',
+          'id',
+          'knifeType',
+          'skinId',
+          'rarity',
+          'patternSeed',
+          'floatValue',
+          'wearGrade',
+          'specialTag',
+          'bluePct',
+          'caseId',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'id',
+          'knifeType',
+          'skinId',
+          'rarity',
+          'patternSeed',
+          'floatValue',
+          'wearGrade',
+          'specialTag',
+          'bluePct',
+          'caseId',
+          'createdAt'
+        ])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && data.id is string
+        && data.id.size() >= 1
+        && data.id.size() <= 64
+        && data.id == knifeId
+        && data.id.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.knifeType is string
+        && data.knifeType.size() >= 2
+        && data.knifeType.size() <= 16
+        && data.knifeType in ['default', 'karambit', 'butterfly', 'm9', 'skeleton']
+        && data.skinId is string
+        && data.skinId.size() >= 4
+        && data.skinId.size() <= 24
+        && data.skinId in ['vanilla', 'ultraviolet', 'damascus', 'crimson_web', 'slaughter', 'tiger_tooth', 'fade', 'marble_fade', 'doppler', 'case_hardened']
+        && data.rarity is string
+        && data.rarity.size() >= 4
+        && data.rarity.size() <= 16
+        && data.rarity in ['milspec', 'restricted', 'classified', 'covert', 'gold']
+        && data.patternSeed is int
+        && data.patternSeed >= 0
+        && data.patternSeed <= 999
+        && data.floatValue is number
+        && data.floatValue >= 0.0
+        && data.floatValue <= 1.0
+        && data.wearGrade is string
+        && data.wearGrade.size() == 2
+        && data.wearGrade in ['FN', 'MW', 'FT', 'WW', 'BS']
+        && data.specialTag is string
+        && data.specialTag.size() >= 0
+        && data.specialTag.size() <= 20
+        && data.specialTag in ['', 'BLUE GEM', 'RUBY', 'SAPPHIRE', 'BLACK PEARL', 'FIRE & ICE', 'FULL FADE', 'PHASE 1', 'PHASE 2', 'PHASE 3', 'PHASE 4']
+        && data.bluePct is int
+        && data.bluePct >= 0
+        && data.bluePct <= 100
+        && data.caseId is string
+        && data.caseId.size() >= 6
+        && data.caseId.size() <= 16
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum']
+        && data.createdAt is timestamp
+        && data.createdAt == request.time;
+    }
+
+    function isValidGloveItemCreate(data, uid, gloveId) {
+      return data.keys().hasAll([
+          'uid',
+          'id',
+          'gloveType',
+          'skinId',
+          'rarity',
+          'patternSeed',
+          'floatValue',
+          'wearGrade',
+          'specialTag',
+          'bluePct',
+          'caseId',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'id',
+          'gloveType',
+          'skinId',
+          'rarity',
+          'patternSeed',
+          'floatValue',
+          'wearGrade',
+          'specialTag',
+          'bluePct',
+          'caseId',
+          'createdAt'
+        ])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && data.id is string
+        && data.id.size() >= 1
+        && data.id.size() <= 64
+        && data.id == gloveId
+        && data.id.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.gloveType is string
+        && data.gloveType.size() >= 5
+        && data.gloveType.size() <= 16
+        && data.gloveType in ['standard', 'sport', 'specialist', 'wraps']
+        && data.skinId is string
+        && data.skinId.size() >= 4
+        && data.skinId.size() <= 24
+        && data.skinId in [
+          'tactical_slate',
+          'case_hardened',
+          'vice',
+          'pandoras_box',
+          'hedge_maze',
+          'slingshot',
+          'crimson_kimono',
+          'emerald_web',
+          'fade',
+          'leather',
+          'slaughter',
+          'cobalt_skulls',
+          'overprint'
+        ]
+        && data.rarity is string
+        && data.rarity.size() >= 4
+        && data.rarity.size() <= 16
+        && data.rarity in ['milspec', 'restricted', 'classified', 'covert', 'gold']
+        && data.patternSeed is int
+        && data.patternSeed >= 0
+        && data.patternSeed <= 999
+        && data.floatValue is number
+        && data.floatValue >= 0.0
+        && data.floatValue <= 1.0
+        && data.wearGrade is string
+        && data.wearGrade.size() == 2
+        && data.wearGrade in ['FN', 'MW', 'FT', 'WW', 'BS']
+        && data.specialTag is string
+        && data.specialTag.size() >= 0
+        && data.specialTag.size() <= 20
+        && data.specialTag in ['', 'BLUE GEM', 'RUBY', 'SAPPHIRE', 'BLACK PEARL', 'FIRE & ICE', 'FULL FADE', 'PHASE 1', 'PHASE 2', 'PHASE 3', 'PHASE 4']
+        && data.bluePct is int
+        && data.bluePct >= 0
+        && data.bluePct <= 100
+        && data.caseId is string
+        && data.caseId.size() >= 6
+        && data.caseId.size() <= 16
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum']
+        && data.createdAt is timestamp
+        && data.createdAt == request.time;
+    }
+
+    // ---------- Collection Rules: Private User Settings ----------
+    match /userSettings/{uid} {
+      allow get: if isVerifiedUser()
+        && isValidId(uid)
+        && request.auth.uid == uid;
+      allow list: if false;
+
+      allow create: if isVerifiedUser()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && isValidUserSettingsCreate(incoming(), uid);
+
+      allow update: if isVerifiedUser()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && isValidUserSettingsUpdate(incoming(), uid)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName',
+          'sensitivity',
+          'invertY',
+          'baseFov',
+          'crosshair',
+          'viewmodel',
+          'keybinds',
+          'updatedAt'
+        ]);
+
+      allow delete: if isVerifiedUser()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && existing().uid == request.auth.uid;
+    }
+
+    // ---------- Collection Rules: Private User Inventory & Knives ----------
+    match /userInventory/{uid} {
+      allow get: if isVerifiedUser()
+        && isValidId(uid)
+        && request.auth.uid == uid;
+      allow list: if false;
+
+      allow create: if isVerifiedUser()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && isValidUserInventoryCreate(incoming(), uid);
+
+      allow update: if isVerifiedUser()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && isValidUserInventoryUpdate(incoming(), uid)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().totalOpened >= existing().totalOpened
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'equippedKnifeId',
+          'equippedGloveId',
+          'caseCounts',
+          'totalOpened',
+          'lastDailyDropDate',
+          'updatedAt'
+        ]);
+
+      allow delete: if isVerifiedUser()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && existing().uid == request.auth.uid;
+
+      match /knives/{knifeId} {
+        allow get: if isVerifiedUser()
+          && isValidId(uid)
+          && isValidId(knifeId)
+          && request.auth.uid == uid
+          && existing().uid == request.auth.uid;
+
+        allow list: if isVerifiedUser()
+          && isValidId(uid)
+          && request.auth.uid == uid
+          && existing().uid == request.auth.uid;
+
+        allow create: if isVerifiedUser()
+          && isValidId(uid)
+          && isValidId(knifeId)
+          && request.auth.uid == uid
+          && isValidKnifeItemCreate(incoming(), uid, knifeId)
+          && exists(/databases/$(database)/documents/userInventory/$(uid));
+
+        allow update: if false;
+
+        allow delete: if isVerifiedUser()
+          && isValidId(uid)
+          && isValidId(knifeId)
+          && request.auth.uid == uid
+          && existing().uid == request.auth.uid;
+      }
+
+      match /gloves/{gloveId} {
+        allow get: if isVerifiedUser()
+          && isValidId(uid)
+          && isValidId(gloveId)
+          && request.auth.uid == uid
+          && existing().uid == request.auth.uid;
+
+        allow list: if isVerifiedUser()
+          && isValidId(uid)
+          && request.auth.uid == uid
+          && existing().uid == request.auth.uid;
+
+        allow create: if isVerifiedUser()
+          && isValidId(uid)
+          && isValidId(gloveId)
+          && request.auth.uid == uid
+          && isValidGloveItemCreate(incoming(), uid, gloveId)
+          && exists(/databases/$(database)/documents/userInventory/$(uid));
+
+        allow update: if false;
+
+        allow delete: if isVerifiedUser()
+          && isValidId(uid)
+          && isValidId(gloveId)
+          && request.auth.uid == uid
+          && existing().uid == request.auth.uid;
+      }
+    }
+
     // ---------- Collection Rules: Daily Courses ----------
     match /dailyCourses/{dateKey} {
       allow get: if isValidDateKey(dateKey) && existing().isPublic == true;
@@ -167,13 +672,25 @@ service cloud.firestore {
           && request.auth.uid == uid
           && isValidDailyRunUpdate(incoming(), dateKey, uid)
           && (
-            // Action: Personal Best Improvement
-            incoming().uid == existing().uid
-            && incoming().dateKey == existing().dateKey
-            && incoming().isPublic == existing().isPublic
-            && incoming().createdAt == existing().createdAt
-            && incoming().bestTime < existing().bestTime
-            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'bestTime', 'splits', 'updatedAt'])
+            (
+              // Action: Personal Best Improvement
+              incoming().uid == existing().uid
+              && incoming().dateKey == existing().dateKey
+              && incoming().isPublic == existing().isPublic
+              && incoming().createdAt == existing().createdAt
+              && incoming().bestTime < existing().bestTime
+              && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'bestTime', 'splits', 'updatedAt'])
+            )
+            || (
+              // Action: Display Name Update (preserves bestTime and splits)
+              incoming().uid == existing().uid
+              && incoming().dateKey == existing().dateKey
+              && incoming().isPublic == existing().isPublic
+              && incoming().createdAt == existing().createdAt
+              && incoming().bestTime == existing().bestTime
+              && incoming().splits == existing().splits
+              && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt'])
+            )
           )
           && exists(/databases/$(database)/documents/dailyCourses/$(dateKey));
 

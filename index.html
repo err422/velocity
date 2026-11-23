@@ -25,11 +25,20 @@
   .status{position:absolute;right:24px;bottom:25px;text-align:right;font-size:10px;letter-spacing:.14em;color:#9db7c9;line-height:1.8}
   .status b{color:var(--cyan);font-weight:700}
   #surfHint{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);font-size:10px;letter-spacing:.2em;color:#b8e8f8;background:rgba(7,15,24,.78);border:1px solid rgba(101,231,255,.26);padding:7px 14px;opacity:0;transition:opacity .35s;white-space:nowrap}
-  #centerMessage{position:absolute;left:50%;top:19%;transform:translateX(-50%);font-size:11px;letter-spacing:.25em;color:#dffaff;text-shadow:0 0 18px #47dfff;opacity:0;transition:opacity .2s}
-  #crosshair{position:absolute;left:50%;top:50%;width:14px;height:14px;transform:translate(-50%,-50%);opacity:.8}
-  #crosshair:before,#crosshair:after{content:"";position:absolute;background:#c9f8ff;box-shadow:0 0 8px #5be8ff}
-  #crosshair:before{width:1px;height:14px;left:6px;top:0}
-  #crosshair:after{height:1px;width:14px;top:6px;left:0}
+  #centerMessage{position:absolute;left:50%;top:19%;transform:translateX(-50%);font-size:11px;letter-spacing:.25em;color:#dffaff;text-shadow:0 0 18px #47dfff;opacity:0;transition:opacity .2s;white-space:nowrap}
+  #centerMessage.mythic{color:#ffe680;text-shadow:0 0 22px rgba(255,215,0,.85);font-weight:800;letter-spacing:.28em}
+  #crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);opacity:.88;pointer-events:none}
+  .ch-glyph{--ch-size:14px;--ch-color:#c9f8ff;position:relative;width:var(--ch-size);height:var(--ch-size)}
+  .ch-glyph .ch-v,.ch-glyph .ch-h,.ch-glyph .ch-dot,.ch-glyph .ch-ring{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+  .ch-glyph .ch-v{width:1.5px;height:var(--ch-size);background:var(--ch-color);box-shadow:0 0 6px var(--ch-color)}
+  .ch-glyph .ch-h{height:1.5px;width:var(--ch-size);background:var(--ch-color);box-shadow:0 0 6px var(--ch-color)}
+  .ch-glyph .ch-dot{width:clamp(3px,calc(var(--ch-size) * 0.24),6px);height:clamp(3px,calc(var(--ch-size) * 0.24),6px);background:var(--ch-color);box-shadow:0 0 6px var(--ch-color)}
+  .ch-glyph .ch-ring{width:var(--ch-size);height:var(--ch-size);border:1.5px solid var(--ch-color);border-radius:50%;box-shadow:0 0 6px var(--ch-color)}
+  .ch-glyph[data-style="cross"] .ch-v,.ch-glyph[data-style="cross"] .ch-h{display:block}
+  .ch-glyph[data-style="dot"] .ch-dot{display:block}
+  .ch-glyph[data-style="cross-dot"] .ch-v,.ch-glyph[data-style="cross-dot"] .ch-h,.ch-glyph[data-style="cross-dot"] .ch-dot{display:block}
+  .ch-glyph[data-style="circle"] .ch-ring,.ch-glyph[data-style="circle"] .ch-dot{display:block}
+  .ch-glyph[data-style="none"]{display:none}
   #overlay{position:fixed;inset:0;display:grid;place-items:center;padding:16px;overflow-y:auto;background:radial-gradient(ellipse at center,rgba(11,24,38,.74),rgba(3,7,13,.95));z-index:5}
   .card{width:min(560px,calc(100vw - 32px));padding:30px 32px;border:1px solid rgba(111,210,238,.24);background:linear-gradient(145deg,rgba(12,27,40,.96),rgba(5,10,18,.97));box-shadow:0 25px 100px #0009;transition:width .18s ease}
   .card.wide{width:min(900px,calc(100vw - 32px));padding:26px 28px}
@@ -55,7 +64,7 @@
   .lvls button.featured{background:var(--cyan);color:#06121b}
   .lvls button.featured small{color:#062333;opacity:.9}
   .foot{margin-top:12px;color:#698397;font-size:10px;line-height:1.5}
-  #toast{position:fixed;left:50%;top:28%;transform:translateX(-50%);z-index:6;padding:10px 16px;background:#071722ee;border:1px solid #4fdff477;color:#dffaff;font-size:11px;letter-spacing:.12em;opacity:0;pointer-events:none;transition:opacity .2s}
+  #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:8;padding:10px 16px;background:#071722ee;border:1px solid #4fdff477;color:#dffaff;font-size:11px;letter-spacing:.12em;opacity:0;pointer-events:none;transition:opacity .2s}
 
   /* Daily Archive & Leaderboard Hub */
   .hub-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--line)}
@@ -100,8 +109,138 @@
   .lb-empty{padding:16px 12px;font-size:12px;color:#8aa6b8;background:rgba(8,18,28,.55);border:1px solid rgba(111,210,238,.12);line-height:1.5}
   .lb-note{font-size:11px;color:#8aa6b8;display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:4px}
 
+  /* Settings Panel */
+  .set-sync{font-size:10px;letter-spacing:.14em;color:#7fa1b8;margin-right:4px}
+  .set-tabs{display:flex;gap:4px;margin-top:14px;border-bottom:1px solid var(--line)}
+  .set-tab{width:auto;padding:10px 16px;background:transparent;color:#8aa7ba;font-size:10px;letter-spacing:.18em;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .set-tab:hover{color:#eaf7ff;filter:none;transform:none}
+  .set-tab.active{color:var(--cyan);border-bottom-color:var(--cyan);background:rgba(16,40,58,.45)}
+  .set-pane{margin-top:18px}
+  .set-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+  .set-field{margin-bottom:16px}
+  .set-field:last-child{margin-bottom:0}
+  .set-row-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;gap:10px}
+  .set-label{font-size:11px;letter-spacing:.12em;color:#cfe4f2;font-weight:700;text-transform:uppercase}
+  .set-val{font-size:12px;color:var(--cyan);font-weight:700;font-variant-numeric:tabular-nums}
+  .set-input{width:100%;background:rgba(5,12,20,.92);border:1px solid #2b5066;color:#eaf7ff;padding:10px 12px;font-size:13px;font-family:inherit}
+  .set-input::placeholder{color:#5e7c91}
+  .set-help{margin-top:7px;font-size:11px;color:#84a3b8;line-height:1.5}
+  .set-range{width:100%;accent-color:var(--cyan);cursor:pointer;height:6px;margin:4px 0}
+  .seg-group{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .seg-btn{padding:9px 12px;background:rgba(10,23,36,.72);color:#9ab6c8;border:1px solid #284b60;font-size:11px;letter-spacing:.14em}
+  .seg-btn:hover{border-color:rgba(101,231,255,.55);color:#eaf7ff;filter:none;transform:none}
+  .seg-btn.active{background:rgba(20,54,76,.92);border-color:var(--cyan);color:#ffffff}
+  .kb-note{font-size:11px;color:#8aa7ba;margin-bottom:12px;line-height:1.5}
+  .kb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;max-height:380px;overflow-y:auto;padding-right:4px}
+  .kb-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;background:rgba(9,21,33,.72);border:1px solid rgba(111,210,238,.12)}
+  .kb-name{font-size:11px;color:#d6ecf8;font-weight:600}
+  .kb-group{font-size:9px;letter-spacing:.14em;color:#6e8ea3;text-transform:uppercase;display:block;margin-bottom:2px}
+  .bind-btn{width:auto;min-width:96px;padding:7px 11px;background:rgba(5,12,20,.9);color:#eaf7ff;border:1px solid #2e5972;font-size:10px;letter-spacing:.12em;text-align:center}
+  .bind-btn:hover{border-color:var(--cyan);filter:none;transform:none}
+  .bind-btn.listening{background:rgba(101,231,255,.16);border-color:var(--orange);color:var(--orange)}
+  .ch-styles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .ch-swatches{display:flex;gap:8px;align-items:center}
+  .ch-swatch{width:30px;height:30px;padding:0;border:2px solid rgba(255,255,255,.18);background:var(--sw-col,#c9f8ff)}
+  .ch-swatch:hover{transform:none;filter:brightness(1.1);border-color:#ffffff}
+  .ch-swatch.active{border-color:#ffffff;box-shadow:0 0 0 2px #07131e,0 0 0 4px var(--cyan)}
+  .ch-stage{position:relative;height:210px;border:1px solid rgba(111,210,238,.22);background:linear-gradient(180deg,#0c1c2c 0%,#163248 52%,#1c2733 52%,#111922 100%);display:grid;place-items:center;overflow:hidden}
+  .ch-stage-caption{position:absolute;bottom:10px;left:12px;right:12px;display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;color:#93b4c8}
+
+  /* Armory & CS Cases Panel */
+  .arm-case-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .case-card{position:relative;display:flex;flex-direction:column;gap:8px;padding:14px;background:rgba(9,20,32,.84);border:1px solid rgba(111,210,238,.18);color:#eaf7ff;text-align:left;font-weight:600;letter-spacing:.02em}
+  .case-card:hover{border-color:rgba(101,231,255,.6);filter:none;transform:none}
+  .case-card.selected{background:rgba(17,40,58,.94);border-color:var(--case-accent,var(--cyan));box-shadow:inset 0 0 0 1px var(--case-accent,var(--cyan))}
+  .case-art{height:76px;display:grid;place-items:center;background:linear-gradient(150deg,rgba(14,32,48,.92),rgba(5,11,18,.95));border:1px solid rgba(255,255,255,.08);position:relative;overflow:hidden}
+  .case-art::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--case-accent,var(--cyan))}
+  .case-crate{width:64px;height:44px;border:2px solid var(--case-accent,var(--cyan));background:rgba(8,18,28,.9);position:relative;display:grid;place-items:center}
+  .case-crate::before{content:'';position:absolute;left:6px;right:6px;top:50%;height:1px;background:rgba(255,255,255,.22)}
+  .case-crate-lock{width:14px;height:14px;border:2px solid var(--case-accent,var(--cyan));background:#091522;z-index:1}
+  .case-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .case-name{font-size:12px;font-weight:800;letter-spacing:.04em;color:#f1fbff}
+  .case-count{font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--case-accent,var(--cyan));font-variant-numeric:tabular-nums;white-space:nowrap}
+  .case-count.zero{color:#678296}
+  .case-desc{font-size:11px;color:#8aa8bc;line-height:1.45;font-weight:500}
+  .case-detail-bar{margin-top:14px;padding:14px 16px;background:rgba(8,18,29,.78);border:1px solid var(--line);display:grid;grid-template-columns:1.35fr auto;gap:16px;align-items:center}
+  .case-pool-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .case-pool-item{font-size:10px;letter-spacing:.06em;color:#cfe7f5;background:rgba(12,26,40,.9);border:1px solid rgba(111,210,238,.14);border-left:3px solid var(--rar-col,#4b69ff);padding:4px 8px}
+  .case-open-col{display:flex;flex-direction:column;gap:6px;min-width:190px}
+  .case-open-btn{padding:13px 18px;font-size:12px;letter-spacing:.16em}
+  .case-open-btn:disabled{opacity:.42;cursor:not-allowed;filter:none;transform:none}
+  .arm-earn-note{margin-top:10px;font-size:11px;color:#7d9cb0;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+  /* CS Roulette Unboxing Strip */
+  .roulette-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:14px 0 10px}
+  .roulette-viewport{position:relative;width:100%;height:170px;overflow:hidden;background:#050b13;border:1px solid rgba(111,210,238,.28);box-shadow:inset 0 0 36px rgba(0,0,0,.78)}
+  .roulette-viewport::before,.roulette-viewport::after{content:'';position:absolute;top:0;bottom:0;width:64px;z-index:3;pointer-events:none}
+  .roulette-viewport::before{left:0;background:linear-gradient(90deg,#050b13,transparent)}
+  .roulette-viewport::after{right:0;background:linear-gradient(270deg,#050b13,transparent)}
+  .roulette-needle{position:absolute;left:50%;top:0;bottom:0;width:2px;background:#ffd700;box-shadow:0 0 12px rgba(255,215,0,.85);z-index:4;transform:translateX(-50%);pointer-events:none}
+  .roulette-needle::before,.roulette-needle::after{content:'';position:absolute;left:50%;transform:translateX(-50%);border-left:7px solid transparent;border-right:7px solid transparent}
+  .roulette-needle::before{top:0;border-top:8px solid #ffd700}
+  .roulette-needle::after{bottom:0;border-bottom:8px solid #ffd700}
+  .roulette-track{display:flex;align-items:center;gap:8px;height:100%;padding:10px 0;will-change:transform}
+  .roulette-card{flex:0 0 148px;width:148px;height:146px;background:linear-gradient(175deg,rgba(14,27,41,.95),rgba(7,14,22,.98));border:1px solid rgba(111,210,238,.16);border-bottom:4px solid var(--rar-col,#4b69ff);display:flex;flex-direction:column;justify-content:space-between;padding:8px;overflow:hidden}
+  .roulette-card.gold{background:linear-gradient(175deg,rgba(56,42,10,.96),rgba(17,13,5,.98));border-color:rgba(255,215,0,.45)}
+  .roulette-thumb{width:100%;height:84px;object-fit:contain;display:block}
+  .roulette-kname{font-size:10px;font-weight:800;letter-spacing:.06em;color:#f0fbff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .roulette-sname{font-size:10px;color:#99b7ca;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .roulette-status{margin-top:10px;text-align:center;font-size:11px;letter-spacing:.2em;color:var(--cyan)}
+
+  /* 3D Reveal & Inventory Inspect Stage */
+  .arm-reveal-grid,.arm-inv-grid{display:grid;grid-template-columns:1.08fr 1fr;gap:20px;margin-top:14px;align-items:start}
+  .arm-stage{position:relative;width:100%;height:242px;background:radial-gradient(ellipse at 50% 45%,rgba(24,52,74,.65),rgba(5,11,19,.96));border:1px solid rgba(111,210,238,.25);overflow:hidden;cursor:grab}
+  .arm-stage:active{cursor:grabbing}
+  .arm-stage-bar{position:absolute;left:0;right:0;top:0;height:3px;background:var(--rar-col,var(--cyan));z-index:2}
+  .arm-canvas{width:100%;height:100%;display:block}
+  .arm-stage-caption{position:absolute;left:10px;right:10px;bottom:8px;display:flex;justify-content:space-between;font-size:9px;letter-spacing:.16em;color:#8cb0c4;pointer-events:none}
+  .arm-spec-box{display:flex;flex-direction:column;gap:10px}
+  .arm-rar-label{font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--rar-col,var(--cyan));text-transform:uppercase}
+  .arm-item-title{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:0;color:#f2fbff}
+  .arm-special-tag{display:inline-block;align-self:flex-start;padding:4px 9px;font-size:10px;font-weight:900;letter-spacing:.18em;color:#06121b;background:#ffd700;text-transform:uppercase}
+  .arm-special-tag.gem{background:#47d7ff;color:#04131c}
+  .arm-special-tag.ruby{background:#ff3b5c;color:#fff}
+  .arm-special-tag.sapphire{background:#2d78ff;color:#fff}
+  .arm-spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .arm-spec-cell{padding:8px 10px;background:rgba(8,19,31,.82);border:1px solid rgba(111,210,238,.12)}
+  .arm-spec-k{font-size:9px;letter-spacing:.16em;color:#7e9cb0;text-transform:uppercase}
+  .arm-spec-v{font-size:13px;font-weight:700;color:#eaf7ff;margin-top:3px;font-variant-numeric:tabular-nums}
+  .float-bar-wrap{margin-top:2px}
+  .float-bar{position:relative;height:7px;background:linear-gradient(90deg,#39d98a 0%,#39d98a 7%,#7ce868 7%,#7ce868 15%,#ffd166 15%,#ffd166 38%,#ff944d 38%,#ff944d 45%,#e84855 45%,#e84855 100%);border:1px solid rgba(255,255,255,.18)}
+  .float-marker{position:absolute;top:-4px;width:2px;height:15px;background:#ffffff;box-shadow:0 0 6px #ffffff;transform:translateX(-50%)}
+  .arm-btn-row{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap}
+  .arm-btn-row button{flex:1;min-width:110px;padding:11px 12px;font-size:11px;margin-top:0}
+  .arm-stage-tools{position:absolute;top:10px;right:10px;display:flex;gap:4px;z-index:3}
+  .arm-mode-btn{width:auto;padding:4px 8px;font-size:9px;letter-spacing:.14em;background:rgba(5,12,20,.88);color:#92b0c4;border:1px solid rgba(111,210,238,.28)}
+  .arm-mode-btn:hover{border-color:var(--cyan);color:#ffffff;filter:none;transform:none}
+  .arm-mode-btn.active{background:rgba(20,54,76,.95);border-color:var(--cyan);color:#ffffff}
+  .arm-mode-btn:disabled{opacity:.35;cursor:not-allowed}
+  .arm-btn-mythic{background:rgba(52,38,10,.82);color:#ffe484;border:1px solid rgba(255,215,0,.55)}
+  .arm-btn-mythic:hover{border-color:#ffd700;color:#ffffff;filter:none}
+  .arm-btn-danger{background:rgba(70,18,28,.75);color:#ffbac7;border:1px solid #8a3142}
+  .arm-btn-danger:hover{border-color:#ff5e7a;color:#ffffff;filter:none}
+  .arm-btn-danger:disabled{opacity:.38;cursor:not-allowed}
+
+  .arm-cat-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+  .arm-cat-btn{padding:8px 10px;font-size:10px;letter-spacing:.16em;background:rgba(9,22,34,.8);color:#92b0c4;border:1px solid #26485e}
+  .arm-cat-btn:hover{border-color:rgba(101,231,255,.55);color:#eaf7ff;filter:none;transform:none}
+  .arm-cat-btn.active{background:rgba(20,54,76,.94);border-color:var(--cyan);color:#ffffff}
+  .arm-filter-bar{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+  .arm-filter-btn{width:auto;padding:5px 8px;font-size:9.5px;letter-spacing:.1em;background:rgba(9,22,34,.75);color:#92b0c4;border:1px solid #26485e}
+  .arm-filter-btn:hover{border-color:rgba(101,231,255,.55);color:#eaf7ff;filter:none;transform:none}
+  .arm-filter-btn.active{background:rgba(20,54,76,.92);border-color:var(--cyan);color:#ffffff}
+  .inv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:365px;overflow-y:auto;padding-right:4px}
+  .inv-card{position:relative;display:flex;flex-direction:column;gap:5px;padding:9px 10px;background:rgba(9,21,33,.84);border:1px solid rgba(111,210,238,.14);border-bottom:3px solid var(--rar-col,#4b69ff);color:#eaf7ff;text-align:left;font-weight:600;letter-spacing:.02em}
+  .inv-card:hover{border-color:rgba(101,231,255,.55);filter:none;transform:none}
+  .inv-card.selected{background:rgba(19,49,70,.92);border-color:var(--cyan)}
+  .inv-equipped{position:absolute;top:6px;right:6px;font-size:8px;font-weight:900;letter-spacing:.14em;color:#06121b;background:var(--cyan);padding:2px 5px}
+  .inv-thumb{width:100%;height:62px;object-fit:contain;display:block}
+  .inv-name{font-size:11px;font-weight:800;color:#effaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .inv-meta{font-size:10px;color:#8aa7ba;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .inv-empty{grid-column:1 / -1;padding:20px 14px;font-size:12px;color:#8aa6b8;background:rgba(8,18,28,.55);border:1px solid rgba(111,210,238,.12)}
+
   @media(max-width:760px){
-    .hub-grid{grid-template-columns:1fr}
+    .hub-grid,.set-grid,.kb-grid,.arm-case-grid,.arm-reveal-grid,.arm-inv-grid,.case-detail-bar{grid-template-columns:1fr}
     .archive-list{max-height:200px}
     .lb-list{max-height:180px}
   }
@@ -119,9 +258,11 @@
   <div class="card" id="overlayCard">
     <div id="menu">
       <div class="card-top">
-        <div class="eyebrow">MOVEMENT LAB / DAILY EDITION</div>
+        <div class="eyebrow">MOVEMENT LAB</div>
         <div class="auth-bar" id="menuAuthBar">
           <span class="auth-name" id="menuAuthName" style="display:none"></span>
+          <button type="button" class="btn-inline" id="menuArmoryBtn">ARMORY (3)</button>
+          <button type="button" class="btn-inline" id="menuSettingsBtn">SETTINGS</button>
           <button type="button" class="btn-inline" id="menuAuthBtn">SIGN IN</button>
         </div>
       </div>
@@ -149,12 +290,12 @@
           <small>FREE-ROAM + SURF ZONE</small>
         </button>
       </div>
-      <div class="controls">
+      <div class="controls" id="menuControls">
         <div><b>W A S D</b> Move</div><div><b>MOUSE</b> Look</div>
-        <div><b>SPACE</b> Jump / wall jump</div><div><b>SHIFT</b> Slide</div>
+        <div><b>SPACE</b> Jump / wall jump</div><div><b>L-SHIFT</b> Slide</div>
         <div><b>E</b> Grapple / release</div><div><b>Q</b> Speed burst</div>
         <div><b>R</b> Restart run</div><div><b>T</b> Last checkpoint</div>
-        <div><b>ESC</b> Pause</div><div><b>G</b> Ghost mode</div>
+        <div><b>F</b> Inspect knife</div><div><b>G</b> Ghost mode</div>
       </div>
       <div class="foot">Sign in with Google to publish daily leaderboard times. Local PBs and 3D ghost replays save automatically for every daily date and custom seed.</div>
     </div>
@@ -209,11 +350,296 @@
       </div>
     </div>
 
+    <div id="settingsPanel" style="display:none">
+      <div class="hub-head">
+        <div>
+          <div class="eyebrow">PREFERENCES</div>
+          <h2 class="hub-title">Settings</h2>
+        </div>
+        <div class="hub-actions">
+          <span class="set-sync" id="settingsSyncNote">LOCAL ONLY</span>
+          <button type="button" class="btn-inline" id="settingsResetBtn">RESET DEFAULTS</button>
+          <button type="button" class="btn-inline" id="settingsBackBtn">MENU</button>
+        </div>
+      </div>
+
+      <div class="set-tabs" role="tablist" aria-label="Settings sections">
+        <button type="button" class="set-tab active" data-set-tab="profile" role="tab" aria-selected="true">PROFILE &amp; AIM</button>
+        <button type="button" class="set-tab" data-set-tab="keybinds" role="tab" aria-selected="false">KEYBINDS</button>
+        <button type="button" class="set-tab" data-set-tab="crosshair" role="tab" aria-selected="false">CROSSHAIR</button>
+      </div>
+
+      <div class="set-pane" data-set-pane="profile">
+        <div class="set-grid">
+          <div>
+            <div class="section-label">Runner Profile</div>
+            <div class="set-field">
+              <div class="set-row-head">
+                <label class="set-label" for="setDisplayName">Display Name</label>
+                <span class="set-val" id="setDisplayNameCount">0 / 32</span>
+              </div>
+              <input id="setDisplayName" class="set-input" type="text" maxlength="32" placeholder="Custom leaderboard name (optional)" autocomplete="off">
+              <div class="set-help" id="setDisplayNameNote">Shown on daily leaderboards when signed in. Leave blank to use your Google account name.</div>
+            </div>
+
+            <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+              <div class="set-row-head" style="margin-bottom:10px">
+                <div class="section-label" style="margin:0">Viewmodel Framing</div>
+                <button type="button" class="btn-inline" id="setVmResetBtn" style="padding:4px 9px;font-size:9px">CENTER</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px">
+                <div>
+                  <div class="set-row-head" style="margin-bottom:4px">
+                    <label class="set-label" for="setVmXRange" style="font-size:10px">Offset X</label>
+                    <span class="set-val" id="setVmXVal" style="font-size:11px">0.0</span>
+                  </div>
+                  <input id="setVmXRange" class="set-range" type="range" min="-2.5" max="2.5" step="0.1" value="0">
+                </div>
+                <div>
+                  <div class="set-row-head" style="margin-bottom:4px">
+                    <label class="set-label" for="setVmYRange" style="font-size:10px">Offset Y</label>
+                    <span class="set-val" id="setVmYVal" style="font-size:11px">0.0</span>
+                  </div>
+                  <input id="setVmYRange" class="set-range" type="range" min="-2.5" max="2.5" step="0.1" value="0">
+                </div>
+                <div>
+                  <div class="set-row-head" style="margin-bottom:4px">
+                    <label class="set-label" for="setVmZRange" style="font-size:10px">Offset Z</label>
+                    <span class="set-val" id="setVmZVal" style="font-size:11px">0.0</span>
+                  </div>
+                  <input id="setVmZRange" class="set-range" type="range" min="-2.5" max="2.5" step="0.1" value="0">
+                </div>
+                <div>
+                  <div class="set-row-head" style="margin-bottom:4px">
+                    <label class="set-label" for="setVmFovRange" style="font-size:10px">Viewmodel FOV</label>
+                    <span class="set-val" id="setVmFovVal" style="font-size:11px">62°</span>
+                  </div>
+                  <input id="setVmFovRange" class="set-range" type="range" min="54" max="72" step="1" value="62">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="section-label">Aim &amp; Camera</div>
+            <div class="set-field">
+              <div class="set-row-head">
+                <label class="set-label" for="setSensRange">Mouse Sensitivity</label>
+                <span class="set-val" id="setSensVal">1.00×</span>
+              </div>
+              <input id="setSensRange" class="set-range" type="range" min="0.2" max="4.0" step="0.05" value="1.0">
+            </div>
+
+            <div class="set-field">
+              <div class="set-row-head">
+                <span class="set-label">Invert Y-Axis</span>
+              </div>
+              <div class="seg-group">
+                <button type="button" class="seg-btn active" id="setInvertOff">STANDARD</button>
+                <button type="button" class="seg-btn" id="setInvertOn">INVERTED</button>
+              </div>
+            </div>
+
+            <div class="set-field">
+              <div class="set-row-head">
+                <label class="set-label" for="setFovRange">Base Field of View</label>
+                <span class="set-val" id="setFovVal">85°</span>
+              </div>
+              <input id="setFovRange" class="set-range" type="range" min="70" max="115" step="1" value="85">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="set-pane" data-set-pane="keybinds" style="display:none">
+        <div class="kb-note" id="keybindHint">Click any control to rebind. Supports keyboard keys and mouse buttons (LMB, RMB, MMB, Mouse 4/5). Press ESC to cancel.</div>
+        <div class="kb-grid" id="keybindGrid"></div>
+      </div>
+
+      <div class="set-pane" data-set-pane="crosshair" style="display:none">
+        <div class="set-grid">
+          <div>
+            <div class="set-field">
+              <div class="set-row-head"><span class="set-label">Crosshair Style</span></div>
+              <div class="ch-styles" id="chStyleGroup">
+                <button type="button" class="seg-btn active" data-ch-style="cross">CROSS</button>
+                <button type="button" class="seg-btn" data-ch-style="dot">DOT</button>
+                <button type="button" class="seg-btn" data-ch-style="cross-dot">CROSS + DOT</button>
+                <button type="button" class="seg-btn" data-ch-style="circle">CIRCLE</button>
+                <button type="button" class="seg-btn" data-ch-style="none">NONE</button>
+              </div>
+            </div>
+
+            <div class="set-field">
+              <div class="set-row-head">
+                <label class="set-label" for="setChSizeRange">Size</label>
+                <span class="set-val" id="setChSizeVal">14px</span>
+              </div>
+              <input id="setChSizeRange" class="set-range" type="range" min="8" max="28" step="1" value="14">
+            </div>
+
+            <div class="set-field">
+              <div class="set-row-head"><span class="set-label">Color</span></div>
+              <div class="ch-swatches" id="chColorGroup">
+                <button type="button" class="ch-swatch active" data-ch-color="#c9f8ff" style="--sw-col:#c9f8ff" aria-label="Cyan crosshair"></button>
+                <button type="button" class="ch-swatch" data-ch-color="#ffffff" style="--sw-col:#ffffff" aria-label="White crosshair"></button>
+                <button type="button" class="ch-swatch" data-ch-color="#7dff8b" style="--sw-col:#7dff8b" aria-label="Green crosshair"></button>
+                <button type="button" class="ch-swatch" data-ch-color="#ff9b55" style="--sw-col:#ff9b55" aria-label="Orange crosshair"></button>
+                <button type="button" class="ch-swatch" data-ch-color="#ff5e8a" style="--sw-col:#ff5e8a" aria-label="Rose crosshair"></button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="section-label">Live Preview</div>
+            <div class="ch-stage">
+              <div id="crosshairPreview" class="ch-glyph" data-style="cross">
+                <span class="ch-v"></span><span class="ch-h"></span><span class="ch-dot"></span><span class="ch-ring"></span>
+              </div>
+              <div class="ch-stage-caption">
+                <span id="chPreviewLabel">CROSS · 14PX</span>
+                <span id="chPreviewHex">#C9F8FF</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="armoryPanel" style="display:none">
+      <div class="hub-head">
+        <div>
+          <div class="eyebrow">KNIVES, GLOVES &amp; CONTAINERS</div>
+          <h2 class="hub-title">Armory &amp; Cases</h2>
+        </div>
+        <div class="hub-actions">
+          <span class="set-sync" id="armorySyncNote">LOCAL ONLY</span>
+          <button type="button" class="btn-inline" id="armoryBackBtn">MENU</button>
+        </div>
+      </div>
+
+      <div class="set-tabs" role="tablist" aria-label="Armory sections">
+        <button type="button" class="set-tab active" data-arm-tab="cases" id="armTabCases" role="tab" aria-selected="true">CASES (3)</button>
+        <button type="button" class="set-tab" data-arm-tab="inventory" id="armTabInventory" role="tab" aria-selected="false">INVENTORY (1)</button>
+      </div>
+
+      <div class="set-pane" data-arm-pane="cases">
+        <div id="armoryCasesSelect">
+          <div class="arm-case-grid" id="armoryCaseGrid"></div>
+          <div class="case-detail-bar">
+            <div>
+              <div class="section-label" id="selectedCaseTitle" style="margin-bottom:4px">VELOCITY WEAPON CASE</div>
+              <div class="case-pool-list" id="selectedCasePool"></div>
+            </div>
+            <div class="case-open-col">
+              <button type="button" class="case-open-btn" id="openCaseBtn">OPEN CASE</button>
+              <div style="font-size:10px;color:#7fa1b8;text-align:center" id="openCaseHint">1 container consumed on unlock</div>
+            </div>
+          </div>
+          <div class="arm-earn-note">
+            <span>EARN CASES: +1 COURSE FINISH · +1 NEW PB · +2 DAILY FIRST CLEAR</span>
+            <span id="armoryOpenedStat">0 UNBOXED</span>
+          </div>
+        </div>
+
+        <div id="armoryRouletteWrap" style="display:none">
+          <div class="roulette-head">
+            <div class="section-label" id="rouletteCaseLabel" style="margin:0">UNLOCKING CONTAINER</div>
+            <button type="button" class="btn-inline" id="skipRouletteBtn">SKIP</button>
+          </div>
+          <div class="roulette-viewport" id="rouletteViewport">
+            <div class="roulette-needle"></div>
+            <div class="roulette-track" id="rouletteTrack"></div>
+          </div>
+          <div class="roulette-status" id="rouletteStatus">ROLLING PATTERN SEED &amp; WEAR FLOAT...</div>
+        </div>
+
+        <div id="armoryRevealWrap" style="display:none">
+          <div class="arm-reveal-grid">
+            <div class="arm-stage" id="armoryRevealStage">
+              <div class="arm-stage-bar" id="revealStageBar"></div>
+              <div class="arm-stage-caption"><span>3D UNBOX PREVIEW</span><span>DRAG TO ROTATE</span></div>
+            </div>
+            <div class="arm-spec-box">
+              <div class="arm-rar-label" id="revealRarity">EXCEEDINGLY RARE</div>
+              <h3 class="arm-item-title" id="revealTitle">Karambit | Case Hardened</h3>
+              <div class="arm-special-tag" id="revealSpecialTag" style="display:none">BLUE GEM</div>
+              <div class="arm-spec-grid">
+                <div class="arm-spec-cell"><div class="arm-spec-k">Wear Grade</div><div class="arm-spec-v" id="revealWear">FN</div></div>
+                <div class="arm-spec-cell"><div class="arm-spec-k">Float Value</div><div class="arm-spec-v" id="revealFloat">0.0124</div></div>
+                <div class="arm-spec-cell"><div class="arm-spec-k">Pattern Seed</div><div class="arm-spec-v" id="revealSeed">#661</div></div>
+                <div class="arm-spec-cell"><div class="arm-spec-k" id="revealExtraK">Finish Metric</div><div class="arm-spec-v" id="revealExtraV">—</div></div>
+              </div>
+              <div class="float-bar-wrap">
+                <div class="float-bar"><div class="float-marker" id="revealFloatMarker" style="left:5%"></div></div>
+              </div>
+              <div class="arm-btn-row">
+                <button type="button" id="revealEquipBtn">EQUIP NOW</button>
+                <button type="button" class="alt" id="revealTrickBtn">PLAY TRICK</button>
+                <button type="button" class="arm-btn-mythic" id="revealMythicBtn">MYTHIC ★</button>
+              </div>
+              <div class="arm-btn-row">
+                <button type="button" class="alt" id="revealOpenAgainBtn">OPEN ANOTHER</button>
+                <button type="button" class="alt" id="revealBackCasesBtn">BACK TO CASES</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="set-pane" data-arm-pane="inventory" style="display:none">
+        <div class="arm-inv-grid">
+          <div>
+            <div class="arm-cat-row" role="tablist" aria-label="Inventory category">
+              <button type="button" class="arm-cat-btn active" id="invCatKnives" data-inv-cat="knives" role="tab" aria-selected="true">KNIVES (1)</button>
+              <button type="button" class="arm-cat-btn" id="invCatGloves" data-inv-cat="gloves" role="tab" aria-selected="false">GLOVES (1)</button>
+            </div>
+            <div class="arm-filter-bar" id="armoryFilterBar"></div>
+            <div class="inv-grid" id="armoryInvGrid"></div>
+          </div>
+
+          <div class="arm-spec-box">
+            <div class="arm-stage" id="armoryInspectStage">
+              <div class="arm-stage-bar" id="invStageBar"></div>
+              <div class="arm-stage-tools" id="invStageTools">
+                <button type="button" class="arm-mode-btn active" id="invModeCombo" data-preview-mode="combo">COMBO</button>
+                <button type="button" class="arm-mode-btn" id="invModeSolo" data-preview-mode="solo">SOLO</button>
+              </div>
+              <canvas id="armoryPreviewCanvas" class="arm-canvas"></canvas>
+              <div class="arm-stage-caption"><span id="invStageCaption">LIVE COMBO 3D PREVIEW</span><span>DRAG TO ROTATE</span></div>
+            </div>
+            <div class="arm-rar-label" id="invRarity">MIL-SPEC</div>
+            <h3 class="arm-item-title" id="invTitle">Default Knife | Vanilla</h3>
+            <div class="arm-special-tag" id="invSpecialTag" style="display:none"></div>
+            <div class="arm-spec-grid">
+              <div class="arm-spec-cell"><div class="arm-spec-k">Wear Grade</div><div class="arm-spec-v" id="invWear">MW</div></div>
+              <div class="arm-spec-cell"><div class="arm-spec-k">Float Value</div><div class="arm-spec-v" id="invFloat">0.1200</div></div>
+              <div class="arm-spec-cell"><div class="arm-spec-k">Pattern Seed</div><div class="arm-spec-v" id="invSeed">#0</div></div>
+              <div class="arm-spec-cell"><div class="arm-spec-k" id="invExtraK">Container</div><div class="arm-spec-v" id="invExtraV">Starter</div></div>
+            </div>
+            <div class="float-bar-wrap">
+              <div class="float-bar"><div class="float-marker" id="invFloatMarker" style="left:12%"></div></div>
+            </div>
+            <div class="arm-btn-row">
+              <button type="button" id="invEquipBtn">EQUIPPED</button>
+              <button type="button" class="arm-btn-danger" id="invDiscardBtn">DISCARD</button>
+            </div>
+            <div class="arm-btn-row">
+              <button type="button" class="alt" id="invTrickBtn">PLAY TRICK</button>
+              <button type="button" class="arm-btn-mythic" id="invMythicBtn">MYTHIC ★</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="pause" style="display:none">
       <div class="eyebrow">PAUSED</div>
       <div class="sub" id="pauseCourseLabel" style="margin-top:6px">COURSE</div>
       <button type="button" id="resume" style="margin-top:20px">RESUME</button>
       <button type="button" class="alt" id="restart">RESTART</button>
+      <button type="button" class="alt" id="pauseArmory">ARMORY &amp; CASES</button>
+      <button type="button" class="alt" id="pauseSettings">SETTINGS</button>
       <button type="button" class="alt" id="pauseArchive">DAILY ARCHIVE &amp; LEADERBOARD</button>
       <button type="button" class="alt" id="tomenu">MAIN MENU</button>
     </div>
@@ -228,7 +654,7 @@
   </div>
   <div class="status"><b id="grappleState">GRAPPLE READY</b><br>SURF · WALLRUN · AIR STRAFE · SLIDE · BURST</div>
   <div id="surfHint">SURF: STRAFE A/D INTO RAMP · STEER WITH MOUSE · NO W</div>
-  <div id="crosshair"></div><div id="centerMessage">RUN STARTED</div>
+  <div id="crosshair" class="ch-glyph" data-style="cross"><span class="ch-v"></span><span class="ch-h"></span><span class="ch-dot"></span><span class="ch-ring"></span></div><div id="centerMessage">RUN STARTED</div>
 </div>
 <div id="toast"></div>
 <script type="module">
@@ -241,7 +667,7 @@ import(new URL('js/firebase-daily.js', document.baseURI).href).catch((err) => {
 });
 
 try {
-  for (const f of ['core', 'surf', 'world', 'sandbox', 'course', 'daily', 'ghost', 'player', 'main']) {
+  for (const f of ['core', 'settings', 'knives-data', 'viewmodel', 'surf', 'world', 'sandbox', 'course', 'daily', 'ghost', 'player', 'main']) {
     await new Promise((ok, fail) => {
       const s = document.createElement('script');
       s.src = new URL('js/' + f + '.js', document.baseURI).href;

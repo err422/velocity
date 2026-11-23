@@ -118,6 +118,335 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "Private per-player preferences including display name, aim sensitivity, FOV, crosshair customization, and control keybinds.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Firebase Auth UID of the owner (matches document ID)."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 32,
+          "description": "Optional custom display name shown on daily leaderboards."
+        },
+        "sensitivity": {
+          "type": "number",
+          "description": "Mouse look sensitivity multiplier (0.2 to 4.0)."
+        },
+        "invertY": {
+          "type": "boolean",
+          "description": "Whether vertical mouse pitch is inverted."
+        },
+        "baseFov": {
+          "type": "number",
+          "description": "Base vertical field of view in degrees (70 to 115)."
+        },
+        "crosshair": {
+          "type": "object",
+          "description": "Native map describing crosshair style, pixel size, and hex color.",
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": ["cross", "dot", "cross-dot", "circle", "none"]
+            },
+            "size": {
+              "type": "number"
+            },
+            "color": {
+              "type": "string",
+              "enum": ["#c9f8ff", "#ffffff", "#7dff8b", "#ff9b55", "#ff5e8a"]
+            }
+          },
+          "required": ["style", "size", "color"]
+        },
+        "viewmodel": {
+          "type": "object",
+          "description": "Native map describing first-person knife viewmodel X/Y/Z offsets (-2.5..2.5) and FOV (54..72).",
+          "properties": {
+            "offsetX": { "type": "number" },
+            "offsetY": { "type": "number" },
+            "offsetZ": { "type": "number" },
+            "fov": { "type": "number" }
+          },
+          "required": ["offsetX", "offsetY", "offsetZ", "fov"]
+        },
+        "keybinds": {
+          "type": "object",
+          "description": "Native map of all 12 gameplay action input tokens (KeyboardEvent.code or Mouse0..Mouse4).",
+          "properties": {
+            "forward": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "back": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "left": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "right": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "jump": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "slide": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "grapple": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "burst": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "restart": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "checkpoint": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "ghost": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "inspect": { "type": "string", "minLength": 1, "maxLength": 24 }
+          },
+          "required": [
+            "forward",
+            "back",
+            "left",
+            "right",
+            "jump",
+            "slide",
+            "grapple",
+            "burst",
+            "restart",
+            "checkpoint",
+            "ghost",
+            "inspect"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server timestamp of initial settings creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest settings update."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "sensitivity",
+        "invertY",
+        "baseFov",
+        "crosshair",
+        "viewmodel",
+        "keybinds",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserInventory": {
+      "title": "UserInventory",
+      "description": "Private owner-only summary of equipped knife, equipped gloves, CS case counts, and unboxing stats.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "equippedKnifeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "equippedGloveId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "caseCounts": {
+          "type": "object",
+          "properties": {
+            "velocity": { "type": "integer" },
+            "chroma": { "type": "integer" },
+            "spectrum": { "type": "integer" }
+          },
+          "required": ["velocity", "chroma", "spectrum"]
+        },
+        "totalOpened": {
+          "type": "integer"
+        },
+        "lastDailyDropDate": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 10
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "equippedKnifeId",
+        "equippedGloveId",
+        "caseCounts",
+        "totalOpened",
+        "lastDailyDropDate",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "KnifeItem": {
+      "title": "KnifeItem",
+      "description": "An individual unboxed or starter 3D knife skin owned by a player.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "knifeType": {
+          "type": "string",
+          "enum": ["default", "karambit", "butterfly", "m9", "skeleton"]
+        },
+        "skinId": {
+          "type": "string",
+          "enum": ["vanilla", "ultraviolet", "damascus", "crimson_web", "slaughter", "tiger_tooth", "fade", "marble_fade", "doppler", "case_hardened"]
+        },
+        "rarity": {
+          "type": "string",
+          "enum": ["milspec", "restricted", "classified", "covert", "gold"]
+        },
+        "patternSeed": {
+          "type": "integer"
+        },
+        "floatValue": {
+          "type": "number"
+        },
+        "wearGrade": {
+          "type": "string",
+          "enum": ["FN", "MW", "FT", "WW", "BS"]
+        },
+        "specialTag": {
+          "type": "string",
+          "enum": ["", "BLUE GEM", "RUBY", "SAPPHIRE", "BLACK PEARL", "FIRE & ICE", "FULL FADE", "PHASE 1", "PHASE 2", "PHASE 3", "PHASE 4"]
+        },
+        "bluePct": {
+          "type": "integer"
+        },
+        "caseId": {
+          "type": "string",
+          "enum": ["starter", "velocity", "chroma", "spectrum"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "id",
+        "knifeType",
+        "skinId",
+        "rarity",
+        "patternSeed",
+        "floatValue",
+        "wearGrade",
+        "specialTag",
+        "bluePct",
+        "caseId",
+        "createdAt"
+      ]
+    },
+    "GloveItem": {
+      "title": "GloveItem",
+      "description": "An individual unboxed or starter 3D glove pair owned by a player.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "gloveType": {
+          "type": "string",
+          "enum": ["standard", "sport", "specialist", "wraps"]
+        },
+        "skinId": {
+          "type": "string",
+          "enum": [
+            "tactical_slate",
+            "case_hardened",
+            "vice",
+            "pandoras_box",
+            "hedge_maze",
+            "slingshot",
+            "crimson_kimono",
+            "emerald_web",
+            "fade",
+            "leather",
+            "slaughter",
+            "cobalt_skulls",
+            "overprint"
+          ]
+        },
+        "rarity": {
+          "type": "string",
+          "enum": ["milspec", "restricted", "classified", "covert", "gold"]
+        },
+        "patternSeed": {
+          "type": "integer"
+        },
+        "floatValue": {
+          "type": "number"
+        },
+        "wearGrade": {
+          "type": "string",
+          "enum": ["FN", "MW", "FT", "WW", "BS"]
+        },
+        "specialTag": {
+          "type": "string",
+          "enum": ["", "BLUE GEM", "RUBY", "SAPPHIRE", "BLACK PEARL", "FIRE & ICE", "FULL FADE", "PHASE 1", "PHASE 2", "PHASE 3", "PHASE 4"]
+        },
+        "bluePct": {
+          "type": "integer"
+        },
+        "caseId": {
+          "type": "string",
+          "enum": ["starter", "velocity", "chroma", "spectrum"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "id",
+        "gloveType",
+        "skinId",
+        "rarity",
+        "patternSeed",
+        "floatValue",
+        "wearGrade",
+        "specialTag",
+        "bluePct",
+        "caseId",
+        "createdAt"
+      ]
     }
   },
   "firestore": {
@@ -132,6 +461,30 @@
         "$ref": "#/entities/DailyRun"
       },
       "description": "Per-player personal best leaderboard records for each daily course."
+    },
+    "/userSettings/{uid}": {
+      "schema": {
+        "$ref": "#/entities/UserSettings"
+      },
+      "description": "Private owner-only user preferences and control bindings."
+    },
+    "/userInventory/{uid}": {
+      "schema": {
+        "$ref": "#/entities/UserInventory"
+      },
+      "description": "Private owner-only inventory summary, case counts, equipped knife, and equipped gloves."
+    },
+    "/userInventory/{uid}/knives/{knifeId}": {
+      "schema": {
+        "$ref": "#/entities/KnifeItem"
+      },
+      "description": "Private owner-only subcollection of unboxed and starter knives."
+    },
+    "/userInventory/{uid}/gloves/{gloveId}": {
+      "schema": {
+        "$ref": "#/entities/GloveItem"
+      },
+      "description": "Private owner-only subcollection of unboxed and starter gloves."
     }
   }
 }

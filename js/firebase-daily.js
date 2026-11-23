@@ -15,6 +15,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   collection,
   query,
   where,
@@ -64,6 +65,10 @@ function handleFirestoreError(error, operationType, path) {
 }
 
 function sanitizeDisplayName(user) {
+  if (window.VelocitySettings && typeof window.VelocitySettings.resolveEffectiveDisplayName === 'function') {
+    const resolved = window.VelocitySettings.resolveEffectiveDisplayName(window.activeSettings, user);
+    return String(resolved).trim().slice(0, 40) || 'Runner';
+  }
   const raw = (user && (user.displayName || (user.email ? user.email.split('@')[0] : ''))) || 'Runner';
   const cleaned = String(raw).trim().slice(0, 40);
   return cleaned.length > 0 ? cleaned : 'Runner';
@@ -330,6 +335,294 @@ async function submitDailyRun(dateKey, runTime, splits) {
   return { submitted: true, improved: true, rank: found ? found.rank : null, total: lb.entries.length };
 }
 
+async function loadUserSettings() {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) {
+    return { settings: null, exists: false, cloudSynced: false };
+  }
+  const uid = currentUser.uid;
+  const path = `userSettings/${uid}`;
+  const ref = doc(db, 'userSettings', uid);
+  try {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      return { settings: null, exists: false, cloudSynced: true };
+    }
+    const raw = snap.data();
+    const clean = window.VelocitySettings ? window.VelocitySettings.sanitizeSettings(raw) : raw;
+    return { settings: clean, exists: true, cloudSynced: true };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+  }
+}
+
+async function saveUserSettings(settings) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) {
+    return { saved: false, reason: !currentUser ? 'signed-out' : 'offline' };
+  }
+  if (!window.VelocitySettings) {
+    return { saved: false, reason: 'no-settings-module' };
+  }
+  const uid = currentUser.uid;
+  const path = `userSettings/${uid}`;
+  const ref = doc(db, 'userSettings', uid);
+  const payload = window.VelocitySettings.toCloudPayload(settings, uid);
+
+  let existingSnap;
+  try {
+    existingSnap = await getDoc(ref);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+  }
+
+  if (existingSnap && existingSnap.exists()) {
+    try {
+      await updateDoc(ref, {
+        displayName: payload.displayName,
+        sensitivity: payload.sensitivity,
+        invertY: payload.invertY,
+        baseFov: payload.baseFov,
+        crosshair: payload.crosshair,
+        viewmodel: payload.viewmodel,
+        keybinds: payload.keybinds,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  } else {
+    try {
+      await setDoc(ref, {
+        ...payload,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  }
+  return { saved: true };
+}
+
+async function syncDisplayNameToRun(dateKey, customDisplayName) {
+  await ready;
+  const Gen = window.DailyCourseGen;
+  if (!Gen || !Gen.isValidDateKey(dateKey)) return { updated: false };
+  if (!db || !currentUser || !currentUser.emailVerified) return { updated: false };
+
+  const uid = currentUser.uid;
+  const runPath = `dailyCourses/${dateKey}/runs/${uid}`;
+  const runRef = doc(db, 'dailyCourses', dateKey, 'runs', uid);
+
+  let snap;
+  try {
+    snap = await getDoc(runRef);
+  } catch (_) {
+    return { updated: false };
+  }
+  if (!snap || !snap.exists()) return { updated: false };
+
+  const resolved = window.VelocitySettings
+    ? window.VelocitySettings.resolveEffectiveDisplayName({ displayName: customDisplayName }, currentUser)
+    : sanitizeDisplayName(currentUser);
+  const cleanName = String(resolved).trim().slice(0, 40) || 'Runner';
+  if (snap.data().displayName === cleanName) return { updated: false };
+
+  try {
+    await updateDoc(runRef, {
+      displayName: cleanName,
+      updatedAt: serverTimestamp()
+    });
+    return { updated: true };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, runPath);
+  }
+}
+
+async function loadUserInventory() {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+    return { inventory: null, exists: false, cloudSynced: false };
+  }
+  const uid = currentUser.uid;
+  const invPath = `userInventory/${uid}`;
+  const invRef = doc(db, 'userInventory', uid);
+  let snap;
+  try {
+    snap = await getDoc(invRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, invPath);
+  }
+  if (!snap || !snap.exists()) {
+    return { inventory: null, exists: false, cloudSynced: true };
+  }
+
+  const knivesPath = `userInventory/${uid}/knives`;
+  let knivesSnap;
+  try {
+    const q = query(collection(db, 'userInventory', uid, 'knives'), where('uid', '==', uid), limit(200));
+    knivesSnap = await getDocs(q);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, knivesPath);
+  }
+
+  const glovesPath = `userInventory/${uid}/gloves`;
+  let glovesSnap;
+  try {
+    const gq = query(collection(db, 'userInventory', uid, 'gloves'), where('uid', '==', uid), limit(200));
+    glovesSnap = await getDocs(gq);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, glovesPath);
+  }
+
+  const knives = [];
+  if (knivesSnap) {
+    knivesSnap.forEach((docSnap) => {
+      knives.push(window.KnivesSystem.sanitizeKnifeItem(docSnap.data()));
+    });
+  }
+  const gloves = [];
+  if (glovesSnap) {
+    glovesSnap.forEach((docSnap) => {
+      gloves.push(window.KnivesSystem.sanitizeGloveItem(docSnap.data()));
+    });
+  }
+  const data = snap.data();
+  const clean = window.KnivesSystem.sanitizeInventory({
+    equippedKnifeId: data.equippedKnifeId,
+    equippedGloveId: data.equippedGloveId,
+    caseCounts: data.caseCounts,
+    totalOpened: data.totalOpened,
+    lastDailyDropDate: data.lastDailyDropDate,
+    knives,
+    gloves
+  });
+  return { inventory: clean, exists: true, cloudSynced: true };
+}
+
+async function saveUserInventorySummary(inventory) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+    return { saved: false, reason: !currentUser ? 'signed-out' : 'offline' };
+  }
+  const uid = currentUser.uid;
+  const invPath = `userInventory/${uid}`;
+  const invRef = doc(db, 'userInventory', uid);
+  const payload = window.KnivesSystem.toCloudInventoryPayload(inventory, uid);
+
+  let existingSnap;
+  try {
+    existingSnap = await getDoc(invRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, invPath);
+  }
+
+  if (existingSnap && existingSnap.exists()) {
+    try {
+      await updateDoc(invRef, {
+        equippedKnifeId: payload.equippedKnifeId,
+        equippedGloveId: payload.equippedGloveId,
+        caseCounts: payload.caseCounts,
+        totalOpened: Math.max(payload.totalOpened, existingSnap.data().totalOpened || 0),
+        lastDailyDropDate: payload.lastDailyDropDate,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, invPath);
+    }
+  } else {
+    try {
+      await setDoc(invRef, {
+        ...payload,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, invPath);
+    }
+  }
+  return { saved: true };
+}
+
+async function saveCloudKnife(knifeItem, fullInventory) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+    return { saved: false };
+  }
+  // Ensure parent userInventory/{uid} exists first (Master Gate)
+  await saveUserInventorySummary(fullInventory);
+  const uid = currentUser.uid;
+  const payload = window.KnivesSystem.toCloudKnifePayload(knifeItem, uid);
+  const knifePath = `userInventory/${uid}/knives/${payload.id}`;
+  const knifeRef = doc(db, 'userInventory', uid, 'knives', payload.id);
+
+  try {
+    const existingSnap = await getDoc(knifeRef);
+    if (existingSnap.exists()) return { saved: true };
+    await setDoc(knifeRef, {
+      ...payload,
+      createdAt: serverTimestamp()
+    });
+    return { saved: true };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, knifePath);
+  }
+}
+
+async function deleteCloudKnife(knifeId) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) return { deleted: false };
+  const uid = currentUser.uid;
+  const knifePath = `userInventory/${uid}/knives/${knifeId}`;
+  const knifeRef = doc(db, 'userInventory', uid, 'knives', knifeId);
+  try {
+    await deleteDoc(knifeRef);
+    return { deleted: true };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, knifePath);
+  }
+}
+
+async function saveCloudGlove(gloveItem, fullInventory) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+    return { saved: false };
+  }
+  // Ensure parent userInventory/{uid} exists first (Master Gate)
+  await saveUserInventorySummary(fullInventory);
+  const uid = currentUser.uid;
+  const payload = window.KnivesSystem.toCloudGlovePayload(gloveItem, uid);
+  const glovePath = `userInventory/${uid}/gloves/${payload.id}`;
+  const gloveRef = doc(db, 'userInventory', uid, 'gloves', payload.id);
+
+  try {
+    const existingSnap = await getDoc(gloveRef);
+    if (existingSnap.exists()) return { saved: true };
+    await setDoc(gloveRef, {
+      ...payload,
+      createdAt: serverTimestamp()
+    });
+    return { saved: true };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, glovePath);
+  }
+}
+
+async function deleteCloudGlove(gloveId) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) return { deleted: false };
+  const uid = currentUser.uid;
+  const glovePath = `userInventory/${uid}/gloves/${gloveId}`;
+  const gloveRef = doc(db, 'userInventory', uid, 'gloves', gloveId);
+  try {
+    await deleteDoc(gloveRef);
+    return { deleted: true };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, glovePath);
+  }
+}
+
 async function signInWithGoogle() {
   await ready;
   if (!auth) throw new Error('Firebase Auth is not initialized.');
@@ -359,6 +652,15 @@ window.DailyBackend = {
   ensureDailyCourseRegistered,
   fetchDailyArchive,
   fetchLeaderboard,
-  submitDailyRun
+  submitDailyRun,
+  loadUserSettings,
+  saveUserSettings,
+  syncDisplayNameToRun,
+  loadUserInventory,
+  saveUserInventorySummary,
+  saveCloudKnife,
+  deleteCloudKnife,
+  saveCloudGlove,
+  deleteCloudGlove
 };
 window.dispatchEvent(new Event('daily-backend-ready'));

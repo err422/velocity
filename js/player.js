@@ -12,15 +12,26 @@ camera.rotation.order='YXZ';
 const $=id=>document.getElementById(id);
 const cpEl=$('cp'),speedEl=$('speed'),stateEl=$('state'),timerEl=$('timer'),pbEl=$('pb'),ghostHudEl=$('ghostHud'),centerMsg=$('centerMessage'),grappleEl=$('grappleState'),overlay=$('overlay'),toast=$('toast');
 function fmt(t){const m=Math.floor(t/60),s=Math.floor(t%60),ms=Math.floor((t%1)*1000);return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;}
+let centerMsgTimer=0;
 function showToast(s){toast.textContent=s;toast.style.opacity=1;toastTimer=1.7;}
-function message(s){centerMsg.textContent=s;centerMsg.style.opacity=1;setTimeout(()=>centerMsg.style.opacity=0,1200);}
+function message(s,opts){
+  const mythic=!!(opts&&opts.mythic);
+  const dur=(opts&&opts.duration)||1200;
+  centerMsg.textContent=s;
+  centerMsg.classList.toggle('mythic',mythic);
+  centerMsg.style.opacity=1;
+  if(centerMsgTimer)clearTimeout(centerMsgTimer);
+  centerMsgTimer=setTimeout(()=>{centerMsg.style.opacity=0;centerMsgTimer=0;},dur);
+}
 function updateGhostHud(){
   if(!ghostHudEl)return;
   if(!course){ghostHudEl.textContent='';return;}
+  const gTok=getSettings().keybinds.ghost;
+  const gLbl=window.VelocitySettings?VelocitySettings.formatInputToken(gTok):'G';
   const sel=GhostSystem.selectGhostEntry(ghostMode,ghostPb,ghostLast);
-  if(sel.kind==='off')ghostHudEl.textContent='GHOST OFF [G]';
+  if(sel.kind==='off')ghostHudEl.textContent=`GHOST OFF [${gLbl}]`;
   else if(sel.kind==='none')ghostHudEl.textContent='GHOST NONE';
-  else ghostHudEl.textContent=`GHOST ${sel.kind.toUpperCase()} ${fmt(sel.ghost.duration)} [G]`;
+  else ghostHudEl.textContent=`GHOST ${sel.kind.toUpperCase()} ${fmt(sel.ghost.duration)} [${gLbl}]`;
 }
 function loadCourseGhosts(courseId){
   ghostPb=null;ghostLast=null;
@@ -38,27 +49,80 @@ function toggleGhostMode(){
 
 
 // ---------- input ----------
+function getSettings(){
+  if(window.activeSettings)return window.activeSettings;
+  return window.VelocitySettings?VelocitySettings.DEFAULT_SETTINGS:{sensitivity:1,invertY:false,baseFov:85,keybinds:{forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',slide:'ShiftLeft',grapple:'KeyE',burst:'KeyQ',restart:'KeyR',checkpoint:'KeyT',ghost:'KeyG'}};
+}
+function isActionDown(action){
+  const tok=getSettings().keybinds[action];
+  return !!(tok&&keys[tok]);
+}
+function isActivePlay(){
+  return locked||(typeof inLevel!=='undefined'&&inLevel&&overlay.style.display==='none');
+}
+function clearHeldInputs(){
+  for(const k in keys)keys[k]=false;
+}
+function triggerBoundToken(token,repeat){
+  const kb=getSettings().keybinds;
+  if(token===kb.jump)jumpBuffer=CFG.jumpBuffer;
+  if(!isActivePlay())return;
+  if(token===kb.grapple&&!repeat)toggleGrapple();
+  if(token===kb.restart&&!repeat)resetPlayer();
+  if(token===kb.checkpoint&&!repeat)toCheckpoint();
+  if(token===kb.burst&&!repeat)burst();
+  if(token===kb.ghost&&!repeat)toggleGhostMode();
+  if(token===kb.inspect&&!repeat&&window.ViewmodelSystem){
+    const res=window.ViewmodelSystem.triggerInspect();
+    if(res&&res.tier==='mythic'&&!res.continued){
+      const label=res.mythicName?`★ MYTHIC INSPECT · ${res.mythicName.toUpperCase()}`:'★ 1/100 MYTHIC INSPECT';
+      message(label,{mythic:true,duration:2400});
+      showToast('1/100 MYTHIC INSPECT!');
+    }
+  }
+}
+
 document.addEventListener('pointerlockchange',()=>{
   const wasLocked=locked;
   locked=document.pointerLockElement===renderer.domElement;
-  if(!locked){for(const k in keys)keys[k]=false;if(wasLocked)onUnlock();}
+  if(!locked){clearHeldInputs();if(wasLocked)onUnlock();}
 });
-document.addEventListener('mousemove',e=>{if(!locked)return;player.yaw-=e.movementX*.0022;player.pitch=clamp(player.pitch-e.movementY*.0022,-1.48,1.48);});
+document.addEventListener('mousemove',e=>{
+  if(!locked||window.isRebindingInput)return;
+  const s=getSettings();
+  const sens=0.0022*s.sensitivity;
+  const ySign=s.invertY?-1:1;
+  player.yaw-=e.movementX*sens;
+  player.pitch=clamp(player.pitch-e.movementY*sens*ySign,-1.48,1.48);
+  if(window.ViewmodelSystem)window.ViewmodelSystem.addLookDelta(e.movementX,e.movementY);
+});
 document.addEventListener('keydown',e=>{
+  if(window.isRebindingInput)return;
   if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
+  const activePlay=isActivePlay();
+  if(e.code==='Escape'&&activePlay){document.exitPointerLock?.();onUnlock();return;}
   keys[e.code]=true;
-  if(e.code==='Space'){jumpBuffer=CFG.jumpBuffer;e.preventDefault();}
-  const activePlay=locked||(typeof inLevel!=='undefined'&&inLevel&&overlay.style.display==='none');
-  if(!activePlay)return;
-  if(e.code==='Escape'&&!locked){onUnlock();return;}
-  if(e.code==='KeyE'&&!e.repeat)toggleGrapple();
-  if(e.code==='KeyR')resetPlayer();
-  if(e.code==='KeyT')toCheckpoint();
-  if(e.code==='KeyQ'&&!e.repeat)burst();
-  if(e.code==='KeyG'&&!e.repeat)toggleGhostMode();
+  const kb=getSettings().keybinds;
+  if(e.code===kb.jump||e.code==='Space'){if(activePlay)e.preventDefault();}
+  triggerBoundToken(e.code,e.repeat);
 });
-document.addEventListener('keyup',e=>keys[e.code]=false);
-addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
+document.addEventListener('mousedown',e=>{
+  if(window.isRebindingInput||!isActivePlay())return;
+  const tok=window.VelocitySettings?VelocitySettings.mouseButtonToToken(e.button):('Mouse'+e.button);
+  if(!tok)return;
+  keys[tok]=true;
+  if(e.button===1||e.button===2||e.button===3||e.button===4)e.preventDefault();
+  triggerBoundToken(tok,false);
+});
+document.addEventListener('mouseup',e=>{
+  const tok=window.VelocitySettings?VelocitySettings.mouseButtonToToken(e.button):('Mouse'+e.button);
+  if(tok)keys[tok]=false;
+});
+renderer.domElement.addEventListener('contextmenu',e=>{
+  if(isActivePlay())e.preventDefault();
+});
+addEventListener('blur',clearHeldInputs);
 
 // ---------- collision ----------
 const _lp=V3(),_c=V3(),_d=V3(),_n=V3();
@@ -230,18 +294,18 @@ function step(dt){
 
   // Wish direction
   const sy=Math.sin(p.yaw),cy=Math.cos(p.yaw);wish.set(0,0,0);
-  if(keys.KeyW){wish.x-=sy;wish.z-=cy;}if(keys.KeyS){wish.x+=sy;wish.z+=cy;}
-  if(keys.KeyD){wish.x+=cy;wish.z-=sy;}if(keys.KeyA){wish.x-=cy;wish.z+=sy;}
+  if(isActionDown('forward')){wish.x-=sy;wish.z-=cy;}if(isActionDown('back')){wish.x+=sy;wish.z+=cy;}
+  if(isActionDown('right')){wish.x+=cy;wish.z-=sy;}if(isActionDown('left')){wish.x-=cy;wish.z+=sy;}
   const hasWish=wish.lengthSq()>0;if(hasWish)wish.normalize();
 
   // Stance (can't stand up under a low ceiling) and slide entry boost
-  const wasLow=p.low,wantLow=!!(keys.ShiftLeft||keys.ShiftRight);
+  const wasLow=p.low,wantLow=isActionDown('slide');
   if(wantLow)p.low=true;else if(p.low&&!headBlocked())p.low=false;
   let grounded=p.grounded;
   if(p.low&&!wasLow&&grounded&&p.slideCd<=0&&Math.hypot(v.x,v.z)>C.slideMinSpeed){v.x*=C.slideBoost;v.z*=C.slideBoost;p.slideCd=C.slideBoostCooldown;}
 
   // Jump (ground / coyote / auto-hop), else wall jump. Jumping before friction = bunny hop.
-  if((jumpBuffer>0||(C.autoHop&&keys.Space))&&(grounded||coyote>0)){
+  if((jumpBuffer>0||(C.autoHop&&isActionDown('jump')))&&(grounded||coyote>0)){
     v.y=Math.max(v.y,0)+C.jumpSpeed;grounded=false;coyote=0;jumpBuffer=0;p.noGround=.08;
   }else if(jumpBuffer>0&&p.wallrun){
     v.addScaledVector(p.wallN,C.wallJumpPush);v.y=Math.max(v.y,0)+C.wallJumpUp;
