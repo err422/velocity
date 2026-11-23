@@ -277,12 +277,12 @@ test('rollInspectTier implements exact 1/100 Mythic, 25% Uncommon, and 74% Norma
 test('tiered cases enforce escalating prices and increasing Gold odds', () => {
   assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol']);
   assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 20);
-  assert.equal(KnivesSystem.getCasePrice('velocity'), 150);
-  assert.equal(KnivesSystem.getCasePrice('chroma'), 275);
-  assert.equal(KnivesSystem.getCasePrice('spectrum'), 450);
-  assert.equal(KnivesSystem.getCasePrice('blacksite'), 575);
-  assert.equal(KnivesSystem.getCasePrice('overdrive'), 725);
-  assert.equal(KnivesSystem.getCasePrice('eclipse'), 900);
+  assert.equal(KnivesSystem.getCasePrice('velocity'), 100);
+  assert.equal(KnivesSystem.getCasePrice('chroma'), 175);
+  assert.equal(KnivesSystem.getCasePrice('spectrum'), 275);
+  assert.equal(KnivesSystem.getCasePrice('blacksite'), 375);
+  assert.equal(KnivesSystem.getCasePrice('overdrive'), 500);
+  assert.equal(KnivesSystem.getCasePrice('eclipse'), 650);
 
   const velOdds = KnivesSystem.getCaseOdds('velocity');
   const chrOdds = KnivesSystem.getCaseOdds('chroma');
@@ -362,15 +362,15 @@ test('skin valuation scales properly by rarity, wear, item type, and special tag
 test('buyCase, sellItems, starter/equipped protection, duplicate finder, and arena coin rewards work end-to-end', () => {
   let inv = KnivesSystem.createStarterInventory(); // 150 coins
 
-  // Cannot afford Chroma (275) yet
+  // Cannot afford Chroma (175) yet
   const failBuy = KnivesSystem.buyCase(inv, 'chroma');
   assert.equal(failBuy.purchased, false);
-  assert.equal(failBuy.deficit, 125);
+  assert.equal(failBuy.deficit, 25);
 
-  // Can afford Velocity Classic (150)
+  // Can afford Velocity Classic (100)
   const okBuy = KnivesSystem.buyCase(inv, 'velocity');
   assert.equal(okBuy.purchased, true);
-  assert.equal(okBuy.inventory.coins, 0);
+  assert.equal(okBuy.inventory.coins, 50);
   assert.equal(okBuy.inventory.caseCounts.velocity, 1);
   inv = okBuy.inventory;
 
@@ -383,7 +383,7 @@ test('buyCase, sellItems, starter/equipped protection, duplicate finder, and are
   assert.equal(loss.coinsEarned, 20);
   const win = KnivesSystem.grantArenaReward(loss.inventory, { won: true });
   assert.equal(win.coinsEarned, 65);
-  assert.equal(win.inventory.coins, 105);
+  assert.equal(win.inventory.coins, 155);
   inv = win.inventory;
 
   // Add two duplicate rifles (one better FN, one worse BS) + one equipped knife
@@ -409,7 +409,7 @@ test('buyCase, sellItems, starter/equipped protection, duplicate finder, and are
   assert.equal(sale.soldItems.length, 1);
   assert.equal(sale.soldItems[0].id, dupBad.id);
   assert.equal(sale.coinsEarned, expectedVal);
-  assert.equal(sale.inventory.coins, 105 + expectedVal);
+  assert.equal(sale.inventory.coins, 155 + expectedVal);
   assert.ok(sale.inventory.weapons.some((w) => w.id === 'starter_rifle_slate'));
   assert.ok(sale.inventory.knives.some((k) => k.id === unboxKnife.id));
   assert.ok(!sale.inventory.weapons.some((w) => w.id === dupBad.id));
