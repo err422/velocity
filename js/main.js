@@ -85,11 +85,14 @@ function render(dt){
   if(inLevel){
     const botTargetState=NetcodeSystem.getState();
     CombatSystem.update(dt,{
+      uid:botTargetState.localUid,
       position:_rp,
       yaw:p.yaw,
       eye:p.eye,
       velocity:p.vel,
-      alive:botTargetState.localAlive!==false
+      alive:botTargetState.localAlive!==false,
+      isHost:botTargetState.role==='host',
+      phase:botTargetState.phase
     },solidMeshes);
     combatFrameState=CombatSystem.getState();
   }
@@ -3868,15 +3871,19 @@ NetcodeSystem.setCallbacks({
   onRemoteTracer:(m)=>CombatSystem.spawnTracer(V3(m.sx,m.sy,m.sz),V3(m.ex,m.ey,m.ez),m.slot==='awp'?0x7ef2ff:0xffa065),
   onLocalKill:(info)=>{
     const hs=Boolean(info&&(info.isHeadshot||info.headshot));
+    const killWep=(info&&(info.weaponId||info.slot))||CombatSystem.getActiveWeaponType();
+    if(info&&info.victimIsBot){
+      const xpGain=hs?LoadoutsSystem.XP_REWARDS.botHeadshot:LoadoutsSystem.XP_REWARDS.botKill;
+      if(LoadoutsSystem.WEAPON_SPECS[killWep])grantWeaponXp(killWep,xpGain);
+      showToast(`${hs?'HEADSHOT':'BOT ELIMINATION'} · +${xpGain} GUN XP`);
+      return;
+    }
     const res=KnivesSystem.grantArenaKillCoins(window.activeInventory,{headshot:hs});
     window.activeInventory=res.inventory;
     persistInventorySummary(true);
     CaseAudio.coinChime('earn');
-    const killWep=(info&&(info.weaponId||info.slot))||CombatSystem.getActiveWeaponType();
     const xpGain=hs?LoadoutsSystem.XP_REWARDS.arenaHeadshot:LoadoutsSystem.XP_REWARDS.arenaKill;
-    if(LoadoutsSystem.WEAPON_SPECS[killWep]){
-      grantWeaponXp(killWep,xpGain);
-    }
+    if(LoadoutsSystem.WEAPON_SPECS[killWep])grantWeaponXp(killWep,xpGain);
     showToast(`${hs?'HEADSHOT':'ELIMINATION'} · +${fmtCoins(res.coinsEarned)}C · +${xpGain} XP`);
   },
   onMatchEnd:(info)=>{
@@ -3896,9 +3903,8 @@ CombatSystem.setOnWarmupKill((info)=>{
   renderArenaHudStatic();
 });
 CombatSystem.setOnWeaponXp((info)=>{
-  if(info&&info.weaponId&&info.xp>0){
-    grantWeaponXp(info.weaponId,info.xp);
-  }
+  const xpGain=Number(info&&(info.xp??info.amount))||0;
+  if(info&&info.weaponId&&xpGain>0)grantWeaponXp(info.weaponId,xpGain);
 });
 
 // Event bindings

@@ -239,8 +239,9 @@
   let warmupKills = 0;
   let onWarmupKillCb = null;
 
-  // Remote WebRTC Player Avatars
-  const remoteAvatars = new Map(); // uid -> { group, headMesh, bodyMesh, labelSprite, hpBarMesh, targetPos, targetYaw, targetPitch, hp, alive, name, activeSlot }
+  // Remote WebRTC Player Avatars and host-authoritative arena AI.
+  const remoteAvatars = new Map();
+  const arenaBotAi = new Map();
 
   function ensureInit(targetScene) {
     if (worldScene === targetScene && fxGroup) return;
@@ -998,7 +999,7 @@
     }
   }
 
-  function fireWarmupBot(bot, targetPos, solidList) {
+  function fireWarmupBot(bot, targetPos, solidList, onDamage, onShot) {
     const profile = bot.profile;
     if (bot.reloadTimer > 0 || bot.magazine <= 0) return false;
     _botOrigin.set(
@@ -1043,15 +1044,20 @@
     if (hitsPlayer) endDistance = Math.min(endDistance, alongRay);
     _botEndPoint.copy(_botOrigin).addScaledVector(_botDirection, endDistance);
     spawnTracer(_botOrigin, _botEndPoint, profile.tracer);
+    if (typeof onShot === 'function') onShot(bot, _botOrigin, _botEndPoint, profile.weapon);
 
     bot.magazine -= 1;
     bot.fireCooldown = profile.shotInterval * (0.92 + Math.random() * 0.16);
     if (root.WeaponAudio) root.WeaponAudio.fireWeapon(profile.weapon, { suppressed: false });
 
-    if (hitsPlayer && root.NetcodeSystem && typeof root.NetcodeSystem.applyWarmupDamage === 'function') {
+    if (hitsPlayer) {
       const falloff = Math.max(0.82, 1 - (targetDistance / profile.sightRange) * 0.18);
       const damage = Math.max(3, Math.round(profile.damage * falloff));
-      root.NetcodeSystem.applyWarmupDamage(damage, bot.name, profile.weapon, false);
+      if (typeof onDamage === 'function') {
+        onDamage(damage, profile.weapon);
+      } else if (root.NetcodeSystem && typeof root.NetcodeSystem.applyWarmupDamage === 'function') {
+        root.NetcodeSystem.applyWarmupDamage(damage, bot.name, profile.weapon, false);
+      }
       spawnBurst(_botEndPoint, 0xff5e78, 4, 2.8);
     } else if (blockers.length > 0 && blockers[0].distance < profile.sightRange) {
       spawnBurst(_botEndPoint, 0xffb347, 2, 2.2);
@@ -1059,7 +1065,7 @@
     return hitsPlayer;
   }
 
-  function updateWarmupBot(bot, dt, playerState, playerPos, targetPos, solidList) {
+  function updateWarmupBot(bot, dt, playerState, playerPos, targetPos, solidList, onDamage, onShot) {
     const profile = bot.profile;
     const group = bot.visual.group;
     bot.alertTimer = Math.max(0, bot.alertTimer - dt);
@@ -1221,7 +1227,7 @@
     }
     if (seesPlayer && playerState.alive !== false && bot.fireCooldown <= 0 &&
         bot.reloadTimer <= 0 && bot.magazine > 0 && bot.aimTimer >= profile.reaction) {
-      fireWarmupBot(bot, targetPos, solidList);
+      fireWarmupBot(bot, targetPos, solidList, onDamage, onShot);
     }
   }
 
@@ -1240,6 +1246,179 @@
       }
     }
     remoteAvatars.clear();
+    arenaBotAi.clear();
+  }
+
+  function resetArenaBotBrain(bot) {
+    const pos = bot.visual.group.position;
+    bot.anchor.copy(pos);
+    bot.wanderPoint.copy(pos);
+    bot.velocity.set(0, 0, 0);
+    bot.verticalVelocity = 0;
+    bot.aimTimer = 0;
+    bot.alertTimer = 0;
+    bot.alertOnNextUpdate = false;
+    bot.magazine = bot.profile.magSize;
+    bot.reloadTimer = 0;
+    bot.fireCooldown = 0.65;
+    bot.wanderTimer = 0;
+    bot.decisionTimer = 0.8;
+    bot.poseTimer = 0;
+  }
+
+  function syncArenaBots(players, resetBrains) {
+    const wanted = new Set();
+    if (!Array.isArray(players)) players = [];
+
+    for (const player of players) {
+      if (!player || !player.uid || !player.isBot) continue;
+      wanted.add(player.uid);
+      const profileIndex = Math.max(0, Number(player.botType) || 0) % WARMUP_BOT_ARCHETYPES.length;
+      const profile = WARMUP_BOT_ARCHETYPES[profileIndex];
+      const spawn = warmupSpawns[player.spawnIdx] || warmupSpawns[0] || { x: 0, y: 0.05, z: 0, yaw: 0 };
+      const avatar = upsertRemoteAvatar(player.uid, {
+        name: player.name || `BOT · ${profile.role}`,
+        isBot: true,
+        botType: profileIndex,
+        x: Number.isFinite(player.x) ? player.x : spawn.x,
+        y: Number.isFinite(player.y) ? player.y : spawn.y,
+        z: Number.isFinite(player.z) ? player.z : spawn.z,
+        yaw: Number.isFinite(player.yaw) ? player.yaw : (spawn.yaw || 0),
+        hp: Number.isFinite(player.hp) ? player.hp : 100,
+        alive: player.alive !== false,
+        slot: player.slot || profile.weapon,
+        snap: true
+      });
+      if (!avatar) continue;
+      avatar.visual.group.position.copy(avatar.pos);
+      avatar.visual.group.rotation.y = avatar.yaw;
+
+      let bot = arenaBotAi.get(player.uid);
+      if (!bot) {
+        const pos = avatar.pos;
+        bot = {
+          uid: player.uid,
+          name: player.name || `BOT · ${profile.role}`,
+          profile,
+          visual: avatar.visual,
+          hp: avatar.hp,
+          alive: avatar.alive,
+          respawnTimer: 0,
+          anchor: pos.clone(),
+          wanderPoint: pos.clone(),
+          lastKnownPlayer: pos.clone(),
+          velocity: new THREE.Vector3(),
+          verticalVelocity: 0,
+          yaw: avatar.yaw,
+          orbitDir: profileIndex % 2 === 0 ? 1 : -1,
+          decisionTimer: 0.8 + profileIndex * 0.3,
+          wanderTimer: 0,
+          aimTimer: 0,
+          alertTimer: 0,
+          alertOnNextUpdate: false,
+          magazine: profile.magSize,
+          reloadTimer: 0,
+          fireCooldown: 0.65 + profileIndex * 0.16,
+          strafePhase: profileIndex * 1.9,
+          targetUid: '',
+          poseTimer: 0
+        };
+        arenaBotAi.set(player.uid, bot);
+      } else {
+        const wasAlive = bot.alive;
+        bot.name = player.name || bot.name;
+        bot.profile = profile;
+        bot.visual = avatar.visual;
+        bot.hp = avatar.hp;
+        bot.alive = avatar.alive;
+        bot.yaw = avatar.yaw;
+        if (resetBrains || (!wasAlive && bot.alive)) resetArenaBotBrain(bot);
+      }
+    }
+
+    for (const uid of Array.from(arenaBotAi.keys())) {
+      if (!wanted.has(uid)) {
+        arenaBotAi.delete(uid);
+        removeRemoteAvatar(uid);
+      }
+    }
+  }
+
+  function updateArenaBots(dt, playerState, solidList) {
+    if (!playerState || !playerState.isHost || playerState.phase !== 'live' || arenaBotAi.size === 0) return;
+
+    for (const bot of arenaBotAi.values()) {
+      if (!bot.alive) continue;
+      let target = null;
+      let targetDistanceSq = Infinity;
+
+      if (playerState.position && playerState.uid && playerState.alive !== false) {
+        const dx = playerState.position.x - bot.visual.group.position.x;
+        const dz = playerState.position.z - bot.visual.group.position.z;
+        targetDistanceSq = dx * dx + dz * dz;
+        target = {
+          uid: playerState.uid,
+          position: playerState.position,
+          eye: playerState.eye || 1.6
+        };
+      }
+
+      for (const [uid, avatar] of remoteAvatars) {
+        if (avatar.isBot || !avatar.alive || uid === playerState.uid) continue;
+        const dx = avatar.pos.x - bot.visual.group.position.x;
+        const dz = avatar.pos.z - bot.visual.group.position.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < targetDistanceSq) {
+          targetDistanceSq = d2;
+          target = { uid, position: avatar.pos, eye: 1.6 };
+        }
+      }
+
+      bot.targetUid = target ? target.uid : '';
+      const targetAim = target
+        ? _botTargetPos.set(target.position.x, target.position.y + Math.min(1.2, target.eye * 0.72), target.position.z)
+        : null;
+
+      updateWarmupBot(
+        bot,
+        dt,
+        { alive: Boolean(target), eye: target ? target.eye : 1.6 },
+        target ? target.position : null,
+        targetAim,
+        solidList,
+        (damage, weapon) => {
+          if (target && root.NetcodeSystem && typeof root.NetcodeSystem.applyBotDamage === 'function') {
+            root.NetcodeSystem.applyBotDamage(bot.uid, target.uid, damage, weapon, false);
+          }
+        },
+        (firingBot, origin, endPoint, weapon) => {
+          if (root.NetcodeSystem && typeof root.NetcodeSystem.reportBotShot === 'function') {
+            root.NetcodeSystem.reportBotShot(firingBot.uid, origin, endPoint, weapon);
+          }
+        }
+      );
+
+      const avatar = remoteAvatars.get(bot.uid);
+      if (avatar) {
+        avatar.pos.copy(bot.visual.group.position);
+        avatar.targetPos.copy(bot.visual.group.position);
+        avatar.yaw = bot.yaw;
+        avatar.targetYaw = bot.yaw;
+      }
+      bot.poseTimer -= dt;
+      if (bot.poseTimer <= 0) {
+        bot.poseTimer = 1 / 12;
+        if (root.NetcodeSystem && typeof root.NetcodeSystem.reportBotPose === 'function') {
+          root.NetcodeSystem.reportBotPose(bot.uid, {
+            x: bot.visual.group.position.x,
+            y: bot.visual.group.position.y,
+            z: bot.visual.group.position.z,
+            yaw: bot.yaw,
+            slot: bot.profile.weapon
+          });
+        }
+      }
+    }
   }
 
   function upsertRemoteAvatar(uid, info) {
@@ -1247,8 +1426,11 @@
     let entry = remoteAvatars.get(uid);
     if (!entry) {
       const palette = [0xff5277, 0x56e8ff, 0xffbd42, 0x9b6bff];
-      const color = palette[remoteAvatars.size % palette.length];
-      const visual = createAvatarMesh({ name: (info && info.name) || 'PLAYER', accentColor: color, isBot: false });
+      const botPalette = WARMUP_BOT_ARCHETYPES.map((p) => p.color);
+      const isBot = Boolean(info && info.isBot);
+      const botType = info && Number.isFinite(info.botType) ? info.botType : 0;
+      const color = isBot ? botPalette[botType % botPalette.length] : palette[remoteAvatars.size % palette.length];
+      const visual = createAvatarMesh({ name: (info && info.name) || 'PLAYER', accentColor: color, isBot });
       visual.headMesh.userData.remoteUid = uid;
       visual.headMesh.userData.hitbox = 'head';
       visual.bodyMesh.userData.remoteUid = uid;
@@ -1264,16 +1446,23 @@
         targetYaw: 0,
         hp: 100,
         alive: true,
+        isBot: Boolean(info && info.isBot),
+        botType: info && Number.isFinite(info.botType) ? info.botType : null,
         activeSlot: 'rifle'
       };
       remoteAvatars.set(uid, entry);
     }
     if (info) {
+      if (typeof info.isBot === 'boolean') entry.isBot = info.isBot;
+      if (Number.isFinite(info.botType)) entry.botType = info.botType;
       if (typeof info.x === 'number' && typeof info.y === 'number' && typeof info.z === 'number') {
         entry.targetPos.set(info.x, info.y, info.z);
         if (info.snap) entry.pos.copy(entry.targetPos);
       }
-      if (typeof info.yaw === 'number') entry.targetYaw = info.yaw;
+      if (typeof info.yaw === 'number') {
+        entry.targetYaw = info.yaw;
+        if (info.snap) entry.yaw = info.yaw;
+      }
       if (typeof info.hp === 'number') {
         entry.hp = Math.max(0, Math.min(100, info.hp));
         const ratio = entry.hp / 100;
@@ -1300,6 +1489,7 @@
       entry.visual.group.parent.remove(entry.visual.group);
     }
     remoteAvatars.delete(uid);
+    arenaBotAi.delete(uid);
   }
 
   // ---------- Firing, Hitscan & Damage Resolution ----------
@@ -1763,6 +1953,17 @@
       }
     }
 
+    // Only the host simulates live AI; all clients receive the bots as regular
+    // replicated player avatars and use normal hitscan hitboxes.
+    updateArenaBots(dt, {
+      uid: playerState && playerState.uid,
+      position: playerPos,
+      eye: playerEye,
+      alive: playerAlive,
+      isHost: Boolean(playerState && playerState.isHost),
+      phase: playerState && playerState.phase
+    }, botSolids);
+
     // Smoothly interpolate Remote WebRTC Player Avatars
     const lerpK = Math.min(1, dt * 16);
     for (const [, av] of remoteAvatars) {
@@ -1824,6 +2025,7 @@
     setWarmupBotsVisible,
     setOnWarmupKill: (cb) => { onWarmupKillCb = cb; },
     upsertRemoteAvatar,
+    syncArenaBots,
     removeRemoteAvatar,
     clearRemoteAvatars,
     update,
