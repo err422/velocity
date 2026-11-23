@@ -236,7 +236,10 @@
 
   function switchSlot(slot, playDraw = true) {
     const valid = SLOTS.includes(slot) ? slot : 'knife';
-    if (state.activeSlot === valid) return false;
+    if (state.activeSlot === valid) {
+      if (root.ViewmodelSystem) root.ViewmodelSystem.setActiveSlot(valid, playDraw);
+      return false;
+    }
     state.activeSlot = valid;
     state.reloading = false;
     state.reloadTimer = 0;
