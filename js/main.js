@@ -43,7 +43,7 @@ window.activeInventory=KnivesSystem.loadLocal();
 // normal local profile or the signed-in cloud inventory.
 const VELOCITY_TEST_SNAPSHOT_KEY='velocity_test_inventory_snapshot_v1';
 const VELOCITY_TEST_COINS=9999999;
-function syncVelocityTestMode(){
+function syncVelocityTestMode(refreshUi=true){
   const wantsTest=String(window.activeSettings&&window.activeSettings.displayName||'').trim().toUpperCase()==='VELOCITY_TEST';
   const keys=[KnivesSystem.STORAGE_KEY,KnivesSystem.BACKUP_STORAGE_KEY,KnivesSystem.SOLD_IDS_STORAGE_KEY,KnivesSystem.DIRTY_STORAGE_KEY];
   if(wantsTest){
@@ -63,8 +63,10 @@ function syncVelocityTestMode(){
     window.activeInventory.coins=VELOCITY_TEST_COINS;
     window.activeInventory=KnivesSystem.saveLocal(window.activeInventory);
     KnivesSystem.setLocalDirty(false);
-    updateArmorySyncLabel('TEST MODE · LOCAL ONLY');
-    updateArmoryBadges();
+    if(refreshUi){
+      updateArmorySyncLabel('TEST MODE · LOCAL ONLY');
+      updateArmoryBadges();
+    }
     return;
   }
   if(window.VELOCITY_TEST_MODE){
@@ -85,11 +87,13 @@ function syncVelocityTestMode(){
       console.warn('Could not restore the normal inventory after test mode:',err);
     }
     window.activeInventory=KnivesSystem.loadLocal();
-    updateArmorySyncLabel('LOCAL ONLY');
-    updateArmoryBadges();
+    if(refreshUi){
+      updateArmorySyncLabel('LOCAL ONLY');
+      updateArmoryBadges();
+    }
   }
 }
-syncVelocityTestMode();
+syncVelocityTestMode(false);
 window.activeLoadouts=LoadoutsSystem.loadLocal();
 window.isRebindingInput=false;
 window.isScoreboardHeld=false;
