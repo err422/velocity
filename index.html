@@ -1189,129 +1189,393 @@
     #overlay .home-tool-card:hover { transform: none; }
   }
 
+
+  /* VELOCITY UI refresh — restrained, compact, and readable */
+  :root {
+    color-scheme: dark;
+    --cyan: #65d8e8;
+    --orange: #f0a06f;
+    --panel: rgba(10, 18, 27, .94);
+    --line: rgba(145, 174, 194, .16);
+    --muted: #8b9eae;
+    --ui-bg: #0b121b;
+    --ui-panel: #111c28;
+    --ui-panel-soft: #0e1823;
+    --ui-edge: rgba(145, 174, 194, .16);
+  }
+
+  #overlay {
+    padding: 16px;
+    background: rgba(2, 6, 10, .78);
+    backdrop-filter: blur(6px);
+  }
+  #overlayCard.card,
+  #overlayCard.card.wide,
+  #overlayCard.card.browser-wide {
+    width: min(1040px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    padding: 24px;
+    border: 1px solid #263746;
+    border-radius: 10px;
+    background: #0d1722;
+    box-shadow: 0 22px 70px rgba(0,0,0,.55);
+  }
+  #overlayCard.card.wide { width: min(1080px, calc(100vw - 32px)); }
+  #overlayCard.card.browser-wide { width: min(1240px, calc(100vw - 32px)); }
+  #overlay .eyebrow { color: var(--cyan); font-size: 9px; letter-spacing: .17em; }
+  #overlay button {
+    border-radius: 5px;
+    transition: background .14s ease, border-color .14s ease, color .14s ease, transform .14s ease;
+  }
+  #overlay button:focus-visible,
+  #overlay input:focus-visible,
+  #overlay select:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+  }
+  #overlay button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  #overlay .btn-inline {
+    padding: 7px 11px;
+    border: 1px solid #304353;
+    border-radius: 5px;
+    background: #142230;
+    color: #bed0dc;
+    font-size: 9px;
+    letter-spacing: .1em;
+  }
+  #overlay .btn-inline:hover {
+    background: #1b3041;
+    border-color: #527185;
+    color: #fff;
+    transform: none;
+    filter: none;
+  }
+  #overlay button.alt {
+    background: #142231;
+    border: 1px solid #2d4353;
+    color: #d8e5ed;
+  }
+  #overlay button.alt:hover {
+    background: #1a3040;
+    border-color: #4e8091;
+    color: #fff;
+    filter: none;
+    transform: none;
+  }
+  #overlay .hub-head { padding-bottom: 15px; border-bottom: 1px solid var(--ui-edge); }
+  #overlay .hub-title { color: #edf4f8; font-size: 26px; letter-spacing: -.035em; }
+  #overlay .section-label { color: #91a6b5; font-size: 9px; letter-spacing: .14em; }
+  #overlay .set-tabs { border-bottom-color: var(--ui-edge); }
+  #overlay .set-tab {
+    border-radius: 4px 4px 0 0;
+    color: #8295a5;
+    letter-spacing: .1em;
+  }
+  #overlay .set-tab.active {
+    color: #e9f6fa;
+    background: rgba(101,216,232,.08);
+    border-bottom-color: var(--cyan);
+  }
+  #overlay .set-input,
+  #overlay .seed-input,
+  #overlay .cb-search,
+  #overlay .cb-sort {
+    border: 1px solid #304454;
+    border-radius: 5px;
+    background: #09131d;
+    color: #e7f1f6;
+  }
+  #overlay .set-input:focus,
+  #overlay .seed-input:focus,
+  #overlay .cb-search:focus,
+  #overlay .cb-sort:focus { outline: 1px solid var(--cyan); }
+  #overlay .set-help,
+  #overlay .foot { color: #8296a5; }
+  #overlay .seg-btn,
+  #overlay .arm-cat-btn,
+  #overlay .arm-mode-btn {
+    border-radius: 4px;
+    border-color: #2d4352;
+    background: #111e2b;
+    color: #9cb0bd;
+  }
+  #overlay .seg-btn.active,
+  #overlay .arm-cat-btn.active,
+  #overlay .arm-mode-btn.active {
+    border-color: #5796a4;
+    background: #183344;
+    color: #f1fbfd;
+    box-shadow: none;
+  }
+  #overlay .archive-row,
+  #overlay .lb-row,
+  #overlay .kb-row,
+  #overlay .case-card,
+  #overlay .srv-row,
+  #overlay .ld-tab,
+  #overlay .ld-slot,
+  #overlay .gs-attachment,
+  #overlay .gs-skin-card {
+    border-radius: 5px;
+  }
+  #overlay .archive-row { background: #101d29; border-color: #273b49; }
+  #overlay .archive-row.selected { background: #173141; border-color: #5796a4; }
+  #overlay .ch-stage,
+  #overlay .cb-preview-stage,
+  #overlay .arm-stage,
+  #overlay .roulette-viewport {
+    border-radius: 6px;
+    border-color: #304654;
+  }
+  #overlay .cb-head { padding-bottom: 14px; border-bottom: 1px solid var(--ui-edge); }
+  #overlay .cb-table { border: 1px solid #263b49; border-radius: 6px; overflow: hidden; }
+  #overlay .cb-table-head { background: #142230; color: #839aaa; }
+  #overlay .cb-row { border-color: rgba(145,174,194,.12); }
+  #overlay .cb-row.selected { background: #173141; border-color: #5796a4; }
+  #overlay .cb-specs,
+  #overlay .cb-ghost-row,
+  #overlay .case-detail-bar,
+  #overlay .srv-code-box,
+  #overlay .srv-warmup-box {
+    border: 1px solid #263b49;
+    border-radius: 6px;
+    background: #101d29;
+  }
+  #overlay .cb-play-btn,
+  #overlay #playSelectedDailyBtn,
+  #overlay #hostDeployBtn {
+    min-height: 44px;
+    border: 1px solid #65d8e8;
+    border-radius: 5px;
+    background: #65d8e8;
+    color: #08151b;
+    font-weight: 850;
+    box-shadow: none;
+  }
+  #overlay .cb-play-btn:hover,
+  #overlay #playSelectedDailyBtn:hover,
+  #overlay #hostDeployBtn:hover {
+    background: #8de7f1;
+    transform: none;
+    filter: none;
+    box-shadow: none;
+  }
+  #overlay .arm-coin-bal { border-radius: 5px; }
+  #overlay .case-card { background: #111e2a; border-color: #2b3e4d; }
+  #overlay .case-card.selected { box-shadow: inset 0 0 0 1px var(--case-accent,var(--cyan)); }
+  #overlay .srv-empty,
+  #overlay .lb-empty { border-radius: 5px; background: #101d29; }
+  #overlay .srv-grid > div,
+  #overlay .set-grid > div { min-width: 0; }
+
+  /* Home menu */
+  #overlayCard:has(#menu[style=""]) { width: min(1040px, calc(100vw - 32px)); }
+  #menu.menu-shell { display: flex; flex-direction: column; gap: 20px; }
+  .menu-header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding-bottom:15px; border-bottom:1px solid var(--ui-edge); }
+  .menu-brand { display:flex; align-items:center; gap:11px; }
+  .menu-brand-mark { display:grid; place-items:center; width:34px; height:34px; border:1px solid #45606f; border-radius:6px; color:#eaf7fb; font-size:18px; font-weight:900; }
+  .menu-brand-name { color:#f0f6fa; font-size:12px; font-weight:900; letter-spacing:.17em; }
+  .menu-brand-sub { margin-top:3px; color:#718797; font-size:8px; letter-spacing:.15em; }
+  .menu-account { display:flex; align-items:center; gap:7px; }
+  .menu-account .auth-name { color:#dcebf2; font-size:11px; }
+  #overlay .menu-utility,
+  #overlay .menu-signin {
+    width:auto; margin:0; padding:8px 11px; border:1px solid #304555;
+    border-radius:5px; background:#12212e; color:#c2d3de;
+    font-size:9px; font-weight:800; letter-spacing:.09em;
+  }
+  #overlay .menu-signin { border-color:#4b8794; color:#dffaff; }
+  #overlay .menu-utility:hover,
+  #overlay .menu-signin:hover { background:#1a3040; border-color:#5c9eac; transform:none; filter:none; }
+  .menu-layout { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(270px,.8fr); gap:16px; }
+  .menu-primary { min-width:0; }
+  .menu-intro { margin:2px 0 18px; }
+  .menu-kicker { color:#8ca3b1; font-size:9px; font-weight:800; letter-spacing:.16em; }
+  #menu h1 { margin:8px 0 7px; color:#f1f6fa; font-size:clamp(34px,5vw,52px); line-height:1; letter-spacing:-.065em; }
+  #menu h1 span { color:var(--cyan); }
+  .menu-intro p { max-width:500px; margin:0; color:#91a4b1; font-size:12px; line-height:1.6; }
+  .menu-modes { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  #overlay .menu-mode {
+    position:relative; display:flex; flex-direction:column; align-items:flex-start;
+    min-width:0; min-height:154px; gap:11px; padding:16px;
+    border:1px solid #314a59; border-radius:7px; text-align:left;
+    background:#111f2c; color:#edf5f8;
+  }
+  #overlay .menu-mode:hover { background:#172a39; border-color:#5c93a1; transform:translateY(-1px); filter:none; }
+  #overlay .menu-mode-surf { border-color:#467987; background:#142b38; }
+  #overlay .menu-mode-surf:hover { background:#193745; }
+  .menu-mode-label { color:#88a2b1; font-size:8px; font-weight:800; letter-spacing:.13em; }
+  .menu-mode strong { display:flex; width:100%; align-items:center; justify-content:space-between; color:#f0f7fa; font-size:19px; letter-spacing:-.035em; }
+  .menu-mode-surf strong { color:#e5fbff; }
+  .menu-mode strong span { color:var(--cyan); font-size:14px; }
+  .menu-mode small { margin-top:auto; color:#91a6b4; font-size:9px; line-height:1.45; letter-spacing:.035em; }
+  .menu-extras { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:10px; }
+  #overlay .menu-extras button {
+    display:flex; align-items:center; gap:9px; min-width:0; padding:11px 10px;
+    border:1px solid #293e4d; border-radius:6px; background:#0f1b27; color:#dce9f0; text-align:left;
+  }
+  #overlay .menu-extras button:hover { border-color:#527d8b; background:#142634; transform:none; filter:none; }
+  .menu-extra-icon { display:grid; place-items:center; flex:0 0 25px; width:25px; height:25px; border:1px solid #344c5b; border-radius:5px; color:#8fcbd4; font-size:14px; }
+  .menu-extras button > span:nth-child(2) { display:flex; flex:1; flex-direction:column; gap:4px; min-width:0; }
+  .menu-extras strong { color:#e0edf3; font-size:9px; letter-spacing:.06em; }
+  .menu-extras small { overflow:hidden; color:#8298a6; font-size:7px; white-space:nowrap; text-overflow:ellipsis; }
+  .menu-extra-arrow { color:#6e9da8; font-size:12px; }
+  .menu-sidebar { display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .menu-daily,
+  .menu-loadout { padding:15px; border:1px solid #2c414e; border-radius:7px; background:#101d29; }
+  .menu-section-head { display:flex; align-items:center; justify-content:space-between; gap:9px; color:#8ea3b1; font-size:8px; font-weight:850; letter-spacing:.13em; }
+  .menu-live,.menu-loadout-status { display:flex; align-items:center; gap:6px; color:#8fa2ad; font-size:7px; letter-spacing:.09em; }
+  .menu-live i,.menu-loadout-status i { width:5px; height:5px; border-radius:50%; background:#6acb9b; }
+  .menu-daily-date { margin-top:24px; color:#8299a8; font-size:8px; font-weight:800; letter-spacing:.13em; }
+  .menu-daily-date span { color:#5f7584; font-weight:600; }
+  #menu .menu-daily h2 { margin:7px 0 4px; color:#eff7fa; font-size:24px; line-height:1.05; letter-spacing:-.045em; }
+  #menu .menu-daily p { min-height:16px; margin:0 0 14px; color:#87a0ad; font-size:10px; line-height:1.5; }
+  #overlay #playTodayBtn {
+    display:flex; width:100%; align-items:center; justify-content:space-between;
+    padding:11px 12px; margin:0; border:1px solid #4a7f8b; border-radius:5px;
+    background:#183543; color:#e6fbff; text-align:left; font-size:9px; letter-spacing:.1em;
+  }
+  #overlay #playTodayBtn:hover { background:#204655; border-color:#6cc4d2; transform:none; filter:none; }
+  #overlay #playTodayBtn span { color:var(--cyan); }
+  #overlay .menu-archive { width:100%; margin:10px 0 0; padding:6px 0 0; background:transparent; color:#9aafbb; font-size:8px; letter-spacing:.08em; text-align:left; }
+  #overlay .menu-archive:hover { color:#e8f6fa; transform:none; filter:none; }
+  #overlay .menu-archive span { padding-left:4px; color:var(--cyan); }
+  .menu-loadout-summary { margin:10px 0; color:#e2edf2; font-size:11px; font-weight:700; }
+  #menu .ld-quick-strip { display:flex; flex-wrap:wrap; gap:7px; min-height:24px; }
+  #menu .ld-quick-box { margin:0; }
+  #menu .menu-footer { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; align-items:start; padding-top:13px; border-top:1px solid var(--ui-edge); }
+  .menu-controls { min-width:0; }
+  .menu-controls summary { color:#a9bdc9; font-size:8px; font-weight:800; letter-spacing:.13em; cursor:pointer; list-style:none; }
+  .menu-controls summary::-webkit-details-marker { display:none; }
+  .menu-controls summary span { padding-left:8px; color:#647b8a; font-size:7px; font-weight:600; letter-spacing:.07em; }
+  #menu .controls { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px 12px; margin:10px 0 0; padding:12px; border:1px solid #253a48; border-radius:6px; background:#0a141e; color:#8da2af; font-size:9px; }
+  #menu .controls b { min-width:0; margin-right:5px; color:#d6e5ec; font-size:9px; }
+  .menu-footnote { max-width:340px; margin:0; color:#718795; font-size:8px; line-height:1.55; text-align:right; }
+
+  @media (max-width: 820px) {
+    #overlayCard.card,#overlayCard.card.wide,#overlayCard.card.browser-wide {
+      width:calc(100vw - 20px); max-height:calc(100dvh - 20px); padding:17px;
+    }
+    .menu-layout { grid-template-columns:1fr; }
+    .menu-sidebar { display:grid; grid-template-columns:1fr 1fr; }
+    .menu-footer { grid-template-columns:1fr !important; }
+    .menu-footnote { max-width:none; text-align:left; }
+    #menu .controls { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  }
+  @media (max-width: 560px) {
+    .menu-header { align-items:flex-start; flex-direction:column; }
+    .menu-account { width:100%; flex-wrap:wrap; }
+    .menu-account .menu-utility,.menu-account .menu-signin { flex:1; }
+    .menu-modes { grid-template-columns:1fr; }
+    #overlay .menu-mode { min-height:118px; }
+    .menu-extras { grid-template-columns:1fr; }
+    .menu-sidebar { grid-template-columns:1fr; }
+    .menu-daily-date { margin-top:14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #overlay button { transition:none !important; }
+  }
+
 </style>
 </head>
 <body>
 <div id="overlay">
   <div class="card" id="overlayCard">
-    <div id="menu" class="home-shell">
-      <header class="home-header">
-        <div class="home-brand">
-          <div class="brand-mark"><span>V</span><i></i></div>
-          <div class="brand-lockup">
-            <div class="eyebrow">MOVEMENT LAB / EST. 2026</div>
-            <div class="brand-word">VELOCITY <span> // </span> PERFORMANCE SANDBOX</div>
+    <div id="menu" class="menu-shell">
+      <header class="menu-header">
+        <div class="menu-brand">
+          <span class="menu-brand-mark">V</span>
+          <div>
+            <div class="menu-brand-name">VELOCITY</div>
+            <div class="menu-brand-sub">MOVEMENT SANDBOX</div>
           </div>
         </div>
-        <div class="home-ready"><span class="ready-dot"></span> SYSTEM READY <span class="ready-divider">/</span> BUILD 0.5</div>
-        <div class="auth-bar" id="menuAuthBar">
+        <div class="menu-account" id="menuAuthBar">
           <span class="auth-name" id="menuAuthName" style="display:none"></span>
-          <button type="button" class="btn-inline home-utility" id="menuArmoryBtn">ARMORY · 150C</button>
-          <button type="button" class="btn-inline home-utility" id="menuSettingsBtn">SETTINGS</button>
-          <button type="button" class="btn-inline home-signin" id="menuAuthBtn">SIGN IN <span aria-hidden="true">↗</span></button>
+          <button type="button" class="menu-utility" id="menuArmoryBtn">ARMORY · 150C</button>
+          <button type="button" class="menu-utility" id="menuSettingsBtn">SETTINGS</button>
+          <button type="button" class="menu-signin" id="menuAuthBtn">SIGN IN</button>
         </div>
       </header>
 
-      <main class="home-main">
-        <section class="home-hero">
-          <div class="home-hero-copy">
-            <div class="home-kicker"><span class="kicker-line"></span> MOVEMENT IS THE WEAPON</div>
-            <h1>VELOCITY<span>.</span></h1>
-            <p class="home-lede">A movement-first playground. Surf impossible lines, chase clean runs, tune your kit, and take the fight online.</p>
-            <div class="home-hero-actions">
-              <button type="button" class="home-mode-card home-mode-primary" id="openSurfBrowserBtn">
-                <span class="home-mode-index">01 <span> / CORE DISCIPLINE</span></span>
-                <span class="home-mode-title">SURF <b aria-hidden="true">↗</b></span>
-                <small id="menuSurfStat">12 MAPS · T1–T4 · LINEAR &amp; STAGED</small>
-              </button>
-              <button type="button" class="home-mode-card home-mode-secondary" id="openTimeTrialBrowserBtn">
-                <span class="home-mode-index">02 <span> / AGAINST THE CLOCK</span></span>
-                <span class="home-mode-title">TIME TRIALS <b aria-hidden="true">↗</b></span>
-                <small id="menuTTStat">4 COURSES · WALLRUN · GRAPPLE · BUNNYHOP</small>
-              </button>
-            </div>
-            <div class="home-metrics" aria-label="Game features">
-              <div><strong>01</strong><span>PHYSICS-DRIVEN</span></div>
-              <div><strong>02</strong><span>GHOST REPLAYS</span></div>
-              <div><strong>03</strong><span>LIVE P2P ARENAS</span></div>
-            </div>
+      <div class="menu-layout">
+        <main class="menu-primary">
+          <div class="menu-intro">
+            <div class="menu-kicker">CHOOSE YOUR DISCIPLINE</div>
+            <h1>Find your line<span>.</span></h1>
+            <p>Build speed, keep control, and find the cleanest route through every course.</p>
           </div>
 
-          <aside class="home-daily-panel">
-            <div class="daily-panel-top">
-              <span class="daily-overline"><span class="daily-pulse"></span> DAILY ROTATION</span>
-              <span class="daily-index">CHALLENGE / 001</span>
-            </div>
-            <div class="daily-art" aria-hidden="true">
-              <div class="daily-orbit daily-orbit-one"></div>
-              <div class="daily-orbit daily-orbit-two"></div>
-              <div class="daily-glyph">V<span>.</span></div>
-              <div class="daily-coordinate daily-coordinate-a">SEED / LIVE</div>
-              <div class="daily-coordinate daily-coordinate-b">RUN IT BACK</div>
-            </div>
-            <div class="daily-panel-copy">
-              <div class="eyebrow">SAME COURSE. SAME SEED. EVERYONE.</div>
-              <h2>Today's<br><span>challenge.</span></h2>
-              <p>A fresh seeded circuit. Set your time, post your run, and see where you land.</p>
-            </div>
-            <button type="button" class="home-daily-cta" id="playTodayBtn" data-start="true">
-              <span class="daily-cta-copy">
-                <span class="daily-cta-kicker">TODAY'S CIRCUIT</span>
-                <strong id="todayBtnTitle">TODAY'S DAILY</strong>
-                <small id="todayBtnSub">LOADING SEED...</small>
-              </span>
-              <span class="daily-cta-arrow" aria-hidden="true">↗</span>
+          <div class="menu-modes">
+            <button type="button" class="menu-mode menu-mode-surf" id="openSurfBrowserBtn">
+              <span class="menu-mode-label">01 / MOVEMENT</span>
+              <strong>SURF MAPS <span aria-hidden="true">↗</span></strong>
+              <small id="menuSurfStat">12 MAPS · T1–T4 · LINEAR &amp; STAGED</small>
             </button>
-            <div class="daily-panel-bottom">
-              <span>YOUR PERSONAL BEST IS SAVED LOCALLY</span>
-              <button type="button" id="openArchiveBtn">ARCHIVE &amp; LEADERBOARDS <span aria-hidden="true">→</span></button>
-            </div>
-          </aside>
-        </section>
-
-        <section class="home-tools" aria-label="More game modes">
-          <button type="button" class="home-tool-card" id="openLoadoutsBtn">
-            <span class="tool-topline"><span>03 / EQUIPMENT</span><span class="tool-symbol" aria-hidden="true">⌁</span></span>
-            <strong>LOADOUTS <span aria-hidden="true">↗</span></strong>
-            <small id="menuLoadoutStat">5 LOADOUTS · 5-OF-8 ATTACHMENTS · TRUE ADS</small>
-          </button>
-          <button type="button" class="home-tool-card" id="openServersBtn">
-            <span class="tool-topline"><span>04 / MULTIPLAYER</span><span class="tool-symbol" aria-hidden="true">◎</span></span>
-            <strong>SERVERS &amp; ARENAS <span aria-hidden="true">↗</span></strong>
-            <small>1V1 DUEL · FFA · SOLO WARMUP</small>
-          </button>
-          <button type="button" class="home-tool-card" data-level="sandbox">
-            <span class="tool-topline"><span>05 / EXPERIMENT</span><span class="tool-symbol" aria-hidden="true">⌘</span></span>
-            <strong>SANDBOX <span aria-hidden="true">↗</span></strong>
-            <small>FREE-ROAM · SHOOTING RANGE · SURF</small>
-          </button>
-          <div class="home-tool-note">
-            <span class="tool-note-mark">V//</span>
-            <div><strong>NO FIXED ROUTE.</strong><small>Find your line. Break your record.</small></div>
+            <button type="button" class="menu-mode" id="openTimeTrialBrowserBtn">
+              <span class="menu-mode-label">02 / TIME ATTACK</span>
+              <strong>TIME TRIALS <span aria-hidden="true">↗</span></strong>
+              <small id="menuTTStat">4 COURSES · WALLRUN · GRAPPLE · BUNNYHOP</small>
+            </button>
           </div>
-        </section>
 
-        <footer class="home-footer">
-          <div class="ld-quick-box">
-            <div class="ld-quick-head">
-              <span class="ld-quick-label"><span class="loadout-live-dot"></span> ACTIVE LOADOUT</span>
-              <span class="ld-quick-summary" id="menuLoadoutSummary">V-47 Rifle · Deagle .50</span>
+          <div class="menu-extras">
+            <button type="button" id="openLoadoutsBtn">
+              <span class="menu-extra-icon" aria-hidden="true">⌘</span>
+              <span><strong>LOADOUTS</strong><small id="menuLoadoutStat">5 LOADOUTS · 5-OF-8 ATTACHMENTS · TRUE ADS</small></span>
+              <span class="menu-extra-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button type="button" id="openServersBtn">
+              <span class="menu-extra-icon" aria-hidden="true">◎</span>
+              <span><strong>SERVERS &amp; ARENAS</strong><small>1V1 DUEL · FFA · SOLO WARMUP</small></span>
+              <span class="menu-extra-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button type="button" data-level="sandbox">
+              <span class="menu-extra-icon" aria-hidden="true">◇</span>
+              <span><strong>SANDBOX</strong><small>FREE-ROAM · SHOOTING RANGE · SURF</small></span>
+              <span class="menu-extra-arrow" aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </main>
+
+        <aside class="menu-sidebar">
+          <section class="menu-daily">
+            <div class="menu-section-head">
+              <span>DAILY CHALLENGE</span>
+              <span class="menu-live"><i></i> LIVE</span>
             </div>
+            <div class="menu-daily-date">NEW COURSE <span>/ EVERY DAY</span></div>
+            <h2 id="todayBtnTitle">TODAY'S DAILY</h2>
+            <p id="todayBtnSub">LOADING SEED...</p>
+            <button type="button" id="playTodayBtn" data-start="true">PLAY TODAY'S COURSE <span aria-hidden="true">↗</span></button>
+            <button type="button" class="menu-archive" id="openArchiveBtn">ARCHIVE &amp; LEADERBOARDS <span aria-hidden="true">→</span></button>
+          </section>
+
+          <section class="menu-loadout">
+            <div class="menu-section-head">
+              <span>ACTIVE LOADOUT</span>
+              <span class="menu-loadout-status"><i></i> EQUIPPED</span>
+            </div>
+            <div class="menu-loadout-summary" id="menuLoadoutSummary">V-47 Rifle · Deagle .50</div>
             <div class="ld-quick-strip" id="menuLoadoutStrip"></div>
+          </section>
+        </aside>
+      </div>
+
+      <footer class="menu-footer">
+        <details class="menu-controls">
+          <summary>CONTROLS <span>VIEW KEYBOARD SHORTCUTS</span></summary>
+          <div class="controls" id="menuControls">
+            <div><b>W A S D</b> Move</div><div><b>MOUSE</b> Look</div>
+            <div><b>SPACE</b> Jump / wall jump</div><div><b>L-SHIFT</b> Slide</div>
+            <div><b>E</b> Grapple / release</div><div><b>Q</b> Speed burst</div>
+            <div><b>R</b> Restart run</div><div><b>T</b> Last checkpoint</div>
+            <div><b>F</b> Inspect knife</div><div><b>G</b> Ghost mode</div>
           </div>
-          <div class="home-footer-bottom">
-            <div class="home-control-label">QUICK CONTROLS</div>
-            <div class="controls" id="menuControls">
-              <div><b>W A S D</b> Move</div><div><b>MOUSE</b> Look</div>
-              <div><b>SPACE</b> Jump / wall jump</div><div><b>L-SHIFT</b> Slide</div>
-              <div><b>E</b> Grapple / release</div><div><b>Q</b> Speed burst</div>
-              <div><b>R</b> Restart run</div><div><b>T</b> Last checkpoint</div>
-              <div><b>F</b> Inspect knife</div><div><b>G</b> Ghost mode</div>
-            </div>
-            <div class="foot">Sign in with Google to publish daily leaderboard times. Local PBs and 3D ghost replays save automatically for every surf map, time trial, and daily seed.</div>
-          </div>
-        </footer>
-      </main>
+        </details>
+        <p class="menu-footnote">Local personal bests and ghost replays save automatically. Sign in with Google to publish daily leaderboard times.</p>
+      </footer>
     </div>
     <div id="courseBrowserPanel" style="display:none">
       <div class="cb-head">
