@@ -507,7 +507,7 @@
         },
         "weaponType": {
           "type": "string",
-          "enum": ["rifle", "awp", "deagle"]
+          "enum": ["rifle", "smg", "shotgun", "awp", "deagle", "pistol"]
         },
         "skinId": {
           "type": "string",
@@ -630,6 +630,29 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "UserLoadouts": {
+      "title": "UserLoadouts",
+      "description": "Private owner-only 5 custom loadouts, Gunsmith attachments, per-weapon XP, and equipped weapon skins.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "minLength": 1, "maxLength": 128 },
+        "activeIndex": { "type": "integer" },
+        "loadouts": { "type": "array" },
+        "weaponXp": { "type": "object" },
+        "equippedWeaponSkins": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "activeIndex",
+        "loadouts",
+        "weaponXp",
+        "equippedWeaponSkins",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -660,6 +683,10 @@
     "/userInventory/{uid}/weapons/{weaponId}": {
       "schema": { "$ref": "#/entities/WeaponItem" },
       "description": "Private owner-only subcollection of unboxed and starter firearm skins."
+    },
+    "/userLoadouts/{uid}": {
+      "schema": { "$ref": "#/entities/UserLoadouts" },
+      "description": "Private owner-only 5 custom loadouts, Gunsmith attachment builds, and per-weapon XP."
     },
     "/lobbies/{lobbyId}": {
       "schema": { "$ref": "#/entities/Lobby" },

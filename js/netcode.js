@@ -71,12 +71,25 @@
     }
   }
 
+  const KILLFEED_WEAPON_NAMES = {
+    rifle: 'V-47',
+    smg: 'VX-9',
+    shotgun: 'M870',
+    awp: 'AWP',
+    deagle: 'DEAGLE',
+    pistol: 'USP-9',
+    melee: 'MELEE',
+    knife: 'MELEE'
+  };
+
   function pushKillFeed(killer, victim, weapon, headshot) {
+    const rawWep = String(weapon || 'rifle').toLowerCase();
+    const label = KILLFEED_WEAPON_NAMES[rawWep] || rawWep.toUpperCase();
     const entry = {
       id: feedSeq++,
       killer: String(killer || 'Unknown').slice(0, 24),
       victim: String(victim || 'Unknown').slice(0, 24),
-      weapon: String(weapon || 'rifle').toUpperCase(),
+      weapon: label,
       headshot: Boolean(headshot),
       ts: performance.now()
     };
@@ -512,7 +525,9 @@
           victimUid: pkt.victimUid,
           victimName: pkt.victimName,
           slot: pkt.slot,
+          weaponId: pkt.slot,
           headshot: Boolean(pkt.headshot),
+          isHeadshot: Boolean(pkt.headshot),
           mode: state.mode
         });
       }

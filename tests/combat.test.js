@@ -60,8 +60,8 @@ test('evaluateFfaScoreboard ranks players by kills then deaths and detects 15-ki
   assert.equal(done.matchWinner, 'u1');
 });
 
-test('CombatSystem exposes standard 4 weapon slots and default thresholds', () => {
-  assert.deepEqual(CombatSystem.SLOTS, ['rifle', 'awp', 'deagle', 'knife']);
+test('CombatSystem exposes 3-slot loadout model (primary, secondary, melee) and default thresholds', () => {
+  assert.deepEqual(CombatSystem.SLOTS, ['primary', 'secondary', 'melee']);
   assert.equal(CombatSystem.MISSED_TARGET_PENALTY_SEC, 1.0);
   assert.equal(CombatSystem.DUEL_WIN_ROUNDS, 5);
   assert.equal(CombatSystem.FFA_WIN_KILLS, 15);

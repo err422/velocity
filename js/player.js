@@ -63,6 +63,7 @@ function isActivePlay(){
 function clearHeldInputs(){
   for(const k in keys)keys[k]=false;
   window.isScoreboardHeld=false;
+  if(window.CombatSystem)window.CombatSystem.setAdsHeld(false);
 }
 function isArenaBlocked(){
   if(!window.NetcodeSystem)return false;
@@ -100,6 +101,7 @@ function respawnAtSpawn(sp,refillAmmo){
   p.pitch=0;
   p.grapple=null;p.grounded=false;p.low=false;p.wallrun=false;p.wallTimer=0;
   p.surfing=false;p.surfGrace=0;
+  if(typeof window.applyPendingLoadoutIfAny==='function')window.applyPendingLoadoutIfAny();
   if(refillAmmo&&window.CombatSystem){
     window.CombatSystem.resetAmmo();
     window.CombatSystem.clearScope();
@@ -122,16 +124,16 @@ function triggerBoundToken(token,repeat){
   }
   if(token===kb.burst&&!repeat&&!isArenaBlocked())burst();
   if(token===kb.ghost&&!repeat)toggleGhostMode();
-  if(token===kb.slotRifle&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('rifle');
-  if(token===kb.slotAwp&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('awp');
-  if(token===kb.slotDeagle&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('deagle');
-  if(token===kb.slotKnife&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('knife');
+  if(token===kb.slotRifle&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('primary');
+  if(token===kb.slotAwp&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('secondary');
+  if(token===kb.slotDeagle&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('melee');
+  if(token===kb.slotKnife&&!repeat&&window.CombatSystem)window.CombatSystem.quickSwitch();
   if(token===kb.reload&&!repeat&&window.CombatSystem)window.CombatSystem.startReload();
   if(token===kb.fire&&!repeat)performFire(false);
   if(token===kb.altFire&&!repeat&&window.CombatSystem){
     const st=window.CombatSystem.getState();
-    if(st.activeSlot==='awp')window.CombatSystem.toggleScope();
-    else if(st.activeSlot==='knife')performFire(true);
+    if(st.activeSlot==='melee')performFire(true);
+    else window.CombatSystem.setAdsHeld(true);
   }
   if(token===kb.inspect&&!repeat&&window.ViewmodelSystem){
     const res=window.ViewmodelSystem.triggerInspect();
@@ -172,6 +174,7 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('keyup',e=>{
   if(e.code==='Tab'){window.isScoreboardHeld=false;}
   keys[e.code]=false;
+  if(e.code===getSettings().keybinds.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
 });
 document.addEventListener('mousedown',e=>{
   if(window.isRebindingInput||!isActivePlay())return;
@@ -183,11 +186,19 @@ document.addEventListener('mousedown',e=>{
 });
 document.addEventListener('mouseup',e=>{
   const tok=window.VelocitySettings?VelocitySettings.mouseButtonToToken(e.button):('Mouse'+e.button);
-  if(tok)keys[tok]=false;
+  if(tok){
+    keys[tok]=false;
+    if(tok===getSettings().keybinds.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
+  }
 });
 document.addEventListener('wheel',e=>{
   if(window.isRebindingInput||!isActivePlay()||!window.CombatSystem)return;
   if(Math.abs(e.deltaY)<4)return;
+  const st=window.CombatSystem.getState();
+  if(st.adsHeld&&st.activeBuild&&st.activeBuild.adsZoomAlt){
+    window.CombatSystem.cycleScopeZoom();
+    return;
+  }
   window.CombatSystem.cycleSlot(e.deltaY>0?1:-1);
 },{passive:true});
 renderer.domElement.addEventListener('contextmenu',e=>{
@@ -400,8 +411,8 @@ function step(dt){
   p.slideCd=Math.max(0,p.slideCd-dt);p.wallCd=Math.max(0,p.wallCd-dt);p.noGround=Math.max(0,p.noGround-dt);
   p.surfGrace=Math.max(0,p.surfGrace-dt);
 
-  // Full-auto firing for Rifle while fire key/LMB is held
-  if(isActionDown('fire')&&window.CombatSystem&&window.CombatSystem.getState().activeSlot==='rifle'){
+  // Full-auto firing for any automatic equipped weapon (V-47 Rifle, VX-9 Vector SMG)
+  if(isActionDown('fire')&&window.CombatSystem&&window.CombatSystem.getState().auto){
     performFire(false);
   }
 
@@ -410,6 +421,11 @@ function step(dt){
     v.set(0,0,0);
     return;
   }
+
+  // Full Gunsmith Weight System (Melee ALWAYS preserves pure 1.00x surf & ground baseline!)
+  const mob=window.CombatSystem?window.CombatSystem.getActiveMobilityProfile():{mobilityMult:1,surfAirMult:1,adsMoveMult:1,adsProgress:0};
+  const adsWalkScale=1+(mob.adsMoveMult-1)*(mob.adsProgress||0);
+  const effGroundSpeed=C.groundSpeed*mob.mobilityMult*adsWalkScale;
 
   // Wish direction
   const sy=Math.sin(p.yaw),cy=Math.cos(p.yaw);wish.set(0,0,0);
@@ -431,20 +447,20 @@ function step(dt){
     p.wallrun=false;p.wallCd=C.wallCooldown;p.wallTimer=0;jumpBuffer=0;p.noGround=.05;
   }
 
-  // Friction + acceleration (authentic CS surf: zero ramp friction + crisp air-strafe into ramp)
+  // Friction + acceleration (authentic CS surf: zero ramp friction + weight-aware air-strafe into ramp)
   const hs=Math.hypot(v.x,v.z);
   if(grounded){
     const fast=p.low&&hs>C.slideMinSpeed;
     if(hs>0){const ns=Math.max(0,hs-Math.max(hs,C.stopSpeed)*(fast?C.slideFriction:C.friction)*dt);v.x*=ns/hs;v.z*=ns/hs;}
     if(hasWish){
-      if(fast)accelerate(wish,C.airWishCap,C.airAccel,dt,C.groundSpeed);       // carve while sliding
-      else if(p.low)accelerate(wish,C.groundSpeed*.5,C.slideAccel,dt);          // slow crouch-walk
-      else accelerate(wish,C.groundSpeed,C.groundAccel,dt);
+      if(fast)accelerate(wish,C.airWishCap,C.airAccel,dt,effGroundSpeed);       // carve while sliding
+      else if(p.low)accelerate(wish,effGroundSpeed*.5,C.slideAccel,dt);         // slow crouch-walk
+      else accelerate(wish,effGroundSpeed,C.groundAccel,dt);
     }
   }else if(hasWish){
     const surfMode=p.surfing||p.surfGrace>0;
     const d=SurfEngine.computeAirStrafeDelta(v,wish,dt,C,surfMode);
-    v.x+=d.dx;v.z+=d.dz;
+    v.x+=d.dx*mob.surfAirMult;v.z+=d.dz*mob.surfAirMult;
   }
 
   // Grapple pull

@@ -1007,6 +1007,55 @@ async function deletePeerDoc(lobbyId, peerUid) {
   } catch (_) {}
 }
 
+async function loadUserLoadouts() {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) return null;
+  const uid = currentUser.uid;
+  const ref = doc(db, 'userLoadouts', uid);
+  try {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return null;
+    const data = snap.data() || {};
+    return {
+      activeIndex: data.activeIndex,
+      loadouts: data.loadouts,
+      weaponXp: data.weaponXp,
+      equippedWeaponSkins: data.equippedWeaponSkins
+    };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, `userLoadouts/${uid}`);
+  }
+}
+
+async function saveUserLoadouts(loadoutState) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !window.LoadoutsSystem) return false;
+  const uid = currentUser.uid;
+  const payload = window.LoadoutsSystem.toCloudLoadoutsPayload(loadoutState, uid);
+  const ref = doc(db, 'userLoadouts', uid);
+  try {
+    const existing = await getDoc(ref);
+    if (existing.exists()) {
+      await updateDoc(ref, {
+        activeIndex: payload.activeIndex,
+        loadouts: payload.loadouts,
+        weaponXp: payload.weaponXp,
+        equippedWeaponSkins: payload.equippedWeaponSkins,
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      await setDoc(ref, {
+        ...payload,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `userLoadouts/${uid}`);
+  }
+}
+
 async function signInWithGoogle() {
   await ready;
   if (!auth) throw new Error('Firebase Auth is not initialized.');
@@ -1042,6 +1091,8 @@ window.DailyBackend = {
   syncDisplayNameToRun,
   loadUserInventory,
   saveUserInventorySummary,
+  loadUserLoadouts,
+  saveUserLoadouts,
   saveCloudKnife,
   deleteCloudKnife,
   saveCloudGlove,

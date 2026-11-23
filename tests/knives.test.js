@@ -266,7 +266,7 @@ test('rollInspectTier implements exact 1/100 Mythic, 25% Uncommon, and 74% Norma
 });
 
 test('tiered cases enforce escalating prices (150 / 275 / 450) and empirical rarity odds', () => {
-  assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'awp', 'deagle']);
+  assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol']);
   assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 14);
   assert.equal(KnivesSystem.getCasePrice('velocity'), 150);
   assert.equal(KnivesSystem.getCasePrice('chroma'), 275);

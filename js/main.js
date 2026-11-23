@@ -1,25 +1,52 @@
 // ---------- render ----------
+var inLevel=false;
+let lastHudSlot='';
+let lastHudAmmo=-1;
+let lastHudReloading=false;
+let lastHudScopeKey='';
+let lastHudHp=-1;
+let lastHudWeaponSig='';
 const _rp=V3(),_right=V3();
 const surfHintEl=$('surfHint');
 const crosshairEl=$('crosshair');
 window.activeSettings=VelocitySettings.loadLocal();
 window.activeInventory=KnivesSystem.loadLocal();
+window.activeLoadouts=LoadoutsSystem.loadLocal();
 window.isRebindingInput=false;
 window.isScoreboardHeld=false;
 ghostVisual=GhostSystem.createGhostMesh(THREE,scene);
 CombatSystem.ensureInit(scene);
 ViewmodelSystem.init(renderer);
 ViewmodelSystem.applySettings(window.activeSettings);
+const ALL_WEAPON_TYPES=['rifle','smg','shotgun','awp','deagle','pistol'];
 function syncEquippedWeaponsToViewmodel(){
-  for(const wt of ['rifle','awp','deagle']){
-    ViewmodelSystem.equipWeaponSkin(KnivesSystem.getEquippedWeapon(window.activeInventory,wt));
+  for(const wt of ALL_WEAPON_TYPES){
+    const skinItem=KnivesSystem.getEquippedWeapon(window.activeInventory,wt);
+    if(skinItem)ViewmodelSystem.equipWeaponSkin(skinItem);
   }
+}
+function applyActiveLoadoutToRuntime(opts){
+  const activeLd=LoadoutsSystem.getActiveLoadout(window.activeLoadouts);
+  if(activeLd&&activeLd.melee&&activeLd.melee.knifeItemId){
+    const meleeKnife=(window.activeInventory.knives||[]).find(k=>k.id===activeLd.melee.knifeItemId);
+    if(meleeKnife){
+      window.activeInventory.equippedKnifeId=meleeKnife.id;
+      ViewmodelSystem.equipKnife(meleeKnife,false);
+    }
+  }
+  CombatSystem.applyLoadout(activeLd,window.activeInventory,window.activeLoadouts.equippedWeaponSkins);
+  if(!opts||!opts.keepSlot){
+    CombatSystem.switchSlot(CombatSystem.getState().activeSlot,false);
+  }
+  lastHudSlot='';
+  lastHudAmmo=-1;
+  lastHudWeaponSig='';
 }
 function syncInventoryCosmeticsToViewmodel(){
   ViewmodelSystem.equipGlove(KnivesSystem.getEquippedGlove(window.activeInventory));
   ViewmodelSystem.equipKnife(KnivesSystem.getEquippedKnife(window.activeInventory),false);
   syncEquippedWeaponsToViewmodel();
-  CombatSystem.switchSlot(CombatSystem.getState().activeSlot,false);
+  applyActiveLoadoutToRuntime();
 }
 syncInventoryCosmeticsToViewmodel();
 
@@ -84,6 +111,7 @@ function render(dt){
   }
   document.body.dataset.runStarted=p.runStarted?'1':'0';
   if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)toast.style.opacity=0;}
+  if(weaponXpToastTimer>0){weaponXpToastTimer-=dt;if(weaponXpToastTimer<=0&&weaponXpToastEl)weaponXpToastEl.style.opacity='0';}
 }
 
 let frameId=0;
@@ -209,10 +237,10 @@ function activateLoadedLevel(built,displayName,opts){
     }
     const ns=NetcodeSystem.getState();
     CombatSystem.setWarmupBotsVisible(!ns.isOnline||ns.phase==='warmup');
-    CombatSystem.switchSlot('rifle');
+    CombatSystem.switchSlot('primary');
   }else{
     if(NetcodeSystem.getState().isArena)NetcodeSystem.leaveSession();
-    CombatSystem.switchSlot(id==='sandbox'?'rifle':'knife');
+    CombatSystem.switchSlot(id==='sandbox'?'primary':'melee');
   }
   syncInventoryCosmeticsToViewmodel();
   resetPlayer();
@@ -247,14 +275,25 @@ function loadCustomSeedCourse(rawSeed){
   activateLoadedLevel(built,`SEED · ${norm}`);
 }
 
-// ---------- menu, daily hub, settings, servers, leaderboard & auth ----------
-const overlayCard=$('overlayCard'),menuEl=$('menu'),courseBrowserPanelEl=$('courseBrowserPanel'),dailyHubEl=$('dailyHub'),settingsPanelEl=$('settingsPanel'),armoryPanelEl=$('armoryPanel'),serversPanelEl=$('serversPanel'),pauseEl=$('pause');
+// ---------- menu, daily hub, settings, servers, loadouts, leaderboard & auth ----------
+const overlayCard=$('overlayCard'),menuEl=$('menu'),courseBrowserPanelEl=$('courseBrowserPanel'),dailyHubEl=$('dailyHub'),settingsPanelEl=$('settingsPanel'),armoryPanelEl=$('armoryPanel'),serversPanelEl=$('serversPanel'),loadoutsPanelEl=$('loadoutsPanel'),pauseEl=$('pause');
 const cbEyebrowEl=$('cbEyebrow'),cbTitleEl=$('cbTitle'),cbBackBtn=$('cbBackBtn'),cbSearchInput=$('cbSearch'),cbSortSelect=$('cbSort'),cbFilterRowEl=$('cbFilterRow'),cbMapListEl=$('cbMapList');
 const coursePreviewCanvas=$('coursePreviewCanvas'),cbModeFlyBtn=$('cbModeFly'),cbModeOrbitBtn=$('cbModeOrbit'),cbPreviewLabelEl=$('cbPreviewLabel'),cbPreviewHintEl=$('cbPreviewHint');
 const cbDetailTitleEl=$('cbDetailTitle'),cbDetailSubEl=$('cbDetailSub'),cbDetailDescEl=$('cbDetailDesc');
 const cbSpecCourseEl=$('cbSpecCourse'),cbSpecTierEl=$('cbSpecTier'),cbSpecParEl=$('cbSpecPar'),cbSpecBestEl=$('cbSpecBest'),cbSpecPiecesEl=$('cbSpecPieces');
 const cbGhostCheckEl=$('cbGhostCheck'),cbGhostLabelEl=$('cbGhostLabel'),cbCountNoteEl=$('cbCountNote'),cbPlayBtn=$('cbPlayBtn');
 const menuSurfStatEl=$('menuSurfStat'),menuTTStatEl=$('menuTTStat'),pauseChangeMapBtn=$('pauseChangeMap');
+const menuLoadoutStripEl=$('menuLoadoutStrip'),menuLoadoutSummaryEl=$('menuLoadoutSummary'),menuLoadoutStatEl=$('menuLoadoutStat');
+const pauseLoadoutStripEl=$('pauseLoadoutStrip'),pauseLoadoutSummaryEl=$('pauseLoadoutSummary');
+const loadoutsSyncNoteEl=$('loadoutsSyncNote'),loadoutsBackBtn=$('loadoutsBackBtn'),loadoutsArmoryBtn=$('loadoutsArmoryBtn');
+const loadoutsEyebrowEl=$('loadoutsEyebrow'),loadoutsTitleEl=$('loadoutsTitle');
+const loadoutsOverviewViewEl=$('loadoutsOverviewView'),gunsmithViewEl=$('gunsmithView');
+const loadoutsRailEl=$('loadoutsRail'),loadoutNameInput=$('loadoutNameInput'),loadoutDuplicateBtn=$('loadoutDuplicateBtn'),loadoutResetBtn=$('loadoutResetBtn'),loadoutsSlotsGridEl=$('loadoutsSlotsGrid');
+const gsBackToLoadoutsBtn=$('gsBackToLoadoutsBtn'),gsWeaponTitleEl=$('gsWeaponTitle'),gsWeaponLevelLabelEl=$('gsWeaponLevelLabel'),gsWeaponXpFillEl=$('gsWeaponXpFill'),gsWeaponXpTextEl=$('gsWeaponXpText');
+const gsBudgetBadgeEl=$('gsBudgetBadge'),gsSkinsToggleBtn=$('gsSkinsToggleBtn'),gsClearAllBtn=$('gsClearAllBtn');
+const gsRailLabelEl=$('gsRailLabel'),gsCategoryRailEl=$('gsCategoryRail'),gsPickerHeadingEl=$('gsPickerHeading');
+const gsAttachmentListEl=$('gsAttachmentList'),gsSkinsGridEl=$('gsSkinsGrid'),gunsmithCanvasEl=$('gunsmithCanvas'),gsStageLabelEl=$('gsStageLabel'),gsStatsBoxEl=$('gsStatsBox');
+const weaponXpToastEl=$('weaponXpToast'),wxpKickerEl=$('wxpKicker'),wxpTitleEl=$('wxpTitle'),wxpSubEl=$('wxpSub');
 const archiveListEl=$('archiveList'),lbListEl=$('lbList'),lbStatusEl=$('lbStatus'),lbAuthNoteEl=$('lbAuthNote');
 const customSeedInput=$('customSeedInput'),customSeedPreview=$('customSeedPreview');
 const menuAuthName=$('menuAuthName'),menuAuthBtn=$('menuAuthBtn'),hubAuthBtn=$('hubAuthBtn'),serversAuthBtn=$('serversAuthBtn'),menuArmoryBtn=$('menuArmoryBtn');
@@ -274,7 +313,8 @@ const setChSizeRange=$('setChSizeRange'),setChSizeVal=$('setChSizeVal');
 const crosshairPreviewEl=$('crosshairPreview'),chPreviewLabel=$('chPreviewLabel'),chPreviewHex=$('chPreviewHex');
 
 // Combat & Arena HUD refs
-const hudWeaponName=$('hudWeaponName'),hudAmmoBox=$('hudAmmoBox'),hudAmmoCur=$('hudAmmoCur'),hudAmmoMax=$('hudAmmoMax');
+const hudWeaponName=$('hudWeaponName'),hudBuildMeta=$('hudBuildMeta'),hudAmmoBox=$('hudAmmoBox'),hudAmmoCur=$('hudAmmoCur'),hudAmmoMax=$('hudAmmoMax');
+const hudSlotPrimaryLabel=$('hudSlotPrimaryLabel'),hudSlotSecondaryLabel=$('hudSlotSecondaryLabel'),hudSlotMeleeLabel=$('hudSlotMeleeLabel');
 const hudReloadBar=$('hudReloadBar'),hudReloadFill=$('hudReloadFill');
 const hudSlotEls=document.querySelectorAll('[data-hud-slot]');
 const gauntletHudEl=$('gauntletHud'),hitmarkerEl=$('hitmarker'),damageVignetteEl=$('damageVignette');
@@ -306,7 +346,6 @@ const sellConfirmModal=$('sellConfirmModal'),sellConfirmTitle=$('sellConfirmTitl
 const sellConfirmWarn=$('sellConfirmWarn'),sellConfirmList=$('sellConfirmList'),sellConfirmBalance=$('sellConfirmBalance');
 const sellConfirmCancelBtn=$('sellConfirmCancelBtn'),sellConfirmYesBtn=$('sellConfirmYesBtn');
 
-let inLevel=false;
 let archiveCourses=[];
 let selectedDateKey=DailyCourseGen.getTodayDateKey();
 let activeLbRequest=0;
@@ -314,8 +353,21 @@ let settingsReturnTarget='menu';
 let activeSettingsTab='profile';
 let rebindingActionId=null;
 let cloudSaveTimer=null;
+let cloudLoadoutsSaveTimer=null;
 let lastSyncedUid=null;
 let lastInvSyncedUid=null;
+let lastLoadoutsSyncedUid=null;
+let weaponXpToastTimer=0;
+
+// Loadouts & 3D Gunsmith state
+let loadoutsReturnTarget='menu';
+let selectedLoadoutIdx=window.activeLoadouts?window.activeLoadouts.activeIndex:0;
+let gunsmithMode=false;
+let gunsmithSlotCategory='primary';
+let gunsmithAttCategory='optic';
+let gunsmithSkinsMode=false;
+let gunsmithHoverAttId=null;
+let pendingLoadoutApply=false;
 
 // Servers panel state
 let serversReturnTarget='menu';
@@ -370,8 +422,8 @@ function renderControlsLegend(){
   const moveStr=`${f(kb.forward)} ${f(kb.left)} ${f(kb.back)} ${f(kb.right)}`;
   const rows=[
     [moveStr,'Move'],
-    [`${f(kb.fire)} / ${f(kb.altFire)}`,'Shoot / Scope'],
-    [`${f(kb.slotRifle)}-${f(kb.slotKnife)}`,'Rifle · AWP · Deagle · Knife'],
+    [`${f(kb.fire)} / ${f(kb.altFire)}`,'Shoot / ADS'],
+    [`${f(kb.slotRifle)}-${f(kb.slotDeagle)} / ${f(kb.slotKnife)}`,'Primary · Sec · Melee / Swap'],
     [f(kb.reload),'Reload'],
     [f(kb.jump),'Jump / wall jump'],
     [f(kb.slide),'Slide'],
@@ -396,33 +448,41 @@ function renderControlsLegend(){
 }
 
 // ---------- Combat & Arena HUD Sync ----------
-let lastHudSlot='';
-let lastHudAmmo=-1;
-let lastHudReloading=false;
-let lastHudScope=-1;
-let lastHudHp=-1;
 
 function updateCombatHud(){
   const cs=CombatSystem.getState();
   const ns=NetcodeSystem.getState();
+  const sig=`${cs.activeSlot}|${cs.weaponId}|${cs.magSize||0}|${cs.primaryBuild?cs.primaryBuild.weaponId:''}|${cs.secondaryBuild?cs.secondaryBuild.weaponId:''}|${cs.activeBuild?cs.activeBuild.attachmentCount:0}`;
 
   // Active weapon slot & ammo
-  if(cs.activeSlot!==lastHudSlot){
+  if(cs.activeSlot!==lastHudSlot||sig!==lastHudWeaponSig){
     lastHudSlot=cs.activeSlot;
+    lastHudWeaponSig=sig;
     hudSlotEls.forEach(el=>el.classList.toggle('active',el.dataset.hudSlot===cs.activeSlot));
-    if(cs.activeSlot==='knife'){
+    if(hudSlotPrimaryLabel&&cs.primaryBuild)hudSlotPrimaryLabel.textContent=(cs.primaryBuild.hudTag||cs.primaryBuild.shortName||'PRI').toUpperCase();
+    if(hudSlotSecondaryLabel&&cs.secondaryBuild)hudSlotSecondaryLabel.textContent=(cs.secondaryBuild.hudTag||cs.secondaryBuild.shortName||'SEC').toUpperCase();
+    if(hudSlotMeleeLabel)hudSlotMeleeLabel.textContent='KNIFE';
+    if(cs.activeSlot==='melee'){
       const k=KnivesSystem.getEquippedKnife(window.activeInventory);
       hudWeaponName.textContent=KnivesSystem.KNIFE_TYPES[k.knifeType].name.toUpperCase();
+      if(hudBuildMeta)hudBuildMeta.textContent='SURF 100% · PURE MELEE · 0.35 KG';
       hudAmmoCur.textContent='MELEE';
       hudAmmoCur.classList.remove('low');
       hudAmmoMax.textContent='';
     }else{
-      const wt=KnivesSystem.WEAPON_TYPES[cs.activeSlot];
-      hudWeaponName.textContent=wt?wt.name.toUpperCase():cs.activeSlot.toUpperCase();
+      const b=cs.activeBuild;
+      hudWeaponName.textContent=b?b.name.toUpperCase():(cs.weaponName||cs.activeSlot).toUpperCase();
+      if(hudBuildMeta&&b){
+        const surfPct=Math.round((b.surfAirMult||1)*100);
+        const modStr=b.attachmentCount>0?` · ${b.attachmentCount}/5 MODS`:'';
+        const supStr=b.suppressed?' · SUPP':'';
+        hudBuildMeta.textContent=`SURF ${surfPct}% · ${b.weightKg.toFixed(1)} KG${modStr}${supStr}`;
+      }
       hudAmmoMax.textContent=`/ ${cs.magSize||0}`;
+      lastHudAmmo=-1;
     }
   }
-  if(cs.activeSlot!=='knife'&&(cs.ammo!==lastHudAmmo||cs.reloading!==lastHudReloading)){
+  if(cs.activeSlot!=='melee'&&(cs.ammo!==lastHudAmmo||cs.reloading!==lastHudReloading)){
     lastHudAmmo=cs.ammo;
     lastHudReloading=cs.reloading;
     hudAmmoCur.textContent=cs.reloading?'RLD':String(cs.ammo);
@@ -435,15 +495,17 @@ function updateCombatHud(){
     hudReloadBar.style.display='none';
   }
 
-  // AWP Scope Overlay
-  if(cs.scopeStage!==lastHudScope){
-    lastHudScope=cs.scopeStage;
-    const scoped=cs.scopeStage>0;
-    awpScopeOverlayEl.style.display=scoped?'block':'none';
-    if(crosshairEl)crosshairEl.style.visibility=scoped?'hidden':'visible';
-    if(scoped&&scopeZoomTagEl){
-      scopeZoomTagEl.textContent=cs.scopeStage===2?'OPTIC 2× · RMB UNSCOPE':'OPTIC 1× · RMB 2×';
+  // Generalized Scope Overlay (ACOG / 4x / 8x Variable Sniper) + True ADS crosshair hiding
+  const sc=cs.scopeOverlay||{active:false,type:'none',zoomLabel:'',hideCrosshair:false};
+  const scopeKey=`${sc.active?1:0}|${sc.type}|${sc.zoomLabel}|${sc.hideCrosshair?1:0}`;
+  if(scopeKey!==lastHudScopeKey){
+    lastHudScopeKey=scopeKey;
+    awpScopeOverlayEl.style.display=sc.active?'block':'none';
+    if(sc.active){
+      awpScopeOverlayEl.dataset.optic=sc.type==='acog'?'acog':'sniper';
+      if(scopeZoomTagEl)scopeZoomTagEl.textContent=sc.zoomLabel||'OPTIC';
     }
+    if(crosshairEl)crosshairEl.style.visibility=sc.hideCrosshair?'hidden':'visible';
   }
 
   // Hitmarker & Damage Vignette
@@ -795,6 +857,7 @@ function openSettings(returnTo){
   dailyHubEl.style.display='none';
   armoryPanelEl.style.display='none';
   serversPanelEl.style.display='none';
+  if(loadoutsPanelEl)loadoutsPanelEl.style.display='none';
   pauseEl.style.display='none';
   settingsPanelEl.style.display='';
   settingsBackBtn.textContent=settingsReturnTarget==='pause'?'BACK TO PAUSE':'MENU';
@@ -1124,8 +1187,11 @@ function showCasesView(mode){
 }
 
 function weaponEquipField(weaponType){
+  if(weaponType==='smg')return 'equippedSmgId';
+  if(weaponType==='shotgun')return 'equippedShotgunId';
   if(weaponType==='awp')return 'equippedAwpId';
   if(weaponType==='deagle')return 'equippedDeagleId';
+  if(weaponType==='pistol')return 'equippedPistolId';
   return 'equippedRifleId';
 }
 
@@ -1351,9 +1417,15 @@ function equipWeaponById(weaponId){
   const found=(window.activeInventory.weapons||[]).find(w=>w.id===weaponId);
   if(!found)return;
   window.activeInventory[weaponEquipField(found.weaponType)]=found.id;
+  if(window.activeLoadouts&&window.activeLoadouts.equippedWeaponSkins){
+    window.activeLoadouts.equippedWeaponSkins[found.weaponType]=found.id;
+    window.activeLoadouts=LoadoutsSystem.saveLocal(window.activeLoadouts);
+    scheduleCloudLoadoutsSave();
+  }
   bulkSelectedIds.delete(found.id);
   persistInventorySummary(true);
   ViewmodelSystem.equipWeaponSkin(found);
+  applyActiveLoadoutToRuntime({keepSlot:true});
   showToast(`EQUIPPED ${KnivesSystem.formatWeaponFullName(found).toUpperCase()}`);
   if(activeArmoryTab==='inventory')renderArmoryInventory();
   if(lastRevealedItem&&lastRevealedItem.id===found.id)refreshRevealActionButtons();
@@ -1641,9 +1713,12 @@ function renderInventoryFilterButtons(){
   const filters=invCategory==='weapons'
     ?[
       ['all','ALL'],
-      ['rifle','V-47 RIFLE'],
+      ['rifle','V-47'],
+      ['smg','VX-9'],
+      ['shotgun','M870'],
       ['awp','AWP'],
-      ['deagle','DEAGLE .50']
+      ['deagle','DEAGLE'],
+      ['pistol','USP-9']
     ]
     :invCategory==='gloves'
       ?[
@@ -1871,6 +1946,7 @@ function openArmory(returnTo,initialTab){
   dailyHubEl.style.display='none';
   settingsPanelEl.style.display='none';
   serversPanelEl.style.display='none';
+  if(loadoutsPanelEl)loadoutsPanelEl.style.display='none';
   pauseEl.style.display='none';
   armoryPanelEl.style.display='';
   armoryBackBtn.textContent=armoryReturnTarget==='pause'?'BACK TO PAUSE':'MENU';
@@ -1973,6 +2049,7 @@ function openServersPanel(returnTo){
   dailyHubEl.style.display='none';
   settingsPanelEl.style.display='none';
   armoryPanelEl.style.display='none';
+  if(loadoutsPanelEl)loadoutsPanelEl.style.display='none';
   pauseEl.style.display='none';
   serversPanelEl.style.display='';
   serversBackBtn.textContent=serversReturnTarget==='pause'?'BACK TO PAUSE':'MENU';
@@ -2229,6 +2306,59 @@ async function hydrateCloudInventoryForUser(user){
   }
 }
 
+function updateLoadoutsSyncLabel(override){
+  if(!loadoutsSyncNoteEl)return;
+  if(override){loadoutsSyncNoteEl.textContent=override;return;}
+  const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
+  loadoutsSyncNoteEl.textContent=(st.user&&st.user.emailVerified)?'CLOUD SYNCED':'LOCAL ONLY';
+}
+
+function scheduleCloudLoadoutsSave(){
+  const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
+  if(!st.user||!st.user.emailVerified||!window.DailyBackend||!window.DailyBackend.saveUserLoadouts){
+    updateLoadoutsSyncLabel('LOCAL ONLY');
+    return;
+  }
+  updateLoadoutsSyncLabel('SAVING...');
+  if(cloudLoadoutsSaveTimer)clearTimeout(cloudLoadoutsSaveTimer);
+  cloudLoadoutsSaveTimer=setTimeout(async()=>{
+    cloudLoadoutsSaveTimer=null;
+    try{
+      const saved=await window.DailyBackend.saveUserLoadouts(window.activeLoadouts);
+      updateLoadoutsSyncLabel(saved?'CLOUD SYNCED':'LOCAL FALLBACK');
+    }catch(_){
+      updateLoadoutsSyncLabel('LOCAL FALLBACK');
+    }
+  },420);
+}
+
+async function hydrateCloudLoadoutsForUser(user){
+  if(!user||!user.emailVerified||!window.DailyBackend||!window.DailyBackend.loadUserLoadouts)return;
+  if(lastLoadoutsSyncedUid===user.uid)return;
+  lastLoadoutsSyncedUid=user.uid;
+  try{
+    const cloudDoc=await window.DailyBackend.loadUserLoadouts();
+    const mergedState=LoadoutsSystem.mergeLoadoutStates(window.activeLoadouts,cloudDoc);
+    window.activeLoadouts=LoadoutsSystem.saveLocal(mergedState);
+    selectedLoadoutIdx=window.activeLoadouts.activeIndex;
+    applyActiveLoadoutToRuntime({keepSlot:true});
+    renderQuickLoadoutStrips();
+    if(loadoutsPanelEl&&loadoutsPanelEl.style.display!=='none'){
+      if(gunsmithMode)renderGunsmith();
+      else renderLoadoutsOverview();
+    }
+    const cloudSanitized=cloudDoc?LoadoutsSystem.sanitizeLoadoutState(cloudDoc):null;
+    const needsSync=!cloudSanitized||JSON.stringify(mergedState)!==JSON.stringify(cloudSanitized);
+    if(needsSync){
+      await window.DailyBackend.saveUserLoadouts(window.activeLoadouts);
+    }
+    updateLoadoutsSyncLabel('CLOUD SYNCED');
+  }catch(err){
+    console.warn('Cloud loadouts hydration failed; keeping local loadouts intact:',err);
+    updateLoadoutsSyncLabel('LOCAL FALLBACK');
+  }
+}
+
 function renderAuthUI(user){
   renderAuthHeaderName(user);
   if(user){
@@ -2237,15 +2367,18 @@ function renderAuthUI(user){
     if(serversAuthBtn)serversAuthBtn.textContent='SIGN OUT';
     hydrateCloudSettingsForUser(user);
     hydrateCloudInventoryForUser(user);
+    hydrateCloudLoadoutsForUser(user);
   }else{
     lastSyncedUid=null;
     lastInvSyncedUid=null;
+    lastLoadoutsSyncedUid=null;
     menuAuthBtn.textContent='SIGN IN';
     hubAuthBtn.textContent='SIGN IN';
     if(serversAuthBtn)serversAuthBtn.textContent='SIGN IN';
   }
   updateSettingsSyncLabel();
   updateArmorySyncLabel();
+  updateLoadoutsSyncLabel();
   updateLeaderboardAuthNote();
   if(settingsPanelEl.style.display!=='none')renderSettingsPanel();
   if(serversPanelEl.style.display!=='none'){
@@ -2471,6 +2604,7 @@ async function openDailyHub(focusDateKey){
   settingsPanelEl.style.display='none';
   armoryPanelEl.style.display='none';
   serversPanelEl.style.display='none';
+  if(loadoutsPanelEl)loadoutsPanelEl.style.display='none';
   dailyHubEl.style.display='';
   document.body.dataset.state='archive';
   document.exitPointerLock?.();
@@ -2851,6 +2985,7 @@ function openCourseBrowser(category,focusCourseId,returnTo){
   settingsPanelEl.style.display='none';
   armoryPanelEl.style.display='none';
   serversPanelEl.style.display='none';
+  if(loadoutsPanelEl)loadoutsPanelEl.style.display='none';
   pauseEl.style.display='none';
   if(courseBrowserPanelEl)courseBrowserPanelEl.style.display='';
   if(cbBackBtn)cbBackBtn.textContent=cbReturnTarget==='pause'?'BACK TO PAUSE':'MENU';
@@ -2869,6 +3004,708 @@ function closeCourseBrowser(){
   }
 }
 
+// ---------- Loadouts Manager & 3D Gunsmith Workbench ----------
+function showWeaponLevelUpBanner(weaponName,newLevel,newUnlocks){
+  if(!weaponXpToastEl)return;
+  if(wxpKickerEl)wxpKickerEl.textContent='WEAPON LEVEL UP';
+  if(wxpTitleEl)wxpTitleEl.textContent=`${String(weaponName||'WEAPON').toUpperCase()} · LV. ${newLevel}`;
+  if(wxpSubEl){
+    if(Array.isArray(newUnlocks)&&newUnlocks.length>0){
+      const names=newUnlocks.slice(0,2).map(u=>u.name.toUpperCase()).join(' · ');
+      wxpSubEl.textContent=`UNLOCKED: ${names}${newUnlocks.length>2?` +${newUnlocks.length-2}`:''}`;
+    }else{
+      wxpSubEl.textContent='NEW GUNSMITH MILESTONE REACHED';
+    }
+  }
+  weaponXpToastEl.style.opacity='1';
+  weaponXpToastTimer=4.0;
+}
+
+function grantWeaponXp(weaponId,xpAmount){
+  if(!weaponId||!LoadoutsSystem.WEAPON_SPECS[weaponId]||!(xpAmount>0))return;
+  const res=LoadoutsSystem.awardWeaponXp(window.activeLoadouts,weaponId,xpAmount);
+  window.activeLoadouts=LoadoutsSystem.saveLocal(res.state);
+  scheduleCloudLoadoutsSave();
+  if(res.leveledUp){
+    const spec=LoadoutsSystem.getWeaponSpec(weaponId);
+    showWeaponLevelUpBanner(spec.name,res.newLevel,res.newUnlocks);
+  }
+  if(loadoutsPanelEl&&loadoutsPanelEl.style.display!=='none'){
+    if(gunsmithMode)renderGunsmith();
+    else renderLoadoutsOverview();
+  }
+}
+
+function getWeaponSkinForLoadoutEntry(weaponId,skinItemId){
+  const list=(window.activeInventory.weapons||[]).filter(w=>w.weaponType===weaponId);
+  if(skinItemId){
+    const exact=list.find(w=>w.id===skinItemId);
+    if(exact)return exact;
+  }
+  const mapId=window.activeLoadouts&&window.activeLoadouts.equippedWeaponSkins?window.activeLoadouts.equippedWeaponSkins[weaponId]:'';
+  if(mapId){
+    const mapped=list.find(w=>w.id===mapId);
+    if(mapped)return mapped;
+  }
+  return KnivesSystem.getEquippedWeapon(window.activeInventory,weaponId);
+}
+
+function getMeleeKnifeForLoadout(ld){
+  if(ld&&ld.melee&&ld.melee.knifeItemId){
+    const found=(window.activeInventory.knives||[]).find(k=>k.id===ld.melee.knifeItemId);
+    if(found)return found;
+  }
+  return KnivesSystem.getEquippedKnife(window.activeInventory);
+}
+
+function commitLoadoutsState(nextState,opts){
+  const options=opts||{};
+  window.activeLoadouts=LoadoutsSystem.saveLocal(nextState);
+  scheduleCloudLoadoutsSave();
+  const isOnlineArena=inLevel&&NetcodeSystem.getState().isOnline;
+  if(!options.skipApply){
+    if(isOnlineArena&&!options.forceImmediate){
+      pendingLoadoutApply=true;
+      if(!options.silentToast)showToast('LOADOUT QUEUED FOR NEXT RESPAWN');
+    }else{
+      pendingLoadoutApply=false;
+      applyActiveLoadoutToRuntime({keepSlot:true});
+    }
+  }
+  renderQuickLoadoutStrips();
+}
+
+window.applyPendingLoadoutIfAny=function(){
+  if(!pendingLoadoutApply)return false;
+  pendingLoadoutApply=false;
+  applyActiveLoadoutToRuntime({keepSlot:true});
+  showToast(`LOADOUT ACTIVE: ${LoadoutsSystem.getActiveLoadout(window.activeLoadouts).name.toUpperCase()}`);
+  return true;
+};
+
+function selectActiveLoadout(idx,opts){
+  const cleanIdx=Math.max(0,Math.min(LoadoutsSystem.LOADOUT_COUNT-1,Math.floor(Number(idx)||0)));
+  selectedLoadoutIdx=cleanIdx;
+  const next={...window.activeLoadouts,activeIndex:cleanIdx};
+  const isOnlineArena=inLevel&&NetcodeSystem.getState().isOnline;
+  commitLoadoutsState(next,{silentToast:true,forceImmediate:!isOnlineArena});
+  const ld=LoadoutsSystem.getActiveLoadout(window.activeLoadouts);
+  if(!opts||!opts.silent){
+    showToast(isOnlineArena?`QUEUED [${cleanIdx+1}] ${ld.name.toUpperCase()} FOR NEXT RESPAWN`:`ACTIVE LOADOUT [${cleanIdx+1}] ${ld.name.toUpperCase()}`);
+  }
+}
+
+function formatLoadoutShortSummary(ld){
+  if(!ld)return '';
+  const pSpec=LoadoutsSystem.getWeaponSpec(ld.primary.weaponId);
+  const sSpec=LoadoutsSystem.getWeaponSpec(ld.secondary.weaponId);
+  const pCnt=LoadoutsSystem.countEquippedAttachments(ld.primary.attachments);
+  const sCnt=LoadoutsSystem.countEquippedAttachments(ld.secondary.attachments);
+  return `${pSpec.shortName} (${pCnt}/5) · ${sSpec.shortName} (${sCnt}/5)`;
+}
+
+function renderQuickLoadoutStrips(){
+  if(!window.activeLoadouts)return;
+  const activeIdx=window.activeLoadouts.activeIndex||0;
+  const activeLd=LoadoutsSystem.getActiveLoadout(window.activeLoadouts);
+  const summary=formatLoadoutShortSummary(activeLd);
+  if(menuLoadoutSummaryEl)menuLoadoutSummaryEl.textContent=summary;
+  if(pauseLoadoutSummaryEl)pauseLoadoutSummaryEl.textContent=pendingLoadoutApply?`${summary} · QUEUED`:summary;
+  if(menuLoadoutStatEl)menuLoadoutStatEl.textContent=`ACTIVE: ${activeLd.name.toUpperCase()} · ${summary.toUpperCase()}`;
+
+  const renderStrip=(container)=>{
+    if(!container)return;
+    container.textContent='';
+    for(let i=0;i<window.activeLoadouts.loadouts.length;i++){
+      const ld=window.activeLoadouts.loadouts[i];
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='ld-quick-btn'+(i===activeIdx?' active':'');
+      btn.title=`${ld.name} — ${formatLoadoutShortSummary(ld)}`;
+      const num=document.createElement('b');
+      num.textContent=String(i+1);
+      btn.appendChild(num);
+      btn.appendChild(document.createTextNode(ld.name));
+      btn.onclick=()=>selectActiveLoadout(i);
+      container.appendChild(btn);
+    }
+  };
+  renderStrip(menuLoadoutStripEl);
+  renderStrip(pauseLoadoutStripEl);
+}
+
+function openLoadoutsPanel(returnTo,initialSlotCategory){
+  cancelRebind();
+  stopRouletteAnimation();
+  closeSellConfirmModal();
+  stopServersSubscription();
+  ArmoryPreview.stop();
+  if(typeof CoursePreview3D!=='undefined')CoursePreview3D.stop();
+  loadoutsReturnTarget=returnTo==='pause'&&inLevel?'pause':'menu';
+  selectedLoadoutIdx=window.activeLoadouts.activeIndex||0;
+  gunsmithMode=Boolean(initialSlotCategory);
+  gunsmithSlotCategory=initialSlotCategory==='secondary'?'secondary':'primary';
+  gunsmithSkinsMode=false;
+  gunsmithHoverAttId=null;
+
+  overlay.style.display='grid';
+  overlayCard.classList.remove('wide');
+  overlayCard.classList.add('browser-wide');
+  menuEl.style.display='none';
+  if(courseBrowserPanelEl)courseBrowserPanelEl.style.display='none';
+  dailyHubEl.style.display='none';
+  settingsPanelEl.style.display='none';
+  armoryPanelEl.style.display='none';
+  serversPanelEl.style.display='none';
+  pauseEl.style.display='none';
+  if(loadoutsPanelEl)loadoutsPanelEl.style.display='';
+  if(loadoutsBackBtn)loadoutsBackBtn.textContent=loadoutsReturnTarget==='pause'?'BACK TO PAUSE':'MENU';
+  document.body.dataset.state='loadouts';
+  document.exitPointerLock?.();
+  updateLoadoutsSyncLabel();
+  if(gunsmithMode)renderGunsmith();
+  else renderLoadoutsOverview();
+}
+
+function closeLoadoutsPanel(){
+  ArmoryPreview.stop();
+  gunsmithMode=false;
+  gunsmithHoverAttId=null;
+  if(loadoutsReturnTarget==='pause'&&inLevel){
+    showPause();
+  }else{
+    showMenu();
+  }
+}
+
+function renderLoadoutsOverview(){
+  if(!loadoutsOverviewViewEl||!gunsmithViewEl)return;
+  gunsmithMode=false;
+  gunsmithHoverAttId=null;
+  ArmoryPreview.stop();
+  loadoutsOverviewViewEl.style.display='';
+  gunsmithViewEl.style.display='none';
+  if(loadoutsEyebrowEl)loadoutsEyebrowEl.textContent='TACTICAL LOADOUTS & 3D GUNSMITH';
+  if(loadoutsTitleEl)loadoutsTitleEl.textContent='Custom Loadouts';
+
+  const st=window.activeLoadouts;
+  const ld=st.loadouts[selectedLoadoutIdx]||st.loadouts[0];
+
+  // Left rail: 5 named loadouts
+  if(loadoutsRailEl){
+    loadoutsRailEl.textContent='';
+    st.loadouts.forEach((item,i)=>{
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='ld-tab'+(i===selectedLoadoutIdx?' active':'');
+      const top=document.createElement('div');
+      top.className='ld-tab-top';
+      const idxEl=document.createElement('span');
+      idxEl.className='ld-tab-idx';
+      idxEl.textContent=`LOADOUT 0${i+1}`;
+      top.appendChild(idxEl);
+      if(i===st.activeIndex){
+        const tag=document.createElement('span');
+        tag.className='ld-tab-active-tag';
+        tag.textContent='EQUIPPED';
+        top.appendChild(tag);
+      }
+      const nm=document.createElement('div');
+      nm.className='ld-tab-name';
+      nm.textContent=item.name;
+      const sub=document.createElement('div');
+      sub.className='ld-tab-sub';
+      sub.textContent=formatLoadoutShortSummary(item);
+      btn.append(top,nm,sub);
+      btn.onclick=()=>{
+        selectActiveLoadout(i,{silent:true});
+        renderLoadoutsOverview();
+      };
+      loadoutsRailEl.appendChild(btn);
+    });
+  }
+
+  if(loadoutNameInput&&document.activeElement!==loadoutNameInput){
+    loadoutNameInput.value=ld.name;
+  }
+
+  // Right 3-slot cards (Primary, Secondary, Melee)
+  if(!loadoutsSlotsGridEl)return;
+  loadoutsSlotsGridEl.textContent='';
+
+  const buildFirearmCard=(slotCategory)=>{
+    const isPrimary=slotCategory==='primary';
+    const entry=ld[slotCategory];
+    const spec=LoadoutsSystem.getWeaponSpec(entry.weaponId);
+    const build=LoadoutsSystem.resolveWeaponBuild(entry.weaponId,entry.attachments);
+    const lvlInfo=LoadoutsSystem.getWeaponLevelInfo(st.weaponXp[entry.weaponId]||0);
+    const skinItem=getWeaponSkinForLoadoutEntry(entry.weaponId,entry.skinItemId);
+
+    const card=document.createElement('div');
+    card.className='ld-slot-card';
+
+    const head=document.createElement('div');
+    head.className='ld-slot-head';
+    head.innerHTML=`<span class="ld-slot-kicker">${isPrimary?'1 · PRIMARY':'2 · SECONDARY'}</span><span class="ld-slot-lvl">LV. ${lvlInfo.level}</span>`;
+
+    const thumbBox=document.createElement('div');
+    thumbBox.className='ld-slot-thumb-box';
+    const img=document.createElement('img');
+    img.className='ld-slot-thumb';
+    img.alt=spec.name;
+    img.src=getThumbForItem(skinItem);
+    thumbBox.appendChild(img);
+
+    const title=document.createElement('h3');
+    title.className='ld-slot-title';
+    title.textContent=spec.name;
+
+    const skinLine=document.createElement('div');
+    skinLine.className='ld-slot-skin';
+    const skinName=skinItem&&KnivesSystem.WEAPON_SKINS[skinItem.skinId]?KnivesSystem.WEAPON_SKINS[skinItem.skinId].name:'Factory Issue';
+    skinLine.textContent=`${spec.classLabel} · Skin: ${skinName}`;
+
+    // Weapon selector buttons
+    const pickers=document.createElement('div');
+    pickers.className='ld-wep-pickers';
+    const roster=isPrimary?LoadoutsSystem.PRIMARY_WEAPON_IDS:LoadoutsSystem.SECONDARY_WEAPON_IDS;
+    for(const wid of roster){
+      const ws=LoadoutsSystem.getWeaponSpec(wid);
+      const wb=document.createElement('button');
+      wb.type='button';
+      wb.className='ld-wep-btn'+(wid===entry.weaponId?' active':'');
+      wb.textContent=ws.shortName.toUpperCase();
+      wb.onclick=()=>{
+        const updated=LoadoutsSystem.setLoadoutWeapon(window.activeLoadouts,selectedLoadoutIdx,slotCategory,wid);
+        commitLoadoutsState(updated,{silentToast:true});
+        renderLoadoutsOverview();
+      };
+      pickers.appendChild(wb);
+    }
+
+    const specs=document.createElement('div');
+    specs.className='ld-slot-specs';
+    specs.innerHTML=`
+      <div class="ld-slot-spec"><span>Attachments</span><b>${build.attachmentCount} / 5</b></div>
+      <div class="ld-slot-spec"><span>Mobility / Surf</span><b>${Math.round(build.mobilityMult*100)}% / ${Math.round(build.surfAirMult*100)}%</b></div>
+      <div class="ld-slot-spec"><span>Weight / ADS</span><b>${build.weightKg.toFixed(1)} kg · ${Math.round(build.adsTimeSec*1000)} ms</b></div>
+    `;
+
+    const atts=document.createElement('div');
+    atts.className='ld-slot-atts';
+    if(build.equippedList.length===0){
+      atts.textContent='Stock configuration — open Gunsmith to equip up to 5 attachments.';
+    }else{
+      atts.textContent=build.equippedList.map(a=>a.def.name).join(' · ');
+    }
+
+    const cta=document.createElement('button');
+    cta.type='button';
+    cta.className='ld-slot-cta';
+    cta.textContent='CUSTOMIZE IN 3D GUNSMITH';
+    cta.onclick=()=>openGunsmith(slotCategory);
+
+    card.append(head,thumbBox,title,skinLine,pickers,specs,atts,cta);
+    return card;
+  };
+
+  // Melee Card
+  const buildMeleeCard=()=>{
+    const knife=getMeleeKnifeForLoadout(ld);
+    const kt=KnivesSystem.KNIFE_TYPES[knife.knifeType]||KnivesSystem.KNIFE_TYPES.default;
+    const sk=KnivesSystem.SKINS[knife.skinId]||KnivesSystem.SKINS.vanilla;
+    const card=document.createElement('div');
+    card.className='ld-slot-card';
+
+    const head=document.createElement('div');
+    head.className='ld-slot-head';
+    head.innerHTML='<span class="ld-slot-kicker">3 · MELEE</span><span class="ld-slot-lvl" style="color:#6effa6">100% PURE SURF</span>';
+
+    const thumbBox=document.createElement('div');
+    thumbBox.className='ld-slot-thumb-box';
+    const img=document.createElement('img');
+    img.className='ld-slot-thumb';
+    img.alt=kt.name;
+    img.src=getThumbForItem(knife);
+    thumbBox.appendChild(img);
+
+    const title=document.createElement('h3');
+    title.className='ld-slot-title';
+    title.textContent=kt.name;
+
+    const skinLine=document.createElement('div');
+    skinLine.className='ld-slot-skin';
+    skinLine.textContent=`Finish: ${sk.name} · ${knife.wearGrade}`;
+
+    // Owned knife quick selector
+    const pickers=document.createElement('div');
+    pickers.className='ld-wep-pickers';
+    const ownedKnives=(window.activeInventory.knives||[]).slice(0,6);
+    for(const k of ownedKnives){
+      const kb=document.createElement('button');
+      kb.type='button';
+      kb.className='ld-wep-btn'+(k.id===knife.id?' active':'');
+      const kMeta=KnivesSystem.KNIFE_TYPES[k.knifeType]||KnivesSystem.KNIFE_TYPES.default;
+      kb.textContent=kMeta.name.replace(' Knife','').toUpperCase();
+      kb.title=KnivesSystem.formatKnifeFullName(k);
+      kb.onclick=()=>{
+        const next=LoadoutsSystem.sanitizeLoadoutState(window.activeLoadouts);
+        next.loadouts[selectedLoadoutIdx].melee.knifeItemId=k.id;
+        window.activeInventory.equippedKnifeId=k.id;
+        persistInventorySummary(true);
+        ViewmodelSystem.equipKnife(k,false);
+        commitLoadoutsState(next,{silentToast:true});
+        renderLoadoutsOverview();
+      };
+      pickers.appendChild(kb);
+    }
+
+    const specs=document.createElement('div');
+    specs.className='ld-slot-specs';
+    specs.innerHTML=`
+      <div class="ld-slot-spec"><span>Ground Mobility</span><b style="color:#6effa6">100%</b></div>
+      <div class="ld-slot-spec"><span>Surf Air Control</span><b style="color:#6effa6">100% (No Penalty)</b></div>
+      <div class="ld-slot-spec"><span>Weight</span><b>0.35 kg</b></div>
+    `;
+
+    const atts=document.createElement('div');
+    atts.className='ld-slot-atts';
+    atts.textContent='Melee always preserves pure 1.00× VELOCITY surf physics and air-strafe responsiveness.';
+
+    const cta=document.createElement('button');
+    cta.type='button';
+    cta.className='alt ld-slot-cta';
+    cta.textContent='OPEN ARMORY KNIVES';
+    cta.onclick=()=>{
+      invCategory='knives';
+      invFilterType='all';
+      openArmory(loadoutsReturnTarget,'inventory');
+    };
+
+    card.append(head,thumbBox,title,skinLine,pickers,specs,atts,cta);
+    return card;
+  };
+
+  loadoutsSlotsGridEl.append(buildFirearmCard('primary'),buildFirearmCard('secondary'),buildMeleeCard());
+}
+
+function openGunsmith(slotCategory){
+  gunsmithMode=true;
+  gunsmithSlotCategory=slotCategory==='secondary'?'secondary':'primary';
+  gunsmithAttCategory='optic';
+  gunsmithSkinsMode=false;
+  gunsmithHoverAttId=null;
+  renderGunsmith();
+}
+
+function getGunsmithEntry(){
+  const ld=window.activeLoadouts.loadouts[selectedLoadoutIdx]||window.activeLoadouts.loadouts[0];
+  return ld[gunsmithSlotCategory==='secondary'?'secondary':'primary'];
+}
+
+function updateGunsmith3DPreview(previewAttachments){
+  if(!gunsmithCanvasEl||!gunsmithMode)return;
+  const entry=getGunsmithEntry();
+  const skinItem=getWeaponSkinForLoadoutEntry(entry.weaponId,entry.skinItemId);
+  const atts=previewAttachments||entry.attachments;
+  ArmoryPreview.showGunsmithWeapon(gunsmithCanvasEl,skinItem,atts,{focusSlot:gunsmithSkinsMode?'none':gunsmithAttCategory});
+}
+
+function renderGunsmithStats(currentBuild,previewBuild){
+  if(!gsStatsBoxEl)return;
+  const cmp=LoadoutsSystem.compareBuilds(currentBuild,previewBuild);
+  const rows=[
+    ['DAMAGE','damage'],
+    ['RANGE','range'],
+    ['FIRE RATE','fireRate'],
+    ['ACCURACY','accuracy'],
+    ['HANDLING','handling'],
+    ['MOBILITY','mobility']
+  ];
+  gsStatsBoxEl.textContent='';
+  for(const [label,key] of rows){
+    const curVal=currentBuild.bars[key]||0;
+    const preVal=previewBuild.bars[key]||0;
+    const delta=cmp.bars[key]||0;
+    const row=document.createElement('div');
+    row.className='gs-stat-row';
+
+    const kEl=document.createElement('span');
+    kEl.className='gs-stat-k';
+    kEl.textContent=label;
+
+    const track=document.createElement('div');
+    track.className='gs-stat-track';
+    const baseFill=document.createElement('div');
+    baseFill.className='gs-stat-base';
+    baseFill.style.width=`${Math.min(curVal,preVal)}%`;
+    track.appendChild(baseFill);
+    if(delta>0){
+      const dEl=document.createElement('div');
+      dEl.className='gs-stat-delta-pos';
+      dEl.style.left=`${curVal}%`;
+      dEl.style.width=`${delta}%`;
+      track.appendChild(dEl);
+    }else if(delta<0){
+      const dEl=document.createElement('div');
+      dEl.className='gs-stat-delta-neg';
+      dEl.style.left=`${preVal}%`;
+      dEl.style.width=`${Math.abs(delta)}%`;
+      track.appendChild(dEl);
+    }
+
+    const vEl=document.createElement('span');
+    vEl.className='gs-stat-v'+(delta>0?' pos':delta<0?' neg':'');
+    vEl.textContent=delta===0?String(curVal):`${preVal} (${delta>0?'+':''}${delta})`;
+
+    row.append(kEl,track,vEl);
+    gsStatsBoxEl.appendChild(row);
+  }
+
+  const numGrid=document.createElement('div');
+  numGrid.className='gs-num-grid';
+  const adsMs=Math.round(previewBuild.adsTimeSec*1000);
+  const surfPct=Math.round(previewBuild.surfAirMult*100);
+  const cells=[
+    ['ADS TIME',`${adsMs} ms`,cmp.adsMsDelta<0?'pos':cmp.adsMsDelta>0?'neg':''],
+    ['WEIGHT',`${previewBuild.weightKg.toFixed(2)} kg`,cmp.weightDelta<0?'pos':cmp.weightDelta>0?'neg':''],
+    ['SURF CTRL',`${surfPct}%`,cmp.surfPctDelta>0?'pos':cmp.surfPctDelta<0?'neg':''],
+    ['MAGAZINE',`${previewBuild.magSize} rds`,cmp.magDelta>0?'pos':cmp.magDelta<0?'neg':'']
+  ];
+  for(const [k,v,cls] of cells){
+    const c=document.createElement('div');
+    c.className='gs-num-cell';
+    c.innerHTML=`<div class="gs-num-k">${k}</div><div class="gs-num-v ${cls}">${v}</div>`;
+    numGrid.appendChild(c);
+  }
+  gsStatsBoxEl.appendChild(numGrid);
+}
+
+function renderGunsmith(){
+  if(!loadoutsOverviewViewEl||!gunsmithViewEl)return;
+  loadoutsOverviewViewEl.style.display='none';
+  gunsmithViewEl.style.display='';
+
+  const st=window.activeLoadouts;
+  const ld=st.loadouts[selectedLoadoutIdx]||st.loadouts[0];
+  const entry=getGunsmithEntry();
+  const spec=LoadoutsSystem.getWeaponSpec(entry.weaponId);
+  const xp=st.weaponXp[entry.weaponId]||0;
+  const lvlInfo=LoadoutsSystem.getWeaponLevelInfo(xp);
+  const currentBuild=LoadoutsSystem.resolveWeaponBuild(entry.weaponId,entry.attachments);
+
+  if(loadoutsEyebrowEl)loadoutsEyebrowEl.textContent=`3D GUNSMITH · ${ld.name.toUpperCase()} (${gunsmithSlotCategory.toUpperCase()})`;
+  if(loadoutsTitleEl)loadoutsTitleEl.textContent=spec.name;
+  if(gsWeaponTitleEl)gsWeaponTitleEl.textContent=spec.name;
+  if(gsWeaponLevelLabelEl)gsWeaponLevelLabelEl.textContent=lvlInfo.isMax?`LV. ${lvlInfo.level} MAX`:`LV. ${lvlInfo.level}`;
+  if(gsWeaponXpFillEl)gsWeaponXpFillEl.style.width=`${Math.round(lvlInfo.progress*100)}%`;
+  if(gsWeaponXpTextEl)gsWeaponXpTextEl.textContent=lvlInfo.isMax?`${lvlInfo.xp} XP · MAXED`:`${lvlInfo.xp} / ${lvlInfo.nextLevelXp} XP`;
+  if(gsBudgetBadgeEl){
+    gsBudgetBadgeEl.textContent=`ATTACHMENTS ${currentBuild.attachmentCount} / ${LoadoutsSystem.MAX_ATTACHMENTS}`;
+    gsBudgetBadgeEl.classList.toggle('full',currentBuild.attachmentCount>=LoadoutsSystem.MAX_ATTACHMENTS);
+  }
+  if(gsSkinsToggleBtn){
+    gsSkinsToggleBtn.textContent=gunsmithSkinsMode?'ATTACHMENTS':'SKINS';
+  }
+  if(gsStageLabelEl){
+    gsStageLabelEl.textContent=`${spec.name.toUpperCase()} · ${currentBuild.attachmentCount}/5 MODS`;
+  }
+
+  // Left 8-slot category rail
+  if(gsCategoryRailEl){
+    gsCategoryRailEl.textContent='';
+    for(const slotMeta of LoadoutsSystem.ATTACHMENT_SLOTS){
+      const equippedId=entry.attachments[slotMeta.id];
+      const equippedDef=equippedId?LoadoutsSystem.getAttachmentDef(slotMeta.id,equippedId):null;
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='gs-cat-btn'+(!gunsmithSkinsMode&&gunsmithAttCategory===slotMeta.id?' active':'')+(equippedDef?' equipped':'');
+      const left=document.createElement('div');
+      left.style.minWidth='0';
+      const lbl=document.createElement('div');
+      lbl.textContent=slotMeta.label.toUpperCase();
+      const sub=document.createElement('span');
+      sub.className='gs-cat-sub';
+      sub.textContent=equippedDef?equippedDef.name:'None';
+      left.append(lbl,sub);
+      const dot=document.createElement('span');
+      dot.className='gs-cat-dot';
+      btn.append(left,dot);
+      btn.onclick=()=>{
+        gunsmithSkinsMode=false;
+        gunsmithAttCategory=slotMeta.id;
+        gunsmithHoverAttId=null;
+        renderGunsmith();
+      };
+      gsCategoryRailEl.appendChild(btn);
+    }
+  }
+
+  if(gunsmithSkinsMode){
+    if(gsAttachmentListEl)gsAttachmentListEl.style.display='none';
+    if(gsSkinsGridEl)gsSkinsGridEl.style.display='';
+    if(gsPickerHeadingEl)gsPickerHeadingEl.textContent=`${spec.shortName.toUpperCase()} SKINS (OWNED IN ARMORY)`;
+    renderGunsmithSkins(entry);
+    renderGunsmithStats(currentBuild,currentBuild);
+    updateGunsmith3DPreview(entry.attachments);
+    return;
+  }
+
+  if(gsAttachmentListEl)gsAttachmentListEl.style.display='';
+  if(gsSkinsGridEl)gsSkinsGridEl.style.display='none';
+  const curSlotMeta=LoadoutsSystem.ATTACHMENT_SLOTS.find(s=>s.id===gunsmithAttCategory)||LoadoutsSystem.ATTACHMENT_SLOTS[0];
+  if(gsPickerHeadingEl)gsPickerHeadingEl.textContent=`${curSlotMeta.label.toUpperCase()} — ${curSlotMeta.desc}`;
+
+  const options=LoadoutsSystem.getSlotAttachmentsForWeapon(entry.weaponId,gunsmithAttCategory);
+  const equippedId=entry.attachments[gunsmithAttCategory]||'';
+
+  if(gsAttachmentListEl){
+    gsAttachmentListEl.textContent='';
+    if(equippedId){
+      const rmBtn=document.createElement('button');
+      rmBtn.type='button';
+      rmBtn.className='gs-att-card';
+      rmBtn.innerHTML='<div class="gs-att-top"><span class="gs-att-name">Remove Attachment</span><span class="gs-att-tag">RESTORE STOCK</span></div><div class="gs-att-desc">Frees 1 of your 5 Gunsmith attachment slots.</div>';
+      rmBtn.onmouseenter=()=>{
+        const previewAtts={...entry.attachments};
+        delete previewAtts[gunsmithAttCategory];
+        const previewBuild=LoadoutsSystem.resolveWeaponBuild(entry.weaponId,previewAtts);
+        renderGunsmithStats(currentBuild,previewBuild);
+        updateGunsmith3DPreview(previewAtts);
+      };
+      rmBtn.onmouseleave=()=>{
+        renderGunsmithStats(currentBuild,currentBuild);
+        updateGunsmith3DPreview(entry.attachments);
+      };
+      rmBtn.onclick=()=>{
+        const res=LoadoutsSystem.equipAttachment(window.activeLoadouts,selectedLoadoutIdx,gunsmithSlotCategory,gunsmithAttCategory,null);
+        commitLoadoutsState(res.state,{silentToast:true});
+        renderGunsmith();
+      };
+      gsAttachmentListEl.appendChild(rmBtn);
+    }
+
+    for(const att of options){
+      const unlocked=LoadoutsSystem.isAttachmentUnlocked(entry.weaponId,gunsmithAttCategory,att.id,xp);
+      const isEq=equippedId===att.id;
+      const card=document.createElement('button');
+      card.type='button';
+      card.className='gs-att-card'+(isEq?' equipped':'')+(!unlocked?' locked':'');
+
+      const top=document.createElement('div');
+      top.className='gs-att-top';
+      const nm=document.createElement('span');
+      nm.className='gs-att-name';
+      nm.textContent=att.name;
+      const tag=document.createElement('span');
+      tag.className='gs-att-tag'+(!unlocked?' locked':'');
+      tag.textContent=isEq?'EQUIPPED':(unlocked?`LV. ${att.unlockLevel}`:`LOCKED · LV. ${att.unlockLevel}`);
+      top.append(nm,tag);
+
+      const desc=document.createElement('div');
+      desc.className='gs-att-desc';
+      desc.textContent=att.desc||'';
+
+      const pc=document.createElement('div');
+      pc.className='gs-att-pc';
+      for(const p of (att.pros||[])){
+        const s=document.createElement('span');
+        s.className='gs-pro';
+        s.textContent='+ '+p;
+        pc.appendChild(s);
+      }
+      for(const c of (att.cons||[])){
+        const s=document.createElement('span');
+        s.className='gs-con';
+        s.textContent='− '+c;
+        pc.appendChild(s);
+      }
+
+      card.append(top,desc,pc);
+
+      card.onmouseenter=()=>{
+        gunsmithHoverAttId=att.id;
+        const previewAtts={...entry.attachments,[gunsmithAttCategory]:att.id};
+        const previewBuild=LoadoutsSystem.resolveWeaponBuild(entry.weaponId,previewAtts);
+        renderGunsmithStats(currentBuild,previewBuild);
+        updateGunsmith3DPreview(previewAtts);
+      };
+      card.onmouseleave=()=>{
+        gunsmithHoverAttId=null;
+        renderGunsmithStats(currentBuild,currentBuild);
+        updateGunsmith3DPreview(entry.attachments);
+      };
+      card.onclick=()=>{
+        const res=LoadoutsSystem.equipAttachment(window.activeLoadouts,selectedLoadoutIdx,gunsmithSlotCategory,gunsmithAttCategory,att.id);
+        if(!res.ok){
+          if(res.reason==='locked'){
+            showToast(`UNLOCKS AT ${spec.shortName.toUpperCase()} LV. ${res.unlockLevel} — EARN XP ON TARGETS & KILLS`);
+          }else if(res.reason==='cap_reached'){
+            showToast('5 / 5 ATTACHMENT CAP REACHED — REMOVE A MOD FIRST');
+          }
+          return;
+        }
+        commitLoadoutsState(res.state,{silentToast:true});
+        renderGunsmith();
+      };
+      gsAttachmentListEl.appendChild(card);
+    }
+  }
+
+  renderGunsmithStats(currentBuild,currentBuild);
+  updateGunsmith3DPreview(entry.attachments);
+}
+
+function renderGunsmithSkins(entry){
+  if(!gsSkinsGridEl)return;
+  const owned=(window.activeInventory.weapons||[]).filter(w=>w.weaponType===entry.weaponId);
+  const activeSkin=getWeaponSkinForLoadoutEntry(entry.weaponId,entry.skinItemId);
+  gsSkinsGridEl.textContent='';
+  if(owned.length===0){
+    const empty=document.createElement('div');
+    empty.className='inv-empty';
+    empty.textContent='No Armory skins unlocked for this weapon yet. Open cases in the Armory to unbox finishes.';
+    gsSkinsGridEl.appendChild(empty);
+    return;
+  }
+  for(const item of owned){
+    const rar=KnivesSystem.RARITIES[item.rarity]||KnivesSystem.RARITIES.milspec;
+    const sk=KnivesSystem.WEAPON_SKINS[item.skinId]||KnivesSystem.WEAPON_SKINS.factory_slate;
+    const isEq=activeSkin&&activeSkin.id===item.id;
+    const card=document.createElement('button');
+    card.type='button';
+    card.className='gs-skin-card'+(isEq?' equipped':'');
+    card.style.setProperty('--rar-col',rar.color);
+    const img=document.createElement('img');
+    img.className='gs-skin-thumb';
+    img.alt=sk.name;
+    img.src=getThumbForItem(item);
+    const top=document.createElement('div');
+    top.className='gs-att-top';
+    const nm=document.createElement('span');
+    nm.className='gs-att-name';
+    nm.style.fontSize='11.5px';
+    nm.textContent=sk.name;
+    const tag=document.createElement('span');
+    tag.className='gs-att-tag';
+    tag.textContent=isEq?'EQUIPPED':item.wearGrade;
+    top.append(nm,tag);
+    card.append(img,top);
+    card.onclick=()=>{
+      const next=LoadoutsSystem.sanitizeLoadoutState(window.activeLoadouts);
+      next.loadouts[selectedLoadoutIdx][gunsmithSlotCategory].skinItemId=item.id;
+      next.equippedWeaponSkins[entry.weaponId]=item.id;
+      window.activeInventory[weaponEquipField(entry.weaponId)]=item.id;
+      persistInventorySummary(true);
+      ViewmodelSystem.equipWeaponSkin(item);
+      commitLoadoutsState(next,{silentToast:true});
+      showToast(`EQUIPPED ${KnivesSystem.formatWeaponFullName(item).toUpperCase()}`);
+      renderGunsmith();
+    };
+    gsSkinsGridEl.appendChild(card);
+  }
+}
+
 function showMenu(){
   cancelRebind();
   stopRouletteAnimation();
@@ -2881,6 +3718,7 @@ function showMenu(){
   if(NetcodeSystem.getState().isArena)NetcodeSystem.leaveSession();
   CombatSystem.clearScope();
   inLevel=false;
+  pendingLoadoutApply=false;
   overlay.style.display='grid';
   overlayCard.classList.remove('wide','browser-wide');
   menuEl.style.display='';
@@ -2889,12 +3727,14 @@ function showMenu(){
   settingsPanelEl.style.display='none';
   armoryPanelEl.style.display='none';
   serversPanelEl.style.display='none';
+  if(loadoutsPanelEl)loadoutsPanelEl.style.display='none';
   pauseEl.style.display='none';
   arenaScoreboardEl.style.display='none';
   awpScopeOverlayEl.style.display='none';
   document.body.dataset.state='title';
   refreshTodayButton();
   refreshMenuCourseStats();
+  renderQuickLoadoutStrips();
   renderControlsLegend();
   updateArmoryBadges();
   for(const id in LEVELS){
@@ -2919,8 +3759,10 @@ function showPause(){
   settingsPanelEl.style.display='none';
   armoryPanelEl.style.display='none';
   serversPanelEl.style.display='none';
+  if(loadoutsPanelEl)loadoutsPanelEl.style.display='none';
   pauseEl.style.display='';
   arenaScoreboardEl.style.display='none';
+  renderQuickLoadoutStrips();
   renderArenaHudStatic();
   document.body.dataset.state='paused';
 }
@@ -2938,6 +3780,7 @@ function enter(){
   settingsPanelEl.style.display='none';
   armoryPanelEl.style.display='none';
   serversPanelEl.style.display='none';
+  if(loadoutsPanelEl)loadoutsPanelEl.style.display='none';
   document.body.dataset.state='playing';
   if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();
   render(0.016);
@@ -3003,11 +3846,17 @@ NetcodeSystem.setCallbacks({
   onLocalRespawn:(sp,refill)=>respawnAtSpawn(sp,refill),
   onRemoteTracer:(m)=>CombatSystem.spawnTracer(V3(m.sx,m.sy,m.sz),V3(m.ex,m.ey,m.ez),m.slot==='awp'?0x7ef2ff:0xffa065),
   onLocalKill:(info)=>{
-    const res=KnivesSystem.grantArenaKillCoins(window.activeInventory,{headshot:Boolean(info&&info.isHeadshot)});
+    const hs=Boolean(info&&(info.isHeadshot||info.headshot));
+    const res=KnivesSystem.grantArenaKillCoins(window.activeInventory,{headshot:hs});
     window.activeInventory=res.inventory;
     persistInventorySummary(true);
     CaseAudio.coinChime('earn');
-    showToast(`${info&&info.isHeadshot?'HEADSHOT':'ELIMINATION'} · +${fmtCoins(res.coinsEarned)} COINS`);
+    const killWep=(info&&(info.weaponId||info.slot))||CombatSystem.getActiveWeaponType();
+    const xpGain=hs?LoadoutsSystem.XP_REWARDS.arenaHeadshot:LoadoutsSystem.XP_REWARDS.arenaKill;
+    if(LoadoutsSystem.WEAPON_SPECS[killWep]){
+      grantWeaponXp(killWep,xpGain);
+    }
+    showToast(`${hs?'HEADSHOT':'ELIMINATION'} · +${fmtCoins(res.coinsEarned)}C · +${xpGain} XP`);
   },
   onMatchEnd:(info)=>{
     const reward=KnivesSystem.grantArenaReward(window.activeInventory,{won:Boolean(info&&info.isLocalWinner)});
@@ -3022,11 +3871,84 @@ NetcodeSystem.setCallbacks({
   }
 });
 CombatSystem.setOnWarmupKill((info)=>{
-  NetcodeSystem.pushWarmupKill(info.botName,info.slot,info.isHeadshot);
+  NetcodeSystem.pushWarmupKill(info.botName,info.weaponId||info.slot,info.isHeadshot);
   renderArenaHudStatic();
+});
+CombatSystem.setOnWeaponXp((info)=>{
+  if(info&&info.weaponId&&info.xp>0){
+    grantWeaponXp(info.weaponId,info.xp);
+  }
 });
 
 // Event bindings
+if($('openLoadoutsBtn'))$('openLoadoutsBtn').onclick=()=>openLoadoutsPanel('menu');
+if($('pauseLoadouts'))$('pauseLoadouts').onclick=()=>openLoadoutsPanel('pause');
+if(loadoutsBackBtn)loadoutsBackBtn.onclick=closeLoadoutsPanel;
+if(loadoutsArmoryBtn)loadoutsArmoryBtn.onclick=()=>openArmory(loadoutsReturnTarget,'inventory');
+if(loadoutNameInput){
+  loadoutNameInput.addEventListener('input',()=>{
+    const next=LoadoutsSystem.sanitizeLoadoutState(window.activeLoadouts);
+    next.loadouts[selectedLoadoutIdx].name=LoadoutsSystem.sanitizeLoadoutName(loadoutNameInput.value,`Loadout ${selectedLoadoutIdx+1}`);
+    commitLoadoutsState(next,{skipApply:true,silentToast:true});
+    // Refresh left rail labels live without rebuilding input
+    const tabs=loadoutsRailEl?loadoutsRailEl.querySelectorAll('.ld-tab-name'):[];
+    if(tabs[selectedLoadoutIdx])tabs[selectedLoadoutIdx].textContent=next.loadouts[selectedLoadoutIdx].name;
+  });
+}
+if(loadoutDuplicateBtn){
+  loadoutDuplicateBtn.onclick=()=>{
+    const nextIdx=(selectedLoadoutIdx+1)%LoadoutsSystem.LOADOUT_COUNT;
+    const next=LoadoutsSystem.sanitizeLoadoutState(window.activeLoadouts);
+    const src=next.loadouts[selectedLoadoutIdx];
+    next.loadouts[nextIdx]={
+      ...next.loadouts[nextIdx],
+      name:LoadoutsSystem.sanitizeLoadoutName(`${src.name} Copy`,`Loadout ${nextIdx+1}`),
+      primary:{weaponId:src.primary.weaponId,attachments:{...src.primary.attachments},skinItemId:src.primary.skinItemId},
+      secondary:{weaponId:src.secondary.weaponId,attachments:{...src.secondary.attachments},skinItemId:src.secondary.skinItemId},
+      melee:{knifeItemId:src.melee.knifeItemId}
+    };
+    selectedLoadoutIdx=nextIdx;
+    next.activeIndex=nextIdx;
+    commitLoadoutsState(next,{silentToast:true});
+    showToast(`COPIED TO LOADOUT 0${nextIdx+1}`);
+    renderLoadoutsOverview();
+  };
+}
+if(loadoutResetBtn){
+  loadoutResetBtn.onclick=()=>{
+    const starters=LoadoutsSystem.createStarterLoadouts();
+    const def=starters[selectedLoadoutIdx]||starters[0];
+    const next=LoadoutsSystem.sanitizeLoadoutState(window.activeLoadouts);
+    next.loadouts[selectedLoadoutIdx]=def;
+    commitLoadoutsState(next,{silentToast:true});
+    showToast(`RESET LOADOUT 0${selectedLoadoutIdx+1} TO PRESET`);
+    renderLoadoutsOverview();
+  };
+}
+if(gsBackToLoadoutsBtn)gsBackToLoadoutsBtn.onclick=renderLoadoutsOverview;
+if(gsSkinsToggleBtn){
+  gsSkinsToggleBtn.onclick=()=>{
+    gunsmithSkinsMode=!gunsmithSkinsMode;
+    renderGunsmith();
+  };
+}
+if(gsClearAllBtn){
+  gsClearAllBtn.onclick=()=>{
+    const next=LoadoutsSystem.sanitizeLoadoutState(window.activeLoadouts);
+    next.loadouts[selectedLoadoutIdx][gunsmithSlotCategory].attachments={};
+    commitLoadoutsState(next,{silentToast:true});
+    showToast('CLEARED ALL ATTACHMENTS');
+    renderGunsmith();
+  };
+}
+addEventListener('keydown',e=>{
+  if(!loadoutsPanelEl||loadoutsPanelEl.style.display==='none')return;
+  if(e.code==='Escape'){
+    e.preventDefault();
+    if(gunsmithMode)renderLoadoutsOverview();
+    else closeLoadoutsPanel();
+  }
+});
 document.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{loadLevel(b.dataset.level);inLevel=true;enter();});
 if($('openSurfBrowserBtn'))$('openSurfBrowserBtn').onclick=()=>openCourseBrowser('surf',null,'menu');
 if($('openTimeTrialBrowserBtn'))$('openTimeTrialBrowserBtn').onclick=()=>openCourseBrowser('timetrial',null,'menu');

@@ -13,7 +13,7 @@
   const MISSED_TARGET_PENALTY_SEC = 1.0;
   const DUEL_WIN_ROUNDS = 5;
   const FFA_WIN_KILLS = 15;
-  const SLOTS = Object.freeze(['rifle', 'awp', 'deagle', 'knife']);
+  const SLOTS = Object.freeze(['primary', 'secondary', 'melee']);
 
   // ---------- Pure Testable Gauntlet & Match Helpers ----------
   function computeGauntletSummary(rawTime, targetsHit, targetsTotal) {
@@ -79,6 +79,7 @@
 
   const THREE = root.THREE;
   const KS = root.KnivesSystem;
+  const LS = root.LoadoutsSystem;
 
   // ---------- Runtime State ----------
   let worldScene = null;
@@ -86,20 +87,83 @@
   let targetGroup = null;
   let avatarGroup = null;
 
+  function makeFallbackBuild(weaponId) {
+    if (LS && typeof LS.resolveWeaponBuild === 'function') {
+      return LS.resolveWeaponBuild(weaponId, {});
+    }
+    const base = (KS && KS.WEAPON_TYPES && KS.WEAPON_TYPES[weaponId]) || {
+      id: weaponId, name: weaponId.toUpperCase(), shortName: weaponId.toUpperCase(),
+      magSize: 30, rpm: 600, fireInterval: 0.1, damageBody: 34, damageHead: 100,
+      reloadTime: 1.75, auto: weaponId === 'rifle' || weaponId === 'smg', range: 240,
+      spreadHip: 0.011, spreadAds: 0.002, spreadMove: 0.011, recoilPitch: 0.014, recoilYaw: 0.007
+    };
+    return {
+      weaponId: base.id || weaponId,
+      name: base.name,
+      shortName: base.shortName || base.name,
+      auto: !!base.auto,
+      attachments: {},
+      damageBody: base.damageBody || 34,
+      damageHead: base.damageHead || 100,
+      pellets: 1,
+      pelletSpread: 0,
+      falloffStart: 50,
+      falloffEnd: 160,
+      minFalloffMul: 0.72,
+      armorPen: 1.0,
+      rpm: base.rpm || 600,
+      fireInterval: base.fireInterval || 0.1,
+      magSize: base.magSize || 30,
+      reloadTime: base.reloadTime || 1.75,
+      range: base.range || 240,
+      spreadHip: base.spreadHip || 0.011,
+      spreadAds: base.spreadBase || 0.002,
+      spreadMove: base.spreadMove || 0.011,
+      recoilPitch: base.recoilPitch || 0.014,
+      recoilYaw: base.recoilYaw || 0.007,
+      adsTimeSec: 0.20,
+      weightKg: 3.0,
+      mobilityMult: 0.94,
+      surfAirMult: 0.96,
+      adsMoveMult: 0.65,
+      opticType: weaponId === 'awp' ? 'sniper_var' : 'iron',
+      adsZoom: weaponId === 'awp' ? 4.0 : 1.15,
+      adsZoomAlt: weaponId === 'awp' ? 8.0 : 0,
+      adsFovMul: weaponId === 'awp' ? 0.32 : 0.86,
+      adsFovMulAlt: weaponId === 'awp' ? 0.17 : 0,
+      adsSensMul: weaponId === 'awp' ? 0.40 : 0.88,
+      adsSensMulAlt: weaponId === 'awp' ? 0.22 : 0,
+      suppressed: false,
+      tracerStyle: 'standard',
+      ammoType: 'standard',
+      isScopedOptic: weaponId === 'awp'
+    };
+  }
+
   const state = {
-    activeSlot: 'knife',
-    ammo: { rifle: 30, awp: 5, deagle: 7 },
+    activeSlot: 'melee', // 'primary' | 'secondary' | 'melee'
+    lastSlot: 'primary',
+    loadoutName: 'Assault Runner',
+    builds: {
+      primary: makeFallbackBuild('rifle'),
+      secondary: makeFallbackBuild('deagle')
+    },
+    ammo: { primary: 30, secondary: 7 },
     fireCooldown: 0,
     reloading: false,
     reloadTimer: 0,
     reloadDuration: 0,
-    scopeStage: 0, // 0 = hip, 1 = 1.8x, 2 = 3.2x
+    adsHeld: false,
+    adsProgress: 0,
+    scopeAltZoom: false,
+    scopeStage: 0, // 0 = hip, 1 = ADS/Scope primary, 2 = Variable 8x zoom
     spreadBloom: 0,
     hitmarkerTimer: 0,
     hitmarkerHeadshot: false,
     hitmarkerKill: false,
     damageFlashTimer: 0
   };
+  let onWeaponXpCb = null;
 
   // Reusable scratch vectors (zero per-frame allocations)
   const _rayOrigin = new THREE.Vector3();
@@ -221,34 +285,100 @@
     }
   }
 
-  // ---------- Weapon Slot & Ammo Management ----------
-  function getWeaponDef(slot) {
-    const s = slot || state.activeSlot;
-    return KS && KS.WEAPON_TYPES ? KS.WEAPON_TYPES[s] || null : null;
+  // ---------- Loadout, Weapon Slot, True ADS & Full Mobility Management ----------
+  function normalizeSlotName(slot) {
+    if (slot === 'primary' || slot === 'secondary' || slot === 'melee') return slot;
+    if (slot === 'knife') return 'melee';
+    if (slot === 'deagle' || slot === 'pistol') return 'secondary';
+    if (slot === 'rifle' || slot === 'smg' || slot === 'shotgun' || slot === 'awp') return 'primary';
+    return 'melee';
+  }
+
+  function getActiveBuild(slot) {
+    const s = normalizeSlotName(slot || state.activeSlot);
+    if (s === 'primary') return state.builds.primary;
+    if (s === 'secondary') return state.builds.secondary;
+    return null;
+  }
+
+  function getActiveWeaponType(slot) {
+    const s = normalizeSlotName(slot || state.activeSlot);
+    if (s === 'melee') return 'knife';
+    const b = getActiveBuild(s);
+    return b ? b.weaponId : 'rifle';
+  }
+
+  function applyLoadout(loadout, inventory, equippedWeaponSkins) {
+    const lo = loadout && typeof loadout === 'object' ? loadout : null;
+    const pWid = (lo && lo.primary && lo.primary.weaponId) || 'rifle';
+    const sWid = (lo && lo.secondary && lo.secondary.weaponId) || 'deagle';
+    const pAtts = (lo && lo.primary && lo.primary.attachments) || {};
+    const sAtts = (lo && lo.secondary && lo.secondary.attachments) || {};
+
+    state.loadoutName = (lo && lo.name) || 'Custom Loadout';
+    state.builds.primary = LS ? LS.resolveWeaponBuild(pWid, pAtts) : makeFallbackBuild(pWid);
+    state.builds.secondary = LS ? LS.resolveWeaponBuild(sWid, sAtts) : makeFallbackBuild(sWid);
+    state.ammo.primary = state.builds.primary.magSize;
+    state.ammo.secondary = state.builds.secondary.magSize;
+    state.reloading = false;
+    state.reloadTimer = 0;
+    state.fireCooldown = 0;
+    clearScope();
+
+    if (root.ViewmodelSystem && KS) {
+      const resolveSkin = (wt, slotSkinId) => {
+        const inv = inventory || KS.createStarterInventory();
+        const prefId = slotSkinId || (equippedWeaponSkins && equippedWeaponSkins[wt]) || '';
+        if (prefId) {
+          const match = (inv.weapons || []).find((w) => w.id === prefId && w.weaponType === wt);
+          if (match) return match;
+        }
+        return KS.getEquippedWeapon(inv, wt);
+      };
+      root.ViewmodelSystem.equipWeaponBuild(resolveSkin(pWid, lo && lo.primary && lo.primary.skinItemId), state.builds.primary.attachments);
+      root.ViewmodelSystem.equipWeaponBuild(resolveSkin(sWid, lo && lo.secondary && lo.secondary.skinItemId), state.builds.secondary.attachments);
+      if (lo && lo.melee && lo.melee.knifeItemId && inventory && Array.isArray(inventory.knives)) {
+        const km = inventory.knives.find((k) => k.id === lo.melee.knifeItemId);
+        if (km) root.ViewmodelSystem.equipKnife(km, false);
+      }
+      root.ViewmodelSystem.setActiveSlot(getActiveWeaponType(), false);
+    }
+    return { primary: state.builds.primary, secondary: state.builds.secondary };
   }
 
   function clearScope() {
-    if (state.scopeStage !== 0) {
-      state.scopeStage = 0;
-      if (root.ViewmodelSystem) root.ViewmodelSystem.setScoped(false);
+    state.adsHeld = false;
+    state.adsProgress = 0;
+    state.scopeAltZoom = false;
+    state.scopeStage = 0;
+    if (root.ViewmodelSystem) {
+      root.ViewmodelSystem.setAdsState(false, 0.16, false);
+      root.ViewmodelSystem.setScoped(false);
     }
   }
 
   function switchSlot(slot, playDraw = true) {
-    const valid = SLOTS.includes(slot) ? slot : 'knife';
+    const valid = normalizeSlotName(slot);
+    const vmType = getActiveWeaponType(valid);
     if (state.activeSlot === valid) {
-      if (root.ViewmodelSystem) root.ViewmodelSystem.setActiveSlot(valid, playDraw);
+      if (root.ViewmodelSystem) root.ViewmodelSystem.setActiveSlot(vmType, playDraw);
       return false;
     }
+    state.lastSlot = state.activeSlot;
     state.activeSlot = valid;
     state.reloading = false;
     state.reloadTimer = 0;
-    state.fireCooldown = Math.min(state.fireCooldown, 0.18);
+    state.fireCooldown = Math.min(state.fireCooldown, 0.16);
     clearScope();
     if (root.ViewmodelSystem) {
-      root.ViewmodelSystem.setActiveSlot(valid, playDraw);
+      root.ViewmodelSystem.setActiveSlot(vmType, playDraw);
     }
     return true;
+  }
+
+  function quickSwitch() {
+    const target = state.lastSlot && state.lastSlot !== state.activeSlot ? state.lastSlot : (state.activeSlot === 'melee' ? 'primary' : 'melee');
+    return switchSlot(target, true);
   }
 
   function cycleSlot(dir) {
@@ -258,9 +388,8 @@
   }
 
   function resetAmmo() {
-    state.ammo.rifle = KS.WEAPON_TYPES.rifle.magSize;
-    state.ammo.awp = KS.WEAPON_TYPES.awp.magSize;
-    state.ammo.deagle = KS.WEAPON_TYPES.deagle.magSize;
+    state.ammo.primary = state.builds.primary.magSize;
+    state.ammo.secondary = state.builds.secondary.magSize;
     state.reloading = false;
     state.reloadTimer = 0;
     state.fireCooldown = 0;
@@ -269,37 +398,110 @@
   }
 
   function startReload() {
-    const def = getWeaponDef(state.activeSlot);
-    if (!def || state.reloading) return false;
-    if (state.ammo[state.activeSlot] >= def.magSize) return false;
+    const build = getActiveBuild(state.activeSlot);
+    if (!build || state.reloading) return false;
+    if (state.ammo[state.activeSlot] >= build.magSize) return false;
     clearScope();
     state.reloading = true;
-    state.reloadDuration = def.reloadTime;
-    state.reloadTimer = def.reloadTime;
-    if (root.ViewmodelSystem) root.ViewmodelSystem.triggerReload(def.reloadTime);
+    state.reloadDuration = build.reloadTime;
+    state.reloadTimer = build.reloadTime;
+    if (root.ViewmodelSystem) root.ViewmodelSystem.triggerReload(build.reloadTime);
+    return true;
+  }
+
+  function setAdsHeld(held) {
+    const build = getActiveBuild(state.activeSlot);
+    if (!build || state.reloading) {
+      if (state.adsHeld) clearScope();
+      return false;
+    }
+    const next = Boolean(held);
+    if (next === state.adsHeld) return state.adsHeld;
+    state.adsHeld = next;
+    if (!next) {
+      state.scopeAltZoom = false;
+      state.scopeStage = 0;
+    } else {
+      state.scopeStage = state.scopeAltZoom && build.adsZoomAlt ? 2 : 1;
+      if (root.WeaponAudio && build.isScopedOptic) root.WeaponAudio.scopeZoom(1);
+    }
+    if (root.ViewmodelSystem) {
+      root.ViewmodelSystem.setAdsState(next, build.adsTimeSec, build.isScopedOptic);
+    }
+    return next;
+  }
+
+  function cycleScopeZoom() {
+    const build = getActiveBuild(state.activeSlot);
+    if (!build || !state.adsHeld || !build.adsZoomAlt) return false;
+    state.scopeAltZoom = !state.scopeAltZoom;
+    state.scopeStage = state.scopeAltZoom ? 2 : 1;
+    if (root.WeaponAudio) root.WeaponAudio.scopeZoom(state.scopeStage);
     return true;
   }
 
   function toggleScope() {
-    if (state.activeSlot !== 'awp' || state.reloading) return 0;
-    state.scopeStage = (state.scopeStage + 1) % 3;
-    if (root.ViewmodelSystem) root.ViewmodelSystem.setScoped(state.scopeStage > 0);
-    if (root.WeaponAudio) root.WeaponAudio.scopeZoom(state.scopeStage);
-    return state.scopeStage;
+    const build = getActiveBuild(state.activeSlot);
+    if (!build || state.reloading) return 0;
+    if (!state.adsHeld) {
+      setAdsHeld(true);
+      return state.scopeStage;
+    }
+    if (build.adsZoomAlt && !state.scopeAltZoom) {
+      cycleScopeZoom();
+      return state.scopeStage;
+    }
+    setAdsHeld(false);
+    return 0;
   }
 
   function getScopeFovMultiplier() {
-    if (state.activeSlot !== 'awp') return 1.0;
-    if (state.scopeStage === 2) return 0.28;
-    if (state.scopeStage === 1) return 0.48;
-    return 1.0;
+    const build = getActiveBuild(state.activeSlot);
+    if (!build || state.adsProgress <= 0.001) return 1.0;
+    const target = state.scopeAltZoom && build.adsFovMulAlt ? build.adsFovMulAlt : build.adsFovMul;
+    return 1.0 + (target - 1.0) * state.adsProgress;
   }
 
   function getScopeSensMultiplier() {
-    if (state.activeSlot !== 'awp') return 1.0;
-    if (state.scopeStage === 2) return 0.34;
-    if (state.scopeStage === 1) return 0.54;
-    return 1.0;
+    const build = getActiveBuild(state.activeSlot);
+    if (!build || state.adsProgress <= 0.001) return 1.0;
+    const target = state.scopeAltZoom && build.adsSensMulAlt ? build.adsSensMulAlt : build.adsSensMul;
+    return 1.0 + (target - 1.0) * state.adsProgress;
+  }
+
+  function getScopeOverlayState() {
+    const build = getActiveBuild(state.activeSlot);
+    if (!build) {
+      return { active: false, type: 'none', zoomLabel: '', adsProgress: 0, opticType: 'none', hideCrosshair: false };
+    }
+    const scopedActive = build.isScopedOptic && state.adsHeld && state.adsProgress >= 0.72;
+    const zoomNum = state.scopeAltZoom && build.adsZoomAlt ? build.adsZoomAlt : build.adsZoom;
+    const zoomLabel = zoomNum ? `${Number.isInteger(zoomNum) ? zoomNum : zoomNum.toFixed(1)}×` : '';
+    return {
+      active: scopedActive,
+      type: scopedActive ? (build.opticType === 'acog' ? 'acog' : 'sniper') : 'none',
+      zoomLabel,
+      adsProgress: state.adsProgress,
+      opticType: build.opticType,
+      hideCrosshair: state.adsProgress > 0.35
+    };
+  }
+
+  function getActiveMobilityProfile() {
+    if (state.activeSlot === 'melee') {
+      const m = LS ? LS.getMeleeMobilityProfile() : { weaponId: 'knife', weightKg: 0.35, mobilityMult: 1.0, surfAirMult: 1.0, adsMoveMult: 1.0 };
+      return { ...m, adsProgress: 0 };
+    }
+    const build = getActiveBuild(state.activeSlot);
+    if (!build) return { weaponId: 'knife', weightKg: 0.35, mobilityMult: 1.0, surfAirMult: 1.0, adsMoveMult: 1.0, adsProgress: 0 };
+    return {
+      weaponId: build.weaponId,
+      weightKg: build.weightKg,
+      mobilityMult: build.mobilityMult,
+      surfAirMult: build.surfAirMult,
+      adsMoveMult: build.adsMoveMult,
+      adsProgress: state.adsProgress
+    };
   }
 
   // ---------- Holographic Targets & Sandbox Range ----------
@@ -714,7 +916,7 @@
       }
       if (typeof info.slot === 'string') {
         entry.activeSlot = info.slot;
-        entry.visual.gunBar.visible = info.slot !== 'knife';
+        entry.visual.gunBar.visible = info.slot !== 'knife' && info.slot !== 'melee';
       }
     }
     return entry;
@@ -745,239 +947,302 @@
     if (state.fireCooldown > 0 || state.reloading) return { fired: false };
 
     const slot = state.activeSlot;
-    const isKnife = slot === 'knife';
-    const def = getWeaponDef(slot);
+    const isKnife = slot === 'melee';
+    const build = getActiveBuild(slot);
+    const weaponId = isKnife ? 'knife' : (build ? build.weaponId : 'rifle');
 
     if (!isKnife) {
-      if (!def) return { fired: false };
+      if (!build) return { fired: false };
       if (state.ammo[slot] <= 0) {
         if (root.WeaponAudio) root.WeaponAudio.dryFire();
         startReload();
         return { fired: false, empty: true };
       }
       state.ammo[slot] -= 1;
-      state.fireCooldown = def.fireInterval;
-      if (root.WeaponAudio) root.WeaponAudio.fireWeapon(slot);
-      if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil(slot);
+      state.fireCooldown = build.fireInterval;
+      if (root.WeaponAudio) root.WeaponAudio.fireWeapon(weaponId, { suppressed: build.suppressed });
+      if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil(weaponId);
     } else {
       state.fireCooldown = o.heavy ? 0.65 : 0.42;
       if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil('knife');
     }
 
-    // Compute shot direction with crisp movement / hip-fire spread
-    _rayOrigin.copy(origin);
-    _rayDir.copy(forwardDir).normalize();
+    const maxRange = isKnife ? 3.2 : build.range;
+    const solidList = o.solidMeshes || (typeof root.solidMeshes !== 'undefined' ? root.solidMeshes : []);
+    const pellets = isKnife ? 1 : Math.max(1, build.pellets || 1);
 
+    // Base spread interpolated cleanly between hipfire and True ADS
+    let baseSpread = 0;
     if (!isKnife) {
       const moveSpeed = Number(o.moveSpeed) || 0;
       const airborne = Boolean(o.airborne);
-      let spread = (slot === 'awp' && state.scopeStage === 0) ? def.spreadHip : def.spreadBase;
-      if (moveSpeed > 3.5) spread += Math.min(def.spreadMove, (moveSpeed - 3.5) * 0.0008);
-      if (airborne) spread += (slot === 'awp' && state.scopeStage === 0) ? 0.018 : 0.004;
-      spread += state.spreadBloom;
-      state.spreadBloom = Math.min(0.024, state.spreadBloom + (slot === 'rifle' ? 0.0032 : 0.006));
-
-      if (spread > 0.0001) {
-        _right.crossVectors(_rayDir, _worldUp).normalize();
-        if (_right.lengthSq() < 0.001) _right.set(1, 0, 0);
-        _up.crossVectors(_right, _rayDir).normalize();
-        const rx = (Math.random() - 0.5) * 2 * spread;
-        const ry = (Math.random() - 0.5) * 2 * spread;
-        _rayDir.addScaledVector(_right, rx).addScaledVector(_up, ry).normalize();
-      }
+      const adsT = state.adsProgress;
+      baseSpread = build.spreadHip + (build.spreadAds - build.spreadHip) * adsT;
+      if (moveSpeed > 3.5) baseSpread += Math.min(build.spreadMove, (moveSpeed - 3.5) * 0.00075) * (1 - adsT * 0.35);
+      if (airborne) baseSpread += (weaponId === 'awp' && adsT < 0.6) ? 0.018 : (0.0042 * (1 - adsT * 0.35));
+      baseSpread += state.spreadBloom;
+      state.spreadBloom = Math.min(0.026, state.spreadBloom + (build.auto ? 0.0028 : 0.0052));
     }
 
-    const maxRange = isKnife ? 3.2 : def.range;
-    _combatRay.set(_rayOrigin, _rayDir);
-    _combatRay.near = 0.08;
-    _combatRay.far = maxRange;
-
-    // 1. Solid world occlusion distance
-    let closestWorldDist = maxRange;
-    const solidList = o.solidMeshes || (typeof root.solidMeshes !== 'undefined' ? root.solidMeshes : []);
-    if (solidList && solidList.length > 0) {
-      const worldHits = _combatRay.intersectObjects(solidList, false);
-      if (worldHits.length > 0) {
-        closestWorldDist = worldHits[0].distance;
-      }
-    }
-
-    // 2. Collect dynamic shootable meshes (targets, reset switch, warmup bots, remote avatars)
+    // Collect shootable meshes once for all pellets
     const shootables = [];
     if (rangeResetMesh) shootables.push(rangeResetMesh);
     for (const t of targets) {
-      if (t.alive) {
-        shootables.push(t.headMesh, t.bodyMesh);
-      }
+      if (t.alive) shootables.push(t.headMesh, t.bodyMesh);
     }
     if (warmupEnabled) {
       for (const b of warmupBots) {
-        if (b.alive) {
-          shootables.push(b.visual.headMesh, b.visual.bodyMesh);
-        }
+        if (b.alive) shootables.push(b.visual.headMesh, b.visual.bodyMesh);
       }
     }
     for (const [, av] of remoteAvatars) {
-      if (av.alive) {
-        shootables.push(av.visual.headMesh, av.visual.bodyMesh);
-      }
+      if (av.alive) shootables.push(av.visual.headMesh, av.visual.bodyMesh);
     }
 
-    let bestHit = null;
-    if (shootables.length > 0) {
-      const dynHits = _combatRay.intersectObjects(shootables, false);
-      for (const h of dynHits) {
-        if (h.distance <= closestWorldDist + 0.05) {
-          bestHit = h;
-          break;
-        }
-      }
-    }
-
-    const hitDist = bestHit ? bestHit.distance : closestWorldDist;
-    const endPoint = _tmpB.copy(_rayOrigin).addScaledVector(_rayDir, hitDist).clone();
-
-    // Tracer visual from right-lower muzzle offset so player sees clean streak
-    if (!isKnife) {
-      _right.crossVectors(_rayDir, _worldUp).normalize();
-      const muzzleStart = _rayOrigin.clone()
-        .addScaledVector(_rayDir, 0.55)
-        .addScaledVector(_right, state.scopeStage > 0 ? 0.0 : 0.14)
-        .addScaledVector(_worldUp, state.scopeStage > 0 ? -0.04 : -0.10);
-      const tracerCol = slot === 'awp' ? 0x7ef2ff : slot === 'deagle' ? 0xffcf70 : 0xffe8a6;
-      spawnTracer(muzzleStart, endPoint, tracerCol);
-    }
-
-    // Auto-unscope AWP right after firing (classic CS bolt re-cock feel)
-    if (slot === 'awp' && state.scopeStage > 0) {
-      clearScope();
-    }
-
-    // Auto-reload if magazine hit 0
-    if (!isKnife && state.ammo[slot] === 0) {
-      setTimeout(() => {
-        if (state.activeSlot === slot && state.ammo[slot] === 0 && !state.reloading) {
-          startReload();
-        }
-      }, slot === 'awp' ? 500 : 180);
-    }
+    const tracerColors = {
+      standard: weaponId === 'awp' ? 0x7ef2ff : weaponId === 'deagle' ? 0xffcf70 : 0xffe8a6,
+      brass: 0xffd15c,
+      crimson: 0xff5e78,
+      cyan: 0x4ef2ff,
+      stealth: 0
+    };
+    const tracerCol = isKnife ? 0 : (tracerColors[build.tracerStyle] ?? 0xffe8a6);
 
     const result = {
       fired: true,
-      slot,
-      origin: _rayOrigin.clone(),
-      dir: _rayDir.clone(),
-      endPoint,
+      slot: weaponId,
+      loadoutSlot: slot,
+      weaponId,
+      weaponName: isKnife ? 'Knife' : build.name,
+      origin: origin.clone(),
+      dir: forwardDir.clone().normalize(),
+      endPoint: origin.clone().addScaledVector(forwardDir, maxRange),
       hitKind: 'world',
       hitId: null,
       isHeadshot: false,
       damage: 0,
       killed: false,
-      distance: hitDist,
-      recoilPitch: isKnife ? 0 : def.recoilPitch,
-      recoilYaw: isKnife ? 0 : (Math.random() - 0.5) * 2 * def.recoilYaw
+      distance: maxRange,
+      recoilPitch: isKnife ? 0 : build.recoilPitch * (1 - state.adsProgress * 0.18),
+      recoilYaw: isKnife ? 0 : (Math.random() - 0.5) * 2 * build.recoilYaw * (1 - state.adsProgress * 0.22)
     };
 
-    if (!bestHit) {
-      if (!isKnife && closestWorldDist < maxRange) {
-        spawnBurst(endPoint, 0xffe2a0, 5, 4.2);
+    const playerDmgMap = new Map();
+    const botDmgMap = new Map();
+
+    for (let pIdx = 0; pIdx < pellets; pIdx++) {
+      _rayOrigin.copy(origin);
+      _rayDir.copy(forwardDir).normalize();
+
+      const pelletCone = !isKnife ? (baseSpread + (pellets > 1 ? build.pelletSpread : 0)) : 0;
+      if (pelletCone > 0.0001) {
+        _right.crossVectors(_rayDir, _worldUp).normalize();
+        if (_right.lengthSq() < 0.001) _right.set(1, 0, 0);
+        _up.crossVectors(_right, _rayDir).normalize();
+        const angle = Math.random() * Math.PI * 2;
+        const rad = Math.sqrt(Math.random()) * pelletCone;
+        _rayDir.addScaledVector(_right, Math.cos(angle) * rad).addScaledVector(_up, Math.sin(angle) * rad).normalize();
       }
-      return result;
-    }
 
-    const ud = bestHit.object.userData || {};
+      _combatRay.set(_rayOrigin, _rayDir);
+      _combatRay.near = 0.08;
+      _combatRay.far = maxRange;
 
-    // Case A: Sandbox Range Reset Switch
-    if (ud.isRangeReset) {
-      result.hitKind = 'range_reset';
-      resetTargets();
-      spawnBurst(endPoint, 0x7dff9e, 12, 6.0);
-      if (root.WeaponAudio) root.WeaponAudio.targetShatter(true);
-      return result;
-    }
+      let closestWorldDist = maxRange;
+      if (solidList && solidList.length > 0) {
+        const worldHits = _combatRay.intersectObjects(solidList, false);
+        if (worldHits.length > 0) closestWorldDist = worldHits[0].distance;
+      }
 
-    // Case B: Holographic Target (Range or Gauntlet)
-    if (typeof ud.targetIndex === 'number') {
-      const tgt = targets[ud.targetIndex];
-      if (tgt && tgt.alive) {
-        const isHead = ud.targetRole === 'head';
-        tgt.alive = false;
-        tgt.group.visible = false;
-        result.hitKind = 'target';
-        result.hitId = tgt.id;
-        result.isHeadshot = isHead;
-        result.killed = true;
-        spawnBurst(bestHit.point, isHead ? 0xffb347 : 0x56eeff, isHead ? 14 : 10, 7.2);
-        triggerHitmarker(isHead, false);
-        if (root.WeaponAudio) root.WeaponAudio.targetShatter(isHead);
-
-        if (targetMode === 'range') {
-          if (!rangeStats.active && rangeStats.hits === 0) {
-            rangeStats.active = true;
-            rangeStats.startTime = performance.now();
+      let bestHit = null;
+      if (shootables.length > 0) {
+        const dynHits = _combatRay.intersectObjects(shootables, false);
+        for (const h of dynHits) {
+          if (h.distance <= closestWorldDist + 0.05) {
+            bestHit = h;
+            break;
           }
-          rangeStats.hits += 1;
-          if (isHead) rangeStats.headshots += 1;
-          if (rangeStats.hits >= rangeStats.total) {
-            rangeStats.active = false;
-            rangeStats.clearTime = (performance.now() - rangeStats.startTime) / 1000;
-            if (root.WeaponAudio) root.WeaponAudio.roundHorn(true);
-          }
-          updateRangeScoreboard();
-        } else if (targetMode === 'gauntlet') {
-          gauntletHits += 1;
-          if (onTargetProgressCb) onTargetProgressCb(getTargetProgress());
         }
       }
-      return result;
-    }
 
-    // Case C: Solo Arena Warmup Bot
-    if (typeof ud.botIndex === 'number') {
-      const bot = warmupBots[ud.botIndex];
-      if (bot && bot.alive) {
-        const isHead = ud.hitbox === 'head';
-        const dmg = isKnife ? (o.heavy ? 100 : 55) : (isHead ? def.damageHead : def.damageBody);
-        bot.hp = Math.max(0, bot.hp - dmg);
-        const ratio = bot.hp / 100;
-        bot.visual.hpFill.scale.x = Math.max(0.001, ratio);
-        bot.visual.hpFill.position.x = -(1 - ratio) * 0.455;
-        bot.visual.hpFill.material.color.setHex(ratio > 0.5 ? 0x62f58a : ratio > 0.25 ? 0xffc857 : 0xff4d6d);
-        result.hitKind = 'bot';
-        result.hitId = bot.name;
-        result.isHeadshot = isHead;
-        result.damage = dmg;
-        spawnBurst(bestHit.point, isHead ? 0xffb347 : 0xff5e78, isHead ? 12 : 7, 6.2);
+      const hitDist = bestHit ? bestHit.distance : closestWorldDist;
+      const endPoint = _tmpB.copy(_rayOrigin).addScaledVector(_rayDir, hitDist).clone();
+      if (pIdx === 0) {
+        result.dir.copy(_rayDir);
+        result.endPoint.copy(endPoint);
+        result.distance = hitDist;
+      }
 
-        if (bot.hp <= 0) {
-          bot.alive = false;
-          bot.respawnTimer = 2.4;
-          bot.visual.group.visible = false;
+      // Draw tracer unless suppressed Subsonic stealth round
+      if (!isKnife && tracerCol && (pellets === 1 || pIdx < 4)) {
+        _right.crossVectors(_rayDir, _worldUp).normalize();
+        const muzzleStart = _rayOrigin.clone()
+          .addScaledVector(_rayDir, 0.55)
+          .addScaledVector(_right, state.adsProgress > 0.45 ? 0.0 : 0.14)
+          .addScaledVector(_worldUp, state.adsProgress > 0.45 ? -0.03 : -0.10);
+        spawnTracer(muzzleStart, endPoint, tracerCol);
+      }
+
+      if (!bestHit) {
+        if (!isKnife && closestWorldDist < maxRange && pIdx < 3) {
+          spawnBurst(endPoint, 0xffe2a0, pellets > 1 ? 2 : 5, 4.2);
+        }
+        continue;
+      }
+
+      const ud = bestHit.object.userData || {};
+
+      // Case A: Sandbox Range Reset Switch
+      if (ud.isRangeReset) {
+        result.hitKind = 'range_reset';
+        resetTargets();
+        spawnBurst(endPoint, 0x7dff9e, 12, 6.0);
+        if (root.WeaponAudio) root.WeaponAudio.targetShatter(true);
+        break;
+      }
+
+      // Case B: Holographic Target (Range or Gauntlet)
+      if (typeof ud.targetIndex === 'number') {
+        const tgt = targets[ud.targetIndex];
+        if (tgt && tgt.alive) {
+          const isHead = ud.targetRole === 'head';
+          tgt.alive = false;
+          tgt.group.visible = false;
+          result.hitKind = 'target';
+          result.hitId = tgt.id;
+          result.isHeadshot = result.isHeadshot || isHead;
           result.killed = true;
-          warmupKills += 1;
-          triggerHitmarker(isHead, true);
-          if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot, isHeadshot: isHead, totalKills: warmupKills });
-        } else {
+          spawnBurst(bestHit.point, isHead ? 0xffb347 : 0x56eeff, isHead ? 14 : 10, 7.2);
           triggerHitmarker(isHead, false);
+          if (root.WeaponAudio) root.WeaponAudio.targetShatter(isHead);
+
+          if (!isKnife && onWeaponXpCb && LS) {
+            onWeaponXpCb({
+              weaponId,
+              source: isHead ? 'bullseye' : 'target',
+              amount: isHead ? LS.XP_REWARDS.bullseyeHit : LS.XP_REWARDS.targetHit,
+              isHeadshot: isHead
+            });
+          }
+
+          if (targetMode === 'range') {
+            if (!rangeStats.active && rangeStats.hits === 0) {
+              rangeStats.active = true;
+              rangeStats.startTime = performance.now();
+            }
+            rangeStats.hits += 1;
+            if (isHead) rangeStats.headshots += 1;
+            if (rangeStats.hits >= rangeStats.total) {
+              rangeStats.active = false;
+              rangeStats.clearTime = (performance.now() - rangeStats.startTime) / 1000;
+              if (root.WeaponAudio) root.WeaponAudio.roundHorn(true);
+            }
+            updateRangeScoreboard();
+          } else if (targetMode === 'gauntlet') {
+            gauntletHits += 1;
+            if (onTargetProgressCb) onTargetProgressCb(getTargetProgress());
+          }
+        }
+        continue;
+      }
+
+      // Case C: Solo Arena Warmup Bot (aggregate pellet damage cleanly!)
+      if (typeof ud.botIndex === 'number') {
+        const bot = warmupBots[ud.botIndex];
+        if (bot && bot.alive) {
+          const isHead = ud.hitbox === 'head';
+          const dmg = isKnife
+            ? (o.heavy ? 100 : 55)
+            : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, true) : (isHead ? build.damageHead : build.damageBody));
+          const prev = botDmgMap.get(ud.botIndex) || { bot, dmg: 0, isHead: false, point: bestHit.point };
+          prev.dmg += dmg;
+          prev.isHead = prev.isHead || isHead;
+          prev.point = bestHit.point;
+          botDmgMap.set(ud.botIndex, prev);
+        }
+        continue;
+      }
+
+      // Case D: Remote WebRTC Player Avatar (aggregate pellet damage cleanly!)
+      if (ud.remoteUid) {
+        const av = remoteAvatars.get(ud.remoteUid);
+        if (av && av.alive) {
+          const isHead = ud.hitbox === 'head';
+          const dmg = isKnife
+            ? (o.heavy ? 100 : 55)
+            : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, false) : (isHead ? build.damageHead : build.damageBody));
+          const prev = playerDmgMap.get(ud.remoteUid) || { uid: ud.remoteUid, dmg: 0, isHead: false, point: bestHit.point };
+          prev.dmg += dmg;
+          prev.isHead = prev.isHead || isHead;
+          prev.point = bestHit.point;
+          playerDmgMap.set(ud.remoteUid, prev);
         }
       }
-      return result;
     }
 
-    // Case D: Remote WebRTC Player Avatar
-    if (ud.remoteUid) {
-      const av = remoteAvatars.get(ud.remoteUid);
-      if (av && av.alive) {
-        const isHead = ud.hitbox === 'head';
-        const dmg = isKnife ? (o.heavy ? 100 : 55) : (isHead ? def.damageHead : def.damageBody);
-        result.hitKind = 'player';
-        result.hitId = ud.remoteUid;
-        result.isHeadshot = isHead;
-        result.damage = dmg;
-        spawnBurst(bestHit.point, isHead ? 0xffb347 : 0xff4d6d, isHead ? 12 : 7, 6.5);
+    // Resolve aggregated Warmup Bot hits
+    for (const entry of botDmgMap.values()) {
+      const { bot, dmg, isHead, point } = entry;
+      bot.hp = Math.max(0, bot.hp - dmg);
+      const ratio = bot.hp / 100;
+      bot.visual.hpFill.scale.x = Math.max(0.001, ratio);
+      bot.visual.hpFill.position.x = -(1 - ratio) * 0.455;
+      bot.visual.hpFill.material.color.setHex(ratio > 0.5 ? 0x62f58a : ratio > 0.25 ? 0xffc857 : 0xff4d6d);
+      result.hitKind = 'bot';
+      result.hitId = bot.name;
+      result.isHeadshot = result.isHeadshot || isHead;
+      result.damage += dmg;
+      spawnBurst(point, isHead ? 0xffb347 : 0xff5e78, isHead ? 12 : 7, 6.2);
+
+      if (bot.hp <= 0) {
+        bot.alive = false;
+        bot.respawnTimer = 2.4;
+        bot.visual.group.visible = false;
+        result.killed = true;
+        warmupKills += 1;
+        triggerHitmarker(isHead, true);
+        if (!isKnife && onWeaponXpCb && LS) {
+          onWeaponXpCb({
+            weaponId,
+            source: isHead ? 'bot_headshot' : 'bot_kill',
+            amount: isHead ? LS.XP_REWARDS.botHeadshot : LS.XP_REWARDS.botKill,
+            isHeadshot: isHead
+          });
+        }
+        if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: weaponId, weaponId, isHeadshot: isHead, totalKills: warmupKills });
+      } else {
         triggerHitmarker(isHead, false);
       }
-      return result;
+    }
+
+    // Resolve aggregated Remote Player hits (pick highest-damage hit target for netcode event)
+    if (playerDmgMap.size > 0) {
+      let top = null;
+      for (const entry of playerDmgMap.values()) {
+        if (!top || entry.dmg > top.dmg) top = entry;
+      }
+      if (top) {
+        result.hitKind = 'player';
+        result.hitId = top.uid;
+        result.isHeadshot = top.isHead;
+        result.damage = top.dmg;
+        spawnBurst(top.point, top.isHead ? 0xffb347 : 0xff4d6d, top.isHead ? 12 : 7, 6.5);
+        triggerHitmarker(top.isHead, false);
+      }
+    }
+
+    // Bolt-action AWP unscopes cleanly on shot so player sees bolt cycle
+    if (weaponId === 'awp' && state.adsHeld) {
+      clearScope();
+    }
+
+    // Auto-reload when magazine hits 0
+    if (!isKnife && state.ammo[slot] === 0) {
+      setTimeout(() => {
+        if (state.activeSlot === slot && state.ammo[slot] === 0 && !state.reloading) {
+          startReload();
+        }
+      }, weaponId === 'awp' ? 480 : 180);
     }
 
     return result;
@@ -996,12 +1261,19 @@
     if (state.hitmarkerTimer > 0) state.hitmarkerTimer = Math.max(0, state.hitmarkerTimer - dt);
     if (state.damageFlashTimer > 0) state.damageFlashTimer = Math.max(0, state.damageFlashTimer - dt);
 
+    // Smooth ADS progress synchronized with Gunsmith adsTimeSec
+    const activeBuild = getActiveBuild(state.activeSlot);
+    const adsTarget = activeBuild && state.adsHeld && !state.reloading ? 1 : 0;
+    const adsDur = activeBuild ? Math.max(0.08, activeBuild.adsTimeSec) : 0.18;
+    if (adsTarget > state.adsProgress) state.adsProgress = Math.min(1, state.adsProgress + dt / adsDur);
+    else state.adsProgress = Math.max(0, state.adsProgress - (dt / adsDur) * 1.25);
+
     if (state.reloading) {
       state.reloadTimer -= dt;
       if (state.reloadTimer <= 0) {
         state.reloading = false;
-        const def = getWeaponDef(state.activeSlot);
-        if (def) state.ammo[state.activeSlot] = def.magSize;
+        const build = getActiveBuild(state.activeSlot);
+        if (build) state.ammo[state.activeSlot] = build.magSize;
         if (root.WeaponAudio) root.WeaponAudio.reloadFinish();
       }
     }
@@ -1111,14 +1383,22 @@
     evaluateDuelRoundResult,
     evaluateFfaScoreboard,
     ensureInit,
+    applyLoadout,
     switchSlot,
+    quickSwitch,
     cycleSlot,
     resetAmmo,
     startReload,
+    setAdsHeld,
+    cycleScopeZoom,
     toggleScope,
     clearScope,
     getScopeFovMultiplier,
     getScopeSensMultiplier,
+    getScopeOverlayState,
+    getActiveMobilityProfile,
+    getActiveBuild,
+    getActiveWeaponType,
     tryFire,
     spawnTracer,
     spawnBurst,
@@ -1129,6 +1409,7 @@
     resetTargets,
     getTargetProgress,
     setOnTargetProgress: (cb) => { onTargetProgressCb = cb; },
+    setOnWeaponXp: (cb) => { onWeaponXpCb = cb; },
     setupWarmupBots,
     clearWarmupBots,
     setWarmupBotsVisible,
@@ -1137,18 +1418,33 @@
     removeRemoteAvatar,
     clearRemoteAvatars,
     update,
-    getState: () => ({
-      activeSlot: state.activeSlot,
-      ammo: state.ammo[state.activeSlot] ?? null,
-      magSize: getWeaponDef(state.activeSlot)?.magSize ?? null,
-      reloading: state.reloading,
-      reloadPct: state.reloading && state.reloadDuration > 0 ? 1 - Math.max(0, state.reloadTimer / state.reloadDuration) : 1,
-      scopeStage: state.scopeStage,
-      hitmarkerTimer: state.hitmarkerTimer,
-      hitmarkerHeadshot: state.hitmarkerHeadshot,
-      hitmarkerKill: state.hitmarkerKill,
-      damageFlashTimer: state.damageFlashTimer,
-      warmupKills
-    })
+    getState: () => {
+      const b = getActiveBuild(state.activeSlot);
+      return {
+        activeSlot: state.activeSlot,
+        weaponId: getActiveWeaponType(state.activeSlot),
+        weaponName: b ? b.name : 'Melee',
+        weaponShortName: b ? b.shortName : 'Knife',
+        primaryBuild: state.builds.primary,
+        secondaryBuild: state.builds.secondary,
+        activeBuild: b,
+        auto: Boolean(b && b.auto),
+        loadoutName: state.loadoutName,
+        ammo: state.activeSlot === 'melee' ? null : (state.ammo[state.activeSlot] ?? null),
+        magSize: b ? b.magSize : null,
+        reloading: state.reloading,
+        reloadPct: state.reloading && state.reloadDuration > 0 ? 1 - Math.max(0, state.reloadTimer / state.reloadDuration) : 1,
+        adsHeld: state.adsHeld,
+        adsProgress: state.adsProgress,
+        scopeStage: state.scopeStage,
+        scopeOverlay: getScopeOverlayState(),
+        mobility: getActiveMobilityProfile(),
+        hitmarkerTimer: state.hitmarkerTimer,
+        hitmarkerHeadshot: state.hitmarkerHeadshot,
+        hitmarkerKill: state.hitmarkerKill,
+        damageFlashTimer: state.damageFlashTimer,
+        warmupKills
+      };
+    }
   };
 });
