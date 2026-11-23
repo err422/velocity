@@ -950,7 +950,7 @@
       tierLabel: 'SPECIAL OPS',
       price: 575,
       accent: '#f3a43b',
-      rarityWeights: Object.freeze({ milspec: 30, restricted: 25, classified: 18, covert: 12, gold: 15 }),
+      rarityWeights: Object.freeze({ milspec: 28, restricted: 24, classified: 17, covert: 11, gold: 20 }),
       description: 'Industrial finishes, arctic ceramics, and ember-cut blades · 15% Gold tactical gloves & knives.',
       pools: {
         milspec: [
@@ -1003,7 +1003,7 @@
       tierLabel: 'RACE SPEC',
       price: 725,
       accent: '#4be5ef',
-      rarityWeights: Object.freeze({ milspec: 22, restricted: 22, classified: 20, covert: 16, gold: 20 }),
+      rarityWeights: Object.freeze({ milspec: 20, restricted: 21, classified: 19, covert: 18, gold: 22 }),
       description: 'Carbon-fiber race finishes, neon energy cuts, and the Stormgrid glove set · 20% Gold.',
       pools: {
         milspec: [

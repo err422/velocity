@@ -293,8 +293,8 @@ test('tiered cases enforce escalating prices and increasing Gold odds', () => {
   const bksOdds = KnivesSystem.getCaseOdds('blacksite');
   const odrOdds = KnivesSystem.getCaseOdds('overdrive');
   const eclOdds = KnivesSystem.getCaseOdds('eclipse');
-  assert.equal(bksOdds.gold, 15);
-  assert.equal(odrOdds.gold, 20);
+  assert.equal(bksOdds.gold, 20);
+  assert.equal(odrOdds.gold, 22);
   assert.equal(eclOdds.gold, 25);
   assert.ok(velOdds.gold < chrOdds.gold && chrOdds.gold < spcOdds.gold);
   assert.ok(spcOdds.gold < bksOdds.gold && bksOdds.gold < odrOdds.gold && odrOdds.gold < eclOdds.gold);
@@ -320,8 +320,8 @@ test('tiered cases enforce escalating prices and increasing Gold odds', () => {
   assert.ok(mVel.goldRate >= 0.055 && mVel.goldRate <= 0.11, `Expected ~8% Gold for velocity, got ${(mVel.goldRate * 100).toFixed(1)}%`);
   assert.ok(mChr.goldRate >= 0.095 && mChr.goldRate <= 0.15, `Expected ~12% Gold for chroma, got ${(mChr.goldRate * 100).toFixed(1)}%`);
   assert.ok(mSpc.goldRate >= 0.15 && mSpc.goldRate <= 0.21, `Expected ~18% Gold for spectrum, got ${(mSpc.goldRate * 100).toFixed(1)}%`);
-  assert.ok(mBks.goldRate >= 0.115 && mBks.goldRate <= 0.185, `Expected ~15% Gold for blacksite, got ${(mBks.goldRate * 100).toFixed(1)}%`);
-  assert.ok(mOdr.goldRate >= 0.16 && mOdr.goldRate <= 0.24, `Expected ~20% Gold for overdrive, got ${(mOdr.goldRate * 100).toFixed(1)}%`);
+  assert.ok(mBks.goldRate >= 0.16 && mBks.goldRate <= 0.24, `Expected ~20% Gold for blacksite, got ${(mBks.goldRate * 100).toFixed(1)}%`);
+  assert.ok(mOdr.goldRate >= 0.18 && mOdr.goldRate <= 0.26, `Expected ~22% Gold for overdrive, got ${(mOdr.goldRate * 100).toFixed(1)}%`);
   assert.ok(mEcl.goldRate >= 0.205 && mEcl.goldRate <= 0.295, `Expected ~25% Gold for eclipse, got ${(mEcl.goldRate * 100).toFixed(1)}%`);
   assert.ok(mVel.goldRate < mChr.goldRate && mChr.goldRate < mSpc.goldRate);
   assert.ok(mSpc.goldRate < mBks.goldRate && mBks.goldRate < mOdr.goldRate && mOdr.goldRate < mEcl.goldRate);
