@@ -465,7 +465,7 @@ async function loadUserInventory() {
     const q = query(collection(db, 'userInventory', uid, 'knives'), where('uid', '==', uid), limit(200));
     knivesSnap = await getDocs(q);
   } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, knivesPath);
+    console.warn('Cloud knives inventory could not be loaded; continuing with other categories:', error);
   }
 
   const glovesPath = `userInventory/${uid}/gloves`;
@@ -474,7 +474,7 @@ async function loadUserInventory() {
     const gq = query(collection(db, 'userInventory', uid, 'gloves'), where('uid', '==', uid), limit(200));
     glovesSnap = await getDocs(gq);
   } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, glovesPath);
+    console.warn('Cloud gloves inventory could not be loaded; continuing with other categories:', error);
   }
 
   const weaponsPath = `userInventory/${uid}/weapons`;
@@ -483,7 +483,7 @@ async function loadUserInventory() {
     const wq = query(collection(db, 'userInventory', uid, 'weapons'), where('uid', '==', uid), limit(250));
     weaponsSnap = await getDocs(wq);
   } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, weaponsPath);
+    console.warn('Cloud weapons inventory could not be loaded; continuing with other categories:', error);
   }
 
   const knives = [];
