@@ -1129,13 +1129,18 @@ function renderArmoryCases(){
     btn.dataset.caseId=cid;
 
     const art=document.createElement('div');
-    art.className='case-art';
+    art.className='case-art case-art-'+cid;
+    const sigil=document.createElement('span');
+    sigil.className='case-sigil';
+    sigil.textContent=c.artCode||c.shortName.slice(0,2).toUpperCase();
+    sigil.setAttribute('aria-hidden','true');
     const crate=document.createElement('div');
     crate.className='case-crate';
     const lock=document.createElement('div');
     lock.className='case-crate-lock';
     crate.appendChild(lock);
     art.appendChild(crate);
+    art.appendChild(sigil);
 
     const top=document.createElement('div');
     top.className='case-top';

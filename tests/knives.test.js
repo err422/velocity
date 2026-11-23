@@ -10,10 +10,10 @@ function makeRng(seed) {
   };
 }
 
-test('catalog defines 5 knife silhouettes, 10 skins, 3 cases, and 5 rarity tiers', () => {
+test('catalog defines 5 knife silhouettes, 12 skins, 6 cases, and 5 rarity tiers', () => {
   assert.deepEqual(KnivesSystem.KNIFE_TYPE_IDS, ['default', 'karambit', 'butterfly', 'm9', 'skeleton']);
-  assert.equal(KnivesSystem.SKIN_IDS.length, 10);
-  assert.deepEqual(KnivesSystem.CASE_IDS, ['velocity', 'chroma', 'spectrum']);
+  assert.equal(KnivesSystem.SKIN_IDS.length, 12);
+  assert.deepEqual(KnivesSystem.CASE_IDS, ['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse']);
   assert.deepEqual(KnivesSystem.RARITY_IDS, ['milspec', 'restricted', 'classified', 'covert', 'gold']);
 });
 
@@ -89,6 +89,9 @@ test('starter inventory grants 150 starting coins, 0 free cases, and starter loa
   assert.equal(inv.caseCounts.velocity, 0);
   assert.equal(inv.caseCounts.chroma, 0);
   assert.equal(inv.caseCounts.spectrum, 0);
+  assert.equal(inv.caseCounts.blacksite, 0);
+  assert.equal(inv.caseCounts.overdrive, 0);
+  assert.equal(inv.caseCounts.eclipse, 0);
   assert.equal(inv.knives.length, 1);
   assert.equal(inv.equippedKnifeId, 'starter_default_vanilla');
   assert.equal(KnivesSystem.getEquippedKnife(inv).knifeType, 'default');
@@ -107,6 +110,9 @@ test('legacy saves without coins migrate with 150 coins while preserving existin
   assert.equal(migrated.caseCounts.velocity, 2);
   assert.equal(migrated.caseCounts.chroma, 1);
   assert.equal(migrated.caseCounts.spectrum, 3);
+  assert.equal(migrated.caseCounts.blacksite, 0);
+  assert.equal(migrated.caseCounts.overdrive, 0);
+  assert.equal(migrated.caseCounts.eclipse, 0);
   assert.equal(KnivesSystem.totalCaseCount(migrated), 6);
 });
 
@@ -135,7 +141,7 @@ test('sanitizeInventory and cloud payloads enforce strict schema bounds includin
   const dirty = {
     coins: 999999999,
     equippedKnifeId: 'missing_id',
-    caseCounts: { velocity: 99999, chroma: -5, spectrum: 'bad' },
+    caseCounts: { velocity: 99999, chroma: -5, spectrum: 'bad', blacksite: 99999, overdrive: -5, eclipse: 'bad' },
     totalOpened: -3,
     lastDailyDropDate: 'not-a-date',
     knives: [
@@ -168,6 +174,9 @@ test('sanitizeInventory and cloud payloads enforce strict schema bounds includin
   assert.equal(clean.caseCounts.velocity, 999);
   assert.equal(clean.caseCounts.chroma, 0);
   assert.equal(clean.caseCounts.spectrum, 0);
+  assert.equal(clean.caseCounts.blacksite, 999);
+  assert.equal(clean.caseCounts.overdrive, 0);
+  assert.equal(clean.caseCounts.eclipse, 0);
   assert.equal(clean.totalOpened, 0);
   assert.equal(clean.lastDailyDropDate, '');
   assert.equal(clean.equippedKnifeId, 'starter_default_vanilla');
@@ -198,9 +207,9 @@ test('sanitizeInventory and cloud payloads enforce strict schema bounds includin
   assert.equal(knifePayload.specialTag, 'BLUE GEM');
 });
 
-test('glove catalog defines 4 CS archetypes, 13 skins, starter glove, and Gold drops in every case', () => {
+test('glove catalog defines 4 CS archetypes, 16 skins, starter glove, and Gold drops in every case', () => {
   assert.deepEqual(KnivesSystem.GLOVE_TYPE_IDS, ['standard', 'sport', 'specialist', 'wraps']);
-  assert.equal(KnivesSystem.GLOVE_SKIN_IDS.length, 13);
+  assert.equal(KnivesSystem.GLOVE_SKIN_IDS.length, 16);
 
   const starter = KnivesSystem.createStarterInventory();
   assert.equal(starter.equippedGloveId, 'starter_standard_tactical');
@@ -265,12 +274,15 @@ test('rollInspectTier implements exact 1/100 Mythic, 25% Uncommon, and 74% Norma
   }
 });
 
-test('tiered cases enforce escalating prices (150 / 275 / 450) and empirical rarity odds', () => {
+test('tiered cases enforce escalating prices and increasing Gold odds', () => {
   assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol']);
-  assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 14);
+  assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 20);
   assert.equal(KnivesSystem.getCasePrice('velocity'), 150);
   assert.equal(KnivesSystem.getCasePrice('chroma'), 275);
   assert.equal(KnivesSystem.getCasePrice('spectrum'), 450);
+  assert.equal(KnivesSystem.getCasePrice('blacksite'), 575);
+  assert.equal(KnivesSystem.getCasePrice('overdrive'), 725);
+  assert.equal(KnivesSystem.getCasePrice('eclipse'), 900);
 
   const velOdds = KnivesSystem.getCaseOdds('velocity');
   const chrOdds = KnivesSystem.getCaseOdds('chroma');
@@ -278,7 +290,14 @@ test('tiered cases enforce escalating prices (150 / 275 / 450) and empirical rar
   assert.equal(velOdds.gold, 8);
   assert.equal(chrOdds.gold, 12);
   assert.equal(spcOdds.gold, 18);
+  const bksOdds = KnivesSystem.getCaseOdds('blacksite');
+  const odrOdds = KnivesSystem.getCaseOdds('overdrive');
+  const eclOdds = KnivesSystem.getCaseOdds('eclipse');
+  assert.equal(bksOdds.gold, 15);
+  assert.equal(odrOdds.gold, 20);
+  assert.equal(eclOdds.gold, 25);
   assert.ok(velOdds.gold < chrOdds.gold && chrOdds.gold < spcOdds.gold);
+  assert.ok(spcOdds.gold < bksOdds.gold && bksOdds.gold < odrOdds.gold && odrOdds.gold < eclOdds.gold);
 
   // Empirical distribution over 2000 deterministic rolls per case
   const measureGold = (cid, seed) => {
@@ -295,10 +314,17 @@ test('tiered cases enforce escalating prices (150 / 275 / 450) and empirical rar
   const mVel = measureGold('velocity', 9001);
   const mChr = measureGold('chroma', 9002);
   const mSpc = measureGold('spectrum', 9003);
+  const mBks = measureGold('blacksite', 9004);
+  const mOdr = measureGold('overdrive', 9005);
+  const mEcl = measureGold('eclipse', 9006);
   assert.ok(mVel.goldRate >= 0.055 && mVel.goldRate <= 0.11, `Expected ~8% Gold for velocity, got ${(mVel.goldRate * 100).toFixed(1)}%`);
   assert.ok(mChr.goldRate >= 0.095 && mChr.goldRate <= 0.15, `Expected ~12% Gold for chroma, got ${(mChr.goldRate * 100).toFixed(1)}%`);
   assert.ok(mSpc.goldRate >= 0.15 && mSpc.goldRate <= 0.21, `Expected ~18% Gold for spectrum, got ${(mSpc.goldRate * 100).toFixed(1)}%`);
+  assert.ok(mBks.goldRate >= 0.115 && mBks.goldRate <= 0.185, `Expected ~15% Gold for blacksite, got ${(mBks.goldRate * 100).toFixed(1)}%`);
+  assert.ok(mOdr.goldRate >= 0.16 && mOdr.goldRate <= 0.24, `Expected ~20% Gold for overdrive, got ${(mOdr.goldRate * 100).toFixed(1)}%`);
+  assert.ok(mEcl.goldRate >= 0.205 && mEcl.goldRate <= 0.295, `Expected ~25% Gold for eclipse, got ${(mEcl.goldRate * 100).toFixed(1)}%`);
   assert.ok(mVel.goldRate < mChr.goldRate && mChr.goldRate < mSpc.goldRate);
+  assert.ok(mSpc.goldRate < mBks.goldRate && mBks.goldRate < mOdr.goldRate && mOdr.goldRate < mEcl.goldRate);
 
   const starter = KnivesSystem.createStarterInventory();
   const wpPayload = KnivesSystem.toCloudWeaponPayload(starter.weapons[0], 'user_789');

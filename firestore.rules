@@ -306,8 +306,8 @@ service cloud.firestore {
 
     function isValidCaseCountsMap(c) {
       return c is map
-        && c.keys().hasAll(['velocity', 'chroma', 'spectrum'])
-        && c.keys().hasOnly(['velocity', 'chroma', 'spectrum'])
+        && c.keys().hasAll(['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse'])
+        && c.keys().hasOnly(['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse'])
         && c.velocity is int
         && c.velocity >= 0
         && c.velocity <= 999
@@ -316,7 +316,16 @@ service cloud.firestore {
         && c.chroma <= 999
         && c.spectrum is int
         && c.spectrum >= 0
-        && c.spectrum <= 999;
+        && c.spectrum <= 999
+        && c.blacksite is int
+        && c.blacksite >= 0
+        && c.blacksite <= 999
+        && c.overdrive is int
+        && c.overdrive >= 0
+        && c.overdrive <= 999
+        && c.eclipse is int
+        && c.eclipse >= 0
+        && c.eclipse <= 999;
     }
 
     function isValidUserInventoryShape(data, uid) {
@@ -445,7 +454,7 @@ service cloud.firestore {
         && data.skinId is string
         && data.skinId.size() >= 4
         && data.skinId.size() <= 24
-        && data.skinId in ['vanilla', 'ultraviolet', 'damascus', 'crimson_web', 'slaughter', 'tiger_tooth', 'fade', 'marble_fade', 'doppler', 'case_hardened']
+        && data.skinId in ['vanilla', 'ultraviolet', 'damascus', 'crimson_web', 'slaughter', 'tiger_tooth', 'fade', 'marble_fade', 'doppler', 'case_hardened', 'emberstrike', 'arctic_veil']
         && data.rarity is string
         && data.rarity.size() >= 4
         && data.rarity.size() <= 16
@@ -469,7 +478,7 @@ service cloud.firestore {
         && data.caseId is string
         && data.caseId.size() >= 6
         && data.caseId.size() <= 16
-        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum']
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse']
         && data.createdAt is timestamp
         && data.createdAt == request.time;
     }
@@ -533,7 +542,10 @@ service cloud.firestore {
           'leather',
           'slaughter',
           'cobalt_skulls',
-          'overprint'
+          'overprint',
+          'breachline',
+          'stormgrid',
+          'eclipse_mantle'
         ]
         && data.rarity is string
         && data.rarity.size() >= 4
@@ -558,7 +570,7 @@ service cloud.firestore {
         && data.caseId is string
         && data.caseId.size() >= 6
         && data.caseId.size() <= 16
-        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum']
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse']
         && data.createdAt is timestamp
         && data.createdAt == request.time;
     }
@@ -623,7 +635,13 @@ service cloud.firestore {
           'hyper_chroma',
           'fade',
           'case_hardened',
-          'dragon_gold'
+          'dragon_gold',
+          'hazard_pay',
+          'coldfront',
+          'redshift',
+          'nitro',
+          'solarflare',
+          'voidglass'
         ]
         && data.rarity is string
         && data.rarity.size() >= 4
@@ -648,7 +666,7 @@ service cloud.firestore {
         && data.caseId is string
         && data.caseId.size() >= 6
         && data.caseId.size() <= 16
-        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum']
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse']
         && data.createdAt is timestamp
         && data.createdAt == request.time;
     }

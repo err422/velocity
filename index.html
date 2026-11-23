@@ -1933,6 +1933,18 @@
     .spatial-panel { animation:none; }
   }
 
+
+  .case-art{isolation:isolate}
+  .case-art::before{content:'';position:absolute;inset:0;opacity:.78;pointer-events:none;z-index:0}
+  .case-crate,.case-sigil{z-index:1}
+  .case-sigil{position:absolute;right:12px;top:9px;color:var(--case-accent,var(--cyan));font-size:9px;font-weight:950;letter-spacing:.2em;opacity:.92}
+  .case-art-blacksite{background:linear-gradient(145deg,#29343a,#0b1118 68%)}
+  .case-art-blacksite::before{background:repeating-linear-gradient(130deg,transparent 0 16px,rgba(243,164,59,.18) 16px 19px,transparent 19px 34px)}
+  .case-art-overdrive{background:linear-gradient(120deg,#071e2a,#101321 60%,#26132c)}
+  .case-art-overdrive::before{background:repeating-linear-gradient(158deg,transparent 0 22px,rgba(75,229,239,.30) 22px 25px,transparent 25px 40px),linear-gradient(90deg,transparent 0 62%,rgba(255,67,176,.13) 62% 70%,transparent 70%)}
+  .case-art-eclipse{background:radial-gradient(circle at 50% 48%,#473c66 0,#151324 42%,#070b12 78%)}
+  .case-art-eclipse::before{inset:12px auto auto 50%;width:74px;height:74px;transform:translateX(-50%);border:1px solid rgba(198,154,85,.34);border-radius:50%;box-shadow:0 0 0 8px rgba(158,130,255,.06),0 0 24px rgba(158,130,255,.18)}
+
 </style>
 </head>
 <body>

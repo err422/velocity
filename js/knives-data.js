@@ -774,6 +774,7 @@
       id: 'velocity',
       name: 'Velocity Classic Case',
       shortName: 'Classic Case',
+      artCode: 'VC',
       tierLabel: 'ENTRY TIER',
       price: 150,
       accent: '#2ea8ff',
@@ -830,6 +831,7 @@
       id: 'chroma',
       name: 'Chroma Surf Case',
       shortName: 'Chroma Case',
+      artCode: 'CH',
       tierLabel: 'MID TIER',
       price: 275,
       accent: '#d32ce6',
@@ -886,6 +888,7 @@
       id: 'spectrum',
       name: 'Spectrum Gem Case',
       shortName: 'Spectrum Case',
+      artCode: 'SG',
       tierLabel: 'ELITE TIER',
       price: 450,
       accent: '#f5c542',
@@ -943,6 +946,7 @@
       id: 'blacksite',
       name: 'Blacksite Case',
       shortName: 'Blacksite',
+      artCode: 'BS',
       tierLabel: 'SPECIAL OPS',
       price: 575,
       accent: '#f3a43b',
@@ -983,9 +987,11 @@
           { knifeType: 'm9', skinId: 'emberstrike' },
           { knifeType: 'karambit', skinId: 'arctic_veil' },
           { knifeType: 'butterfly', skinId: 'emberstrike' },
+          { knifeType: 'skeleton', skinId: 'arctic_veil' },
           { itemKind: 'glove', gloveType: 'specialist', skinId: 'breachline' },
           { itemKind: 'glove', gloveType: 'wraps', skinId: 'leather' },
-          { itemKind: 'glove', gloveType: 'standard', skinId: 'case_hardened', forceBlueGem: true }
+          { itemKind: 'glove', gloveType: 'standard', skinId: 'case_hardened', forceBlueGem: true },
+          { itemKind: 'glove', gloveType: 'sport', skinId: 'breachline' }
         ]
       }
     },
@@ -993,6 +999,7 @@
       id: 'overdrive',
       name: 'Overdrive Case',
       shortName: 'Overdrive',
+      artCode: 'OD',
       tierLabel: 'RACE SPEC',
       price: 725,
       accent: '#4be5ef',
@@ -1033,9 +1040,11 @@
           { knifeType: 'butterfly', skinId: 'arctic_veil' },
           { knifeType: 'karambit', skinId: 'doppler', forceGem: true },
           { knifeType: 'm9', skinId: 'emberstrike' },
+          { knifeType: 'skeleton', skinId: 'arctic_veil' },
           { itemKind: 'glove', gloveType: 'sport', skinId: 'stormgrid' },
           { itemKind: 'glove', gloveType: 'wraps', skinId: 'vice' },
-          { itemKind: 'glove', gloveType: 'specialist', skinId: 'overprint' }
+          { itemKind: 'glove', gloveType: 'specialist', skinId: 'overprint' },
+          { itemKind: 'glove', gloveType: 'standard', skinId: 'stormgrid' }
         ]
       }
     },
@@ -1043,6 +1052,7 @@
       id: 'eclipse',
       name: 'Eclipse Case',
       shortName: 'Eclipse',
+      artCode: 'EC',
       tierLabel: 'BLACK LABEL',
       price: 900,
       accent: '#9e82ff',
@@ -1086,7 +1096,8 @@
           { knifeType: 'm9', skinId: 'fade', forceFullFade: true },
           { itemKind: 'glove', gloveType: 'specialist', skinId: 'eclipse_mantle' },
           { itemKind: 'glove', gloveType: 'sport', skinId: 'stormgrid' },
-          { itemKind: 'glove', gloveType: 'wraps', skinId: 'breachline' }
+          { itemKind: 'glove', gloveType: 'wraps', skinId: 'breachline' },
+          { itemKind: 'glove', gloveType: 'standard', skinId: 'eclipse_mantle' }
         ]
       }
     }
