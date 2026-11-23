@@ -82,40 +82,58 @@ test('rollCaseDrop creates a 45-card strip with winner pinned at winIndex across
   }
 });
 
-test('starter inventory grants 3 starter cases and default vanilla knife', () => {
+test('starter inventory grants 150 starting coins, 0 free cases, and starter loadout', () => {
   const inv = KnivesSystem.createStarterInventory();
-  assert.equal(KnivesSystem.totalCaseCount(inv), 3);
-  assert.equal(inv.caseCounts.velocity, 1);
-  assert.equal(inv.caseCounts.chroma, 1);
-  assert.equal(inv.caseCounts.spectrum, 1);
+  assert.equal(inv.coins, 150);
+  assert.equal(KnivesSystem.totalCaseCount(inv), 0);
+  assert.equal(inv.caseCounts.velocity, 0);
+  assert.equal(inv.caseCounts.chroma, 0);
+  assert.equal(inv.caseCounts.spectrum, 0);
   assert.equal(inv.knives.length, 1);
   assert.equal(inv.equippedKnifeId, 'starter_default_vanilla');
   assert.equal(KnivesSystem.getEquippedKnife(inv).knifeType, 'default');
 });
 
-test('grantRunRewards awards finish, PB bonus, and once-per-day Daily clear bonus', () => {
-  const rng = makeRng(42);
-  const start = KnivesSystem.createStarterInventory();
-
-  // Normal course finish (no PB, non-daily) -> +1 case
-  const r1 = KnivesSystem.grantRunRewards(start, { isNewBest: false, dateKey: '', todayKey: '2026-05-01' }, rng);
-  assert.equal(r1.awarded.length, 1);
-  assert.equal(KnivesSystem.totalCaseCount(r1.inventory), 4);
-
-  // Today's Daily first clear + New PB -> +1 finish + +1 PB + +2 Daily bonus = +4 cases
-  const r2 = KnivesSystem.grantRunRewards(r1.inventory, { isNewBest: true, dateKey: '2026-05-01', todayKey: '2026-05-01' }, rng);
-  assert.equal(r2.awarded.length, 4);
-  assert.equal(r2.inventory.lastDailyDropDate, '2026-05-01');
-  assert.equal(KnivesSystem.totalCaseCount(r2.inventory), 8);
-
-  // Repeating Today's Daily same UTC day does NOT re-grant the +2 Daily first clear bonus
-  const r3 = KnivesSystem.grantRunRewards(r2.inventory, { isNewBest: false, dateKey: '2026-05-01', todayKey: '2026-05-01' }, rng);
-  assert.equal(r3.awarded.length, 1);
-  assert.equal(KnivesSystem.totalCaseCount(r3.inventory), 9);
+test('legacy saves without coins migrate with 150 coins while preserving existing unopened cases', () => {
+  const legacy = {
+    equippedKnifeId: 'starter_default_vanilla',
+    caseCounts: { velocity: 2, chroma: 1, spectrum: 3 },
+    totalOpened: 4,
+    lastDailyDropDate: '2026-04-30',
+    knives: [KnivesSystem.createStarterKnife()]
+  };
+  const migrated = KnivesSystem.sanitizeInventory(legacy);
+  assert.equal(migrated.coins, 150);
+  assert.equal(migrated.caseCounts.velocity, 2);
+  assert.equal(migrated.caseCounts.chroma, 1);
+  assert.equal(migrated.caseCounts.spectrum, 3);
+  assert.equal(KnivesSystem.totalCaseCount(migrated), 6);
 });
 
-test('sanitizeInventory and cloud payloads enforce strict schema bounds', () => {
+test('grantRunRewards awards finish, clean gauntlet, PB bonus, and once-per-day Daily clear coins', () => {
+  const start = KnivesSystem.createStarterInventory(); // 150 coins
+
+  // Normal course finish (no clean gauntlet, no PB, non-daily) -> +25 coins
+  const r1 = KnivesSystem.grantRunRewards(start, { isNewBest: false, cleanGauntlet: false, dateKey: '', todayKey: '2026-05-01' });
+  assert.equal(r1.coinsEarned, 25);
+  assert.equal(r1.inventory.coins, 175);
+  assert.equal(KnivesSystem.totalCaseCount(r1.inventory), 0);
+
+  // Today's Daily first clear + Clean Gauntlet + New PB -> 25 + 10 + 30 + 40 = +105 coins
+  const r2 = KnivesSystem.grantRunRewards(r1.inventory, { isNewBest: true, cleanGauntlet: true, dateKey: '2026-05-01', todayKey: '2026-05-01' });
+  assert.equal(r2.coinsEarned, 105);
+  assert.equal(r2.inventory.lastDailyDropDate, '2026-05-01');
+  assert.equal(r2.inventory.coins, 280);
+
+  // Repeating Today's Daily same UTC day does NOT re-grant the +40 Daily first clear bonus
+  const r3 = KnivesSystem.grantRunRewards(r2.inventory, { isNewBest: false, cleanGauntlet: false, dateKey: '2026-05-01', todayKey: '2026-05-01' });
+  assert.equal(r3.coinsEarned, 25);
+  assert.equal(r3.inventory.coins, 305);
+});
+
+test('sanitizeInventory and cloud payloads enforce strict schema bounds including coins', () => {
   const dirty = {
+    coins: 999999999,
     equippedKnifeId: 'missing_id',
     caseCounts: { velocity: 99999, chroma: -5, spectrum: 'bad' },
     totalOpened: -3,
@@ -146,6 +164,7 @@ test('sanitizeInventory and cloud payloads enforce strict schema bounds', () => 
     ]
   };
   const clean = KnivesSystem.sanitizeInventory(dirty);
+  assert.equal(clean.coins, 9999999);
   assert.equal(clean.caseCounts.velocity, 999);
   assert.equal(clean.caseCounts.chroma, 0);
   assert.equal(clean.caseCounts.spectrum, 0);
@@ -154,12 +173,16 @@ test('sanitizeInventory and cloud payloads enforce strict schema bounds', () => 
   assert.equal(clean.equippedKnifeId, 'starter_default_vanilla');
   assert.equal(clean.knives.length, 3); // starter + 2 sanitized
 
+  const negCoins = KnivesSystem.sanitizeInventory({ coins: -50 });
+  assert.equal(negCoins.coins, 0);
+
   const summaryPayload = KnivesSystem.toCloudInventoryPayload(clean, 'user_123');
   assert.deepEqual(
     Object.keys(summaryPayload).sort(),
-    ['caseCounts', 'equippedAwpId', 'equippedDeagleId', 'equippedGloveId', 'equippedKnifeId', 'equippedRifleId', 'lastDailyDropDate', 'totalOpened', 'uid']
+    ['caseCounts', 'coins', 'equippedAwpId', 'equippedDeagleId', 'equippedGloveId', 'equippedKnifeId', 'equippedRifleId', 'lastDailyDropDate', 'totalOpened', 'uid']
   );
   assert.equal(summaryPayload.uid, 'user_123');
+  assert.equal(summaryPayload.coins, 9999999);
   assert.equal(summaryPayload.equippedGloveId, 'starter_standard_tactical');
   assert.equal(summaryPayload.equippedRifleId, 'starter_rifle_slate');
   assert.equal(summaryPayload.equippedAwpId, 'starter_awp_slate');
@@ -242,44 +265,129 @@ test('rollInspectTier implements exact 1/100 Mythic, 25% Uncommon, and 74% Norma
   }
 });
 
-test('weapon catalog defines Rifle, AWP, Deagle, 14 skins, 3 starters, and ~15% Gold case odds', () => {
+test('tiered cases enforce escalating prices (150 / 275 / 450) and empirical rarity odds', () => {
   assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'awp', 'deagle']);
   assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 14);
-  assert.equal(KnivesSystem.RARITIES.gold.weight, 15);
+  assert.equal(KnivesSystem.getCasePrice('velocity'), 150);
+  assert.equal(KnivesSystem.getCasePrice('chroma'), 275);
+  assert.equal(KnivesSystem.getCasePrice('spectrum'), 450);
+
+  const velOdds = KnivesSystem.getCaseOdds('velocity');
+  const chrOdds = KnivesSystem.getCaseOdds('chroma');
+  const spcOdds = KnivesSystem.getCaseOdds('spectrum');
+  assert.equal(velOdds.gold, 8);
+  assert.equal(chrOdds.gold, 12);
+  assert.equal(spcOdds.gold, 18);
+  assert.ok(velOdds.gold < chrOdds.gold && chrOdds.gold < spcOdds.gold);
+
+  // Empirical distribution over 2000 deterministic rolls per case
+  const measureGold = (cid, seed) => {
+    const rng = makeRng(seed);
+    let gold = 0;
+    let weapons = 0;
+    for (let i = 0; i < 2000; i++) {
+      const r = KnivesSystem.rollCaseDrop(cid, rng);
+      if (r.winner.rarity === 'gold') gold++;
+      if (KnivesSystem.isWeaponItem(r.winner)) weapons++;
+    }
+    return { goldRate: gold / 2000, weaponRate: weapons / 2000 };
+  };
+  const mVel = measureGold('velocity', 9001);
+  const mChr = measureGold('chroma', 9002);
+  const mSpc = measureGold('spectrum', 9003);
+  assert.ok(mVel.goldRate >= 0.055 && mVel.goldRate <= 0.11, `Expected ~8% Gold for velocity, got ${(mVel.goldRate * 100).toFixed(1)}%`);
+  assert.ok(mChr.goldRate >= 0.095 && mChr.goldRate <= 0.15, `Expected ~12% Gold for chroma, got ${(mChr.goldRate * 100).toFixed(1)}%`);
+  assert.ok(mSpc.goldRate >= 0.15 && mSpc.goldRate <= 0.21, `Expected ~18% Gold for spectrum, got ${(mSpc.goldRate * 100).toFixed(1)}%`);
+  assert.ok(mVel.goldRate < mChr.goldRate && mChr.goldRate < mSpc.goldRate);
 
   const starter = KnivesSystem.createStarterInventory();
-  assert.equal(starter.weapons.length, 3);
-  assert.equal(KnivesSystem.getEquippedWeapon(starter, 'rifle').weaponType, 'rifle');
-  assert.equal(KnivesSystem.getEquippedWeapon(starter, 'awp').weaponType, 'awp');
-  assert.equal(KnivesSystem.getEquippedWeapon(starter, 'deagle').weaponType, 'deagle');
-
-  // Verify empirical case drop distribution over 1000 deterministic rolls
-  const rng = makeRng(9001);
-  let weaponDrops = 0;
-  let knifeDrops = 0;
-  let gloveDrops = 0;
-  for (let i = 0; i < 1000; i++) {
-    const r = KnivesSystem.rollCaseDrop('velocity', rng);
-    if (KnivesSystem.isWeaponItem(r.winner)) weaponDrops++;
-    else if (KnivesSystem.isGloveItem(r.winner)) gloveDrops++;
-    else knifeDrops++;
-  }
-  const goldPct = (knifeDrops + gloveDrops) / 1000;
-  assert.ok(weaponDrops > 780 && weaponDrops < 920, `Expected ~85% weapon skins, got ${weaponDrops}/1000`);
-  assert.ok(goldPct >= 0.10 && goldPct <= 0.21, `Expected ~15% Gold Knives+Gloves, got ${(goldPct * 100).toFixed(1)}%`);
-  assert.ok(knifeDrops > 30 && gloveDrops > 20, `Expected both knives (${knifeDrops}) and gloves (${gloveDrops}) in Gold drops`);
-
   const wpPayload = KnivesSystem.toCloudWeaponPayload(starter.weapons[0], 'user_789');
   assert.deepEqual(
     Object.keys(wpPayload).sort(),
     ['bluePct', 'caseId', 'floatValue', 'id', 'patternSeed', 'rarity', 'skinId', 'specialTag', 'uid', 'weaponType', 'wearGrade']
   );
-
-  // Arena match reward grants +1 case on completion and +2 cases on victory
-  const lossReward = KnivesSystem.grantArenaReward(starter, { won: false }, makeRng(7));
-  assert.equal(lossReward.awarded.length, 1);
-  const winReward = KnivesSystem.grantArenaReward(starter, { won: true }, makeRng(7));
-  assert.equal(winReward.awarded.length, 2);
 });
+
+test('skin valuation scales properly by rarity, wear, item type, and special tags', () => {
+  const starterWep = KnivesSystem.createStarterWeapon('rifle');
+  assert.equal(KnivesSystem.getItemSellValue(starterWep), 0);
+
+  const msBsDeagle = KnivesSystem.sanitizeWeaponItem({ id: 'wp_1', weaponType: 'deagle', skinId: 'ultraviolet', rarity: 'milspec', floatValue: 0.72, patternSeed: 10 });
+  const msFnDeagle = KnivesSystem.sanitizeWeaponItem({ id: 'wp_2', weaponType: 'deagle', skinId: 'ultraviolet', rarity: 'milspec', floatValue: 0.02, patternSeed: 10 });
+  const msFnAwp = KnivesSystem.sanitizeWeaponItem({ id: 'wp_3', weaponType: 'awp', skinId: 'ultraviolet', rarity: 'milspec', floatValue: 0.02, patternSeed: 10 });
+  const covFnAwp = KnivesSystem.sanitizeWeaponItem({ id: 'wp_4', weaponType: 'awp', skinId: 'dragon_gold', rarity: 'covert', floatValue: 0.02, patternSeed: 10 });
+  const goldKarambit = KnivesSystem.sanitizeKnifeItem({ id: 'knf_1', knifeType: 'karambit', skinId: 'tiger_tooth', rarity: 'gold', floatValue: 0.02, patternSeed: 10 });
+  const blueGemKarambit = KnivesSystem.sanitizeKnifeItem({ id: 'knf_2', knifeType: 'karambit', skinId: 'case_hardened', rarity: 'gold', floatValue: 0.02, patternSeed: 661, specialTag: 'BLUE GEM', bluePct: 90 });
+
+  const v1 = KnivesSystem.getItemSellValue(msBsDeagle);
+  const v2 = KnivesSystem.getItemSellValue(msFnDeagle);
+  const v3 = KnivesSystem.getItemSellValue(msFnAwp);
+  const v4 = KnivesSystem.getItemSellValue(covFnAwp);
+  const v5 = KnivesSystem.getItemSellValue(goldKarambit);
+  const v6 = KnivesSystem.getItemSellValue(blueGemKarambit);
+
+  assert.ok(v1 > 0 && v1 < v2, `FN (${v2}) should beat BS (${v1})`);
+  assert.ok(v2 < v3, `AWP (${v3}) should beat Deagle (${v2})`);
+  assert.ok(v3 < v4, `Covert (${v4}) should beat Mil-Spec (${v3})`);
+  assert.ok(v4 < v5, `Gold Karambit (${v5}) should beat Covert AWP (${v4})`);
+  assert.ok(v5 < v6, `Blue Gem Karambit (${v6}) should beat standard Gold Karambit (${v5})`);
+});
+
+test('buyCase, sellItems, starter/equipped protection, duplicate finder, and arena coin rewards work end-to-end', () => {
+  let inv = KnivesSystem.createStarterInventory(); // 150 coins
+
+  // Cannot afford Chroma (275) yet
+  const failBuy = KnivesSystem.buyCase(inv, 'chroma');
+  assert.equal(failBuy.purchased, false);
+  assert.equal(failBuy.deficit, 125);
+
+  // Can afford Velocity Classic (150)
+  const okBuy = KnivesSystem.buyCase(inv, 'velocity');
+  assert.equal(okBuy.purchased, true);
+  assert.equal(okBuy.inventory.coins, 0);
+  assert.equal(okBuy.inventory.caseCounts.velocity, 1);
+  inv = okBuy.inventory;
+
+  // Arena kill & match rewards
+  const kBody = KnivesSystem.grantArenaKillCoins(inv, { headshot: false });
+  assert.equal(kBody.coinsEarned, 8);
+  const kHead = KnivesSystem.grantArenaKillCoins(kBody.inventory, { headshot: true });
+  assert.equal(kHead.coinsEarned, 12);
+  const loss = KnivesSystem.grantArenaReward(kHead.inventory, { won: false });
+  assert.equal(loss.coinsEarned, 20);
+  const win = KnivesSystem.grantArenaReward(loss.inventory, { won: true });
+  assert.equal(win.coinsEarned, 65);
+  assert.equal(win.inventory.coins, 105);
+  inv = win.inventory;
+
+  // Add two duplicate rifles (one better FN, one worse BS) + one equipped knife
+  const dupGood = KnivesSystem.sanitizeWeaponItem({ id: 'wp_dup_fn', weaponType: 'rifle', skinId: 'redline', rarity: 'restricted', floatValue: 0.03, patternSeed: 12 });
+  const dupBad = KnivesSystem.sanitizeWeaponItem({ id: 'wp_dup_bs', weaponType: 'rifle', skinId: 'redline', rarity: 'restricted', floatValue: 0.78, patternSeed: 13 });
+  const unboxKnife = KnivesSystem.sanitizeKnifeItem({ id: 'knf_eq_test', knifeType: 'karambit', skinId: 'fade', rarity: 'gold', floatValue: 0.02, patternSeed: 763, specialTag: 'FULL FADE', bluePct: 100 });
+  inv.weapons.push(dupGood, dupBad);
+  inv.knives.push(unboxKnife);
+  inv.equippedKnifeId = unboxKnife.id;
+
+  // Starter & equipped items are protected
+  assert.equal(KnivesSystem.isItemSellable(inv, inv.weapons[0]).sellable, false);
+  assert.equal(KnivesSystem.isItemSellable(inv, unboxKnife).sellable, false);
+  assert.equal(KnivesSystem.isItemSellable(inv, dupBad).sellable, true);
+
+  // Duplicate finder keeps the higher-value FN copy and selects only the lower-value BS copy
+  const dups = KnivesSystem.findDuplicateSellableIds(inv, 'weapons');
+  assert.deepEqual(dups, ['wp_dup_bs']);
+
+  // Attempting to sell starter + equipped + sellable duplicate only sells the duplicate
+  const expectedVal = KnivesSystem.getItemSellValue(dupBad);
+  const sale = KnivesSystem.sellItems(inv, ['starter_rifle_slate', unboxKnife.id, dupBad.id]);
+  assert.equal(sale.soldItems.length, 1);
+  assert.equal(sale.soldItems[0].id, dupBad.id);
+  assert.equal(sale.coinsEarned, expectedVal);
+  assert.equal(sale.inventory.coins, 105 + expectedVal);
+  assert.ok(sale.inventory.weapons.some((w) => w.id === 'starter_rifle_slate'));
+  assert.ok(sale.inventory.knives.some((k) => k.id === unboxKnife.id));
+  assert.ok(!sale.inventory.weapons.some((w) => w.id === dupBad.id));
+});
+
 
 

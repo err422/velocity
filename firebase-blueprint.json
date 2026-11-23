@@ -250,7 +250,7 @@
     },
     "UserInventory": {
       "title": "UserInventory",
-      "description": "Private owner-only summary of equipped knife, equipped gloves, CS case counts, and unboxing stats.",
+      "description": "Private owner-only summary of coin balance, equipped knife, equipped gloves, equipped firearm skins, CS case counts, and unboxing stats.",
       "type": "object",
       "properties": {
         "uid": {
@@ -258,6 +258,10 @@
           "pattern": "^[a-zA-Z0-9_\\-]+$",
           "minLength": 1,
           "maxLength": 128
+        },
+        "coins": {
+          "type": "integer",
+          "description": "Current player coin balance (0..9999999)."
         },
         "equippedKnifeId": {
           "type": "string",
@@ -317,6 +321,7 @@
       },
       "required": [
         "uid",
+        "coins",
         "equippedKnifeId",
         "equippedGloveId",
         "equippedRifleId",

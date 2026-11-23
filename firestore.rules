@@ -322,6 +322,7 @@ service cloud.firestore {
     function isValidUserInventoryShape(data, uid) {
       return data.keys().hasAll([
           'uid',
+          'coins',
           'equippedKnifeId',
           'equippedGloveId',
           'equippedRifleId',
@@ -335,6 +336,7 @@ service cloud.firestore {
         ])
         && data.keys().hasOnly([
           'uid',
+          'coins',
           'equippedKnifeId',
           'equippedGloveId',
           'equippedRifleId',
@@ -351,6 +353,9 @@ service cloud.firestore {
         && data.uid.size() <= 128
         && data.uid == uid
         && data.uid == request.auth.uid
+        && data.coins is int
+        && data.coins >= 0
+        && data.coins <= 9999999
         && data.equippedKnifeId is string
         && data.equippedKnifeId.size() >= 1
         && data.equippedKnifeId.size() <= 64
@@ -843,6 +848,7 @@ service cloud.firestore {
         && incoming().createdAt == existing().createdAt
         && incoming().totalOpened >= existing().totalOpened
         && incoming().diff(existing()).affectedKeys().hasOnly([
+          'coins',
           'equippedKnifeId',
           'equippedGloveId',
           'equippedRifleId',

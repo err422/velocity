@@ -166,6 +166,66 @@
 
   const RARITY_IDS = Object.freeze(Object.keys(RARITIES));
 
+  const ECONOMY = Object.freeze({
+    STARTING_COINS: 150,
+    MAX_COINS: 9999999,
+    REWARDS: Object.freeze({
+      courseFinish: 25,
+      cleanGauntlet: 10,
+      newPb: 30,
+      dailyFirstClear: 40,
+      arenaKill: 8,
+      arenaHeadshotKill: 12,
+      arenaMatchComplete: 20,
+      arenaMatchWin: 45
+    }),
+    SELL_RARITY_BASE: Object.freeze({
+      milspec: 20,
+      restricted: 45,
+      classified: 100,
+      covert: 220,
+      gold: 480
+    }),
+    SELL_WEAPON_TYPE_MUL: Object.freeze({
+      deagle: 1.0,
+      rifle: 1.15,
+      awp: 1.25
+    }),
+    SELL_GLOVE_TYPE_MUL: Object.freeze({
+      standard: 1.1,
+      wraps: 1.2,
+      specialist: 1.3,
+      sport: 1.4
+    }),
+    SELL_KNIFE_TYPE_MUL: Object.freeze({
+      default: 1.05,
+      m9: 1.25,
+      skeleton: 1.3,
+      karambit: 1.45,
+      butterfly: 1.5
+    }),
+    SELL_WEAR_MUL: Object.freeze({
+      FN: 1.45,
+      MW: 1.2,
+      FT: 1.0,
+      WW: 0.8,
+      BS: 0.62
+    }),
+    SELL_SPECIAL_MUL: Object.freeze({
+      '': 1.0,
+      'PHASE 1': 1.15,
+      'PHASE 2': 1.15,
+      'PHASE 3': 1.15,
+      'PHASE 4': 1.15,
+      'FULL FADE': 1.35,
+      'FIRE & ICE': 1.45,
+      'RUBY': 1.65,
+      'SAPPHIRE': 1.65,
+      'BLACK PEARL': 1.65,
+      'BLUE GEM': 1.75
+    })
+  });
+
   const SKINS = Object.freeze({
     vanilla: {
       id: 'vanilla',
@@ -543,8 +603,11 @@
       id: 'velocity',
       name: 'Velocity Classic Case',
       shortName: 'Classic Case',
+      tierLabel: 'ENTRY TIER',
+      price: 150,
       accent: '#2ea8ff',
-      description: 'Classic weapon skins (Redline, Asiimov, Blaze, Case Hardened) plus 15% Gold Knife & Classic Glove drops.',
+      rarityWeights: Object.freeze({ milspec: 48, restricted: 24, classified: 13, covert: 7, gold: 8 }),
+      description: 'Classic weapon skins (Redline, Asiimov, Blaze, Case Hardened) · 8% Gold Knife & Classic Glove drops.',
       pools: {
         milspec: [
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'ultraviolet' },
@@ -586,8 +649,11 @@
       id: 'chroma',
       name: 'Chroma Surf Case',
       shortName: 'Chroma Case',
+      tierLabel: 'MID TIER',
+      price: 275,
       accent: '#d32ce6',
-      description: 'Anodized weapon skins (Neon Rider, Hyper Chroma, Printstream) plus 15% Gold Doppler Knives & Sport Gloves.',
+      rarityWeights: Object.freeze({ milspec: 34, restricted: 26, classified: 18, covert: 10, gold: 12 }),
+      description: 'Anodized skins (Neon Rider, Hyper Chroma, Printstream) · 12% Gold Doppler Gems & Sport Gloves.',
       pools: {
         milspec: [
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'damascus' },
@@ -629,8 +695,11 @@
       id: 'spectrum',
       name: 'Spectrum Gem Case',
       shortName: 'Spectrum Case',
+      tierLabel: 'ELITE TIER',
+      price: 450,
       accent: '#f5c542',
-      description: 'Showcase Dragon Gold, Fade & Printstream guns plus 15% Gold Full Fades, Gems & Vice / Slingshot Gloves.',
+      rarityWeights: Object.freeze({ milspec: 20, restricted: 24, classified: 22, covert: 16, gold: 18 }),
+      description: 'Dragon Gold, Fade & Printstream guns · 18% Gold Full Fades, Gems & Vice / Slingshot Gloves.',
       pools: {
         milspec: [
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'damascus' },
@@ -898,12 +967,31 @@
     return !!(item && (item.itemKind === 'weapon' || (!!item.weaponType && !item.knifeType && !item.gloveType)));
   }
 
-  function pickWeightedRarity(rng) {
+  function getCasePrice(caseId) {
+    const c = CASES[caseId] || CASES.velocity;
+    return c.price;
+  }
+
+  function getCaseOdds(caseId) {
+    const c = CASES[caseId] || CASES.velocity;
+    const weights = c.rarityWeights || null;
+    const total = RARITY_IDS.reduce((s, id) => s + (weights ? weights[id] : RARITIES[id].weight), 0) || 100;
+    const out = {};
+    for (const id of RARITY_IDS) {
+      const w = weights ? weights[id] : RARITIES[id].weight;
+      out[id] = Math.round((w / total) * 100);
+    }
+    return out;
+  }
+
+  function pickWeightedRarity(rng, caseId) {
     const r = typeof rng === 'function' ? rng : Math.random;
-    const total = RARITY_IDS.reduce((s, id) => s + RARITIES[id].weight, 0);
+    const c = caseId && CASES[caseId] ? CASES[caseId] : null;
+    const weights = c && c.rarityWeights ? c.rarityWeights : null;
+    const total = RARITY_IDS.reduce((s, id) => s + (weights ? weights[id] : RARITIES[id].weight), 0);
     let roll = r() * total;
     for (const id of RARITY_IDS) {
-      roll -= RARITIES[id].weight;
+      roll -= weights ? weights[id] : RARITIES[id].weight;
       if (roll <= 0) return id;
     }
     return 'milspec';
@@ -1007,7 +1095,7 @@
   function rollCaseDrop(caseId, rng) {
     const r = typeof rng === 'function' ? rng : Math.random;
     const validCaseId = CASES[caseId] ? caseId : 'velocity';
-    const winRarity = pickWeightedRarity(r);
+    const winRarity = pickWeightedRarity(r, validCaseId);
     const winner = rollItemFromPool(validCaseId, winRarity, r);
 
     const STRIP_LEN = 45;
@@ -1017,7 +1105,7 @@
       if (i === WIN_INDEX) {
         strip.push(winner);
       } else {
-        const decRarity = pickWeightedRarity(r);
+        const decRarity = pickWeightedRarity(r, validCaseId);
         strip.push(rollItemFromPool(validCaseId, decRarity, r, 'decoy_' + i));
       }
     }
@@ -1086,15 +1174,16 @@
     const starterGlove = createStarterGlove();
     const starterWeapons = createStarterWeapons();
     return {
+      coins: ECONOMY.STARTING_COINS,
       equippedKnifeId: starterKnife.id,
       equippedGloveId: starterGlove.id,
       equippedRifleId: starterWeapons[0].id,
       equippedAwpId: starterWeapons[1].id,
       equippedDeagleId: starterWeapons[2].id,
       caseCounts: {
-        velocity: 1,
-        chroma: 1,
-        spectrum: 1
+        velocity: 0,
+        chroma: 0,
+        spectrum: 0
       },
       totalOpened: 0,
       lastDailyDropDate: '',
@@ -1213,6 +1302,9 @@
 
   function sanitizeInventory(raw) {
     if (!raw || typeof raw !== 'object') return createStarterInventory();
+    const coins = raw.coins === undefined || raw.coins === null
+      ? ECONOMY.STARTING_COINS
+      : clampInt(raw.coins, 0, ECONOMY.MAX_COINS, ECONOMY.STARTING_COINS);
     const rawCases = raw.caseCounts && typeof raw.caseCounts === 'object' ? raw.caseCounts : {};
     const caseCounts = {
       velocity: clampInt(rawCases.velocity, 0, 999, 0),
@@ -1296,6 +1388,7 @@
     const equippedDeagleId = findValidWeaponId(raw.equippedDeagleId, 'deagle');
 
     return {
+      coins,
       equippedKnifeId,
       equippedGloveId,
       equippedRifleId,
@@ -1338,54 +1431,205 @@
     return (inventory.caseCounts.velocity || 0) + (inventory.caseCounts.chroma || 0) + (inventory.caseCounts.spectrum || 0);
   }
 
-  function grantRunRewards(inventory, info, rng) {
-    const inv = sanitizeInventory(inventory);
-    const r = typeof rng === 'function' ? rng : Math.random;
-    const awarded = [];
-    const pickCase = () => CASE_IDS[Math.floor(r() * CASE_IDS.length) % CASE_IDS.length];
+  function getItemSellValue(item) {
+    if (!item || typeof item !== 'object') return 0;
+    if (typeof item.id === 'string' && item.id.startsWith('starter_')) return 0;
+    const rarityBase = ECONOMY.SELL_RARITY_BASE[item.rarity] || ECONOMY.SELL_RARITY_BASE.milspec;
+    let typeMul = 1.0;
+    if (isWeaponItem(item)) {
+      typeMul = ECONOMY.SELL_WEAPON_TYPE_MUL[item.weaponType] || 1.0;
+    } else if (isGloveItem(item)) {
+      typeMul = ECONOMY.SELL_GLOVE_TYPE_MUL[item.gloveType] || 1.1;
+    } else {
+      typeMul = ECONOMY.SELL_KNIFE_TYPE_MUL[item.knifeType] || 1.05;
+    }
+    const wearCode = WEAR_CODES.includes(item.wearGrade)
+      ? item.wearGrade
+      : getWearGrade(item.floatValue).code;
+    const wearMul = ECONOMY.SELL_WEAR_MUL[wearCode] || 1.0;
+    const specialTag = typeof item.specialTag === 'string' ? item.specialTag : '';
+    const specialMul = ECONOMY.SELL_SPECIAL_MUL[specialTag] || 1.0;
+    return Math.max(10, Math.round(rarityBase * typeMul * wearMul * specialMul));
+  }
 
-    const finishCase = pickCase();
-    inv.caseCounts[finishCase] = Math.min(999, inv.caseCounts[finishCase] + 1);
-    awarded.push({ caseId: finishCase, reason: 'Course Finish' });
+  function isItemEquippedInInventory(inventory, item) {
+    if (!inventory || !item) return false;
+    if (isWeaponItem(item)) {
+      if (item.weaponType === 'awp') return inventory.equippedAwpId === item.id;
+      if (item.weaponType === 'deagle') return inventory.equippedDeagleId === item.id;
+      return inventory.equippedRifleId === item.id;
+    }
+    if (isGloveItem(item)) return inventory.equippedGloveId === item.id;
+    return inventory.equippedKnifeId === item.id;
+  }
+
+  function isItemSellable(inventory, item) {
+    if (!item || typeof item !== 'object') return { sellable: false, reason: 'INVALID ITEM', value: 0 };
+    if (typeof item.id === 'string' && item.id.startsWith('starter_')) {
+      return { sellable: false, reason: 'STARTER ITEM', value: 0 };
+    }
+    const value = getItemSellValue(item);
+    if (isItemEquippedInInventory(inventory, item)) {
+      return { sellable: false, reason: 'UNEQUIP TO SELL', value };
+    }
+    return { sellable: true, reason: '', value };
+  }
+
+  function buyCase(inventory, caseId) {
+    const inv = sanitizeInventory(inventory);
+    const validId = CASES[caseId] ? caseId : 'velocity';
+    const price = getCasePrice(validId);
+    if (inv.coins < price) {
+      return {
+        purchased: false,
+        reason: 'INSUFFICIENT_COINS',
+        price,
+        deficit: price - inv.coins,
+        inventory: inv
+      };
+    }
+    inv.coins = Math.max(0, inv.coins - price);
+    inv.caseCounts[validId] = Math.min(999, (inv.caseCounts[validId] || 0) + 1);
+    return {
+      purchased: true,
+      caseId: validId,
+      price,
+      inventory: inv
+    };
+  }
+
+  function sellItems(inventory, itemIds) {
+    const inv = sanitizeInventory(inventory);
+    const idSet = new Set(Array.isArray(itemIds) ? itemIds.map((x) => String(x)) : []);
+    if (idSet.size === 0) {
+      return { inventory: inv, soldItems: [], coinsEarned: 0 };
+    }
+
+    const soldItems = [];
+    let coinsEarned = 0;
+
+    const filterList = (list) => {
+      const kept = [];
+      for (const item of list) {
+        if (idSet.has(item.id)) {
+          const check = isItemSellable(inv, item);
+          if (check.sellable) {
+            soldItems.push(item);
+            coinsEarned += check.value;
+            continue;
+          }
+        }
+        kept.push(item);
+      }
+      return kept;
+    };
+
+    inv.weapons = filterList(inv.weapons);
+    inv.knives = filterList(inv.knives);
+    inv.gloves = filterList(inv.gloves);
+    inv.coins = Math.min(ECONOMY.MAX_COINS, inv.coins + coinsEarned);
+
+    return { inventory: inv, soldItems, coinsEarned };
+  }
+
+  function findDuplicateSellableIds(inventory, category) {
+    const inv = sanitizeInventory(inventory);
+    const lists = [];
+    if (!category || category === 'all' || category === 'weapons') lists.push(inv.weapons);
+    if (!category || category === 'all' || category === 'knives') lists.push(inv.knives);
+    if (!category || category === 'all' || category === 'gloves') lists.push(inv.gloves);
+
+    const dupIds = [];
+    for (const list of lists) {
+      const groups = new Map();
+      for (const item of list) {
+        if (typeof item.id === 'string' && item.id.startsWith('starter_')) continue;
+        const groupKey = isWeaponItem(item)
+          ? `w:${item.weaponType}:${item.skinId}`
+          : isGloveItem(item)
+            ? `g:${item.gloveType}:${item.skinId}`
+            : `k:${item.knifeType}:${item.skinId}`;
+        if (!groups.has(groupKey)) groups.set(groupKey, []);
+        groups.get(groupKey).push(item);
+      }
+      for (const items of groups.values()) {
+        if (items.length < 2) continue;
+        // Keep the single best copy: equipped first, then highest sell value, then lowest float
+        items.sort((a, b) => {
+          const eqDiff = (isItemEquippedInInventory(inv, b) ? 1 : 0) - (isItemEquippedInInventory(inv, a) ? 1 : 0);
+          if (eqDiff !== 0) return eqDiff;
+          const valDiff = getItemSellValue(b) - getItemSellValue(a);
+          if (valDiff !== 0) return valDiff;
+          return (a.floatValue || 1) - (b.floatValue || 1);
+        });
+        for (let i = 1; i < items.length; i++) {
+          if (isItemSellable(inv, items[i]).sellable) {
+            dupIds.push(items[i].id);
+          }
+        }
+      }
+    }
+    return dupIds;
+  }
+
+  function grantRunRewards(inventory, info) {
+    const inv = sanitizeInventory(inventory);
+    const breakdown = [];
+    let coinsEarned = 0;
+
+    const add = (coins, reason) => {
+      coinsEarned += coins;
+      breakdown.push({ coins, reason });
+    };
+
+    add(ECONOMY.REWARDS.courseFinish, 'Course Finish');
+
+    if (info && info.cleanGauntlet) {
+      add(ECONOMY.REWARDS.cleanGauntlet, 'Clean Gauntlet');
+    }
 
     if (info && info.isNewBest) {
-      const pbCase = pickCase();
-      inv.caseCounts[pbCase] = Math.min(999, inv.caseCounts[pbCase] + 1);
-      awarded.push({ caseId: pbCase, reason: 'New Personal Best' });
+      add(ECONOMY.REWARDS.newPb, 'New Personal Best');
     }
 
     const todayKey = info && typeof info.todayKey === 'string' ? info.todayKey : '';
     const dateKey = info && typeof info.dateKey === 'string' ? info.dateKey : '';
     if (dateKey && todayKey && dateKey === todayKey && inv.lastDailyDropDate !== todayKey) {
       inv.lastDailyDropDate = todayKey;
-      const d1 = 'chroma';
-      const d2 = 'spectrum';
-      inv.caseCounts[d1] = Math.min(999, inv.caseCounts[d1] + 1);
-      inv.caseCounts[d2] = Math.min(999, inv.caseCounts[d2] + 1);
-      awarded.push({ caseId: d1, reason: 'Daily First Clear' });
-      awarded.push({ caseId: d2, reason: 'Daily First Clear' });
+      add(ECONOMY.REWARDS.dailyFirstClear, 'Daily First Clear');
     }
 
-    return { inventory: inv, awarded };
+    inv.coins = Math.min(ECONOMY.MAX_COINS, inv.coins + coinsEarned);
+    return { inventory: inv, coinsEarned, breakdown };
   }
 
-  function grantArenaReward(inventory, info, rng) {
+  function grantArenaKillCoins(inventory, info) {
     const inv = sanitizeInventory(inventory);
-    const r = typeof rng === 'function' ? rng : Math.random;
-    const awarded = [];
-    const pickCase = () => CASE_IDS[Math.floor(r() * CASE_IDS.length) % CASE_IDS.length];
+    const isHeadshot = Boolean(info && info.headshot);
+    const coinsEarned = isHeadshot ? ECONOMY.REWARDS.arenaHeadshotKill : ECONOMY.REWARDS.arenaKill;
+    inv.coins = Math.min(ECONOMY.MAX_COINS, inv.coins + coinsEarned);
+    return {
+      inventory: inv,
+      coinsEarned,
+      reason: isHeadshot ? 'Headshot Elimination' : 'Arena Elimination'
+    };
+  }
 
-    const matchCase = pickCase();
-    inv.caseCounts[matchCase] = Math.min(999, inv.caseCounts[matchCase] + 1);
-    awarded.push({ caseId: matchCase, reason: 'Arena Match Complete' });
+  function grantArenaReward(inventory, info) {
+    const inv = sanitizeInventory(inventory);
+    const breakdown = [];
+    let coinsEarned = 0;
+
+    coinsEarned += ECONOMY.REWARDS.arenaMatchComplete;
+    breakdown.push({ coins: ECONOMY.REWARDS.arenaMatchComplete, reason: 'Arena Match Complete' });
 
     if (info && info.won) {
-      const winCase = pickCase();
-      inv.caseCounts[winCase] = Math.min(999, inv.caseCounts[winCase] + 1);
-      awarded.push({ caseId: winCase, reason: 'Arena Victory Bonus' });
+      coinsEarned += ECONOMY.REWARDS.arenaMatchWin;
+      breakdown.push({ coins: ECONOMY.REWARDS.arenaMatchWin, reason: 'Arena Victory Bonus' });
     }
 
-    return { inventory: inv, awarded };
+    inv.coins = Math.min(ECONOMY.MAX_COINS, inv.coins + coinsEarned);
+    return { inventory: inv, coinsEarned, breakdown };
   }
 
   function formatKnifeFullName(item) {
@@ -1437,6 +1681,7 @@
     const clean = sanitizeInventory(inventory);
     return {
       uid: String(uid || ''),
+      coins: clean.coins,
       equippedKnifeId: clean.equippedKnifeId,
       equippedGloveId: clean.equippedGloveId,
       equippedRifleId: clean.equippedRifleId,
@@ -1532,6 +1777,7 @@
 
   return {
     STORAGE_KEY,
+    ECONOMY,
     KNIFE_TYPES,
     KNIFE_TYPE_IDS,
     GLOVE_TYPES,
@@ -1568,6 +1814,14 @@
     computeSkinMetadata,
     isGloveItem,
     isWeaponItem,
+    getCasePrice,
+    getCaseOdds,
+    getItemSellValue,
+    isItemEquippedInInventory,
+    isItemSellable,
+    buyCase,
+    sellItems,
+    findDuplicateSellableIds,
     rollItemFromPool,
     rollCaseDrop,
     createStarterKnife,
@@ -1584,6 +1838,7 @@
     getEquippedWeapon,
     totalCaseCount,
     grantRunRewards,
+    grantArenaKillCoins,
     grantArenaReward,
     formatKnifeFullName,
     formatGloveFullName,

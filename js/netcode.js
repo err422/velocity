@@ -58,6 +58,7 @@
     onKillFeed: null,
     onBanner: null,
     onMatchEnd: null,
+    onLocalKill: null,
     onLocalDamage: null,
     onLocalRespawn: null,
     onRemoteTracer: null,
@@ -504,8 +505,17 @@
         alive: pkt.alive
       });
     }
-    if (pkt.attackerUid === state.localUid && pkt.killed && root.CombatSystem) {
-      root.CombatSystem.triggerHitmarker(pkt.headshot, true);
+    if (pkt.attackerUid === state.localUid && pkt.killed) {
+      if (root.CombatSystem) root.CombatSystem.triggerHitmarker(pkt.headshot, true);
+      if (state.isOnline && pkt.victimUid !== state.localUid && typeof callbacks.onLocalKill === 'function') {
+        callbacks.onLocalKill({
+          victimUid: pkt.victimUid,
+          victimName: pkt.victimName,
+          slot: pkt.slot,
+          headshot: Boolean(pkt.headshot),
+          mode: state.mode
+        });
+      }
     }
     if (pkt.killed) {
       pushKillFeed(pkt.attackerName, pkt.victimName, pkt.slot, pkt.headshot);

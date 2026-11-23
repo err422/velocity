@@ -252,16 +252,22 @@ const hostRoomNameInput=$('hostRoomName'),hostDeployBtn=$('hostDeployBtn'),hostD
 const privateCodeInput=$('privateCodeInput'),joinPrivateCodeBtn=$('joinPrivateCodeBtn');
 
 // Armory DOM refs
-const armorySyncNote=$('armorySyncNote'),armoryBackBtn=$('armoryBackBtn');
+const armoryCoinBalance=$('armoryCoinBalance'),armorySyncNote=$('armorySyncNote'),armoryBackBtn=$('armoryBackBtn');
 const armTabCases=$('armTabCases'),armTabInventory=$('armTabInventory');
 const armoryCasesSelect=$('armoryCasesSelect'),armoryCaseGrid=$('armoryCaseGrid');
-const selectedCaseTitle=$('selectedCaseTitle'),selectedCasePool=$('selectedCasePool');
-const openCaseBtn=$('openCaseBtn'),openCaseHint=$('openCaseHint'),armoryOpenedStat=$('armoryOpenedStat');
+const selectedCaseTitle=$('selectedCaseTitle'),caseOddsLine=$('caseOddsLine'),selectedCasePool=$('selectedCasePool');
+const openCaseBtn=$('openCaseBtn'),buyCaseBtn=$('buyCaseBtn'),openCaseHint=$('openCaseHint'),armoryOpenedStat=$('armoryOpenedStat');
 const armoryRouletteWrap=$('armoryRouletteWrap'),rouletteCaseLabel=$('rouletteCaseLabel');
 const rouletteViewport=$('rouletteViewport'),rouletteTrack=$('rouletteTrack'),rouletteStatus=$('rouletteStatus');
 const armoryRevealWrap=$('armoryRevealWrap'),armoryRevealStage=$('armoryRevealStage'),revealStageBar=$('revealStageBar');
+const revealValueLine=$('revealValueLine'),revealSellBtn=$('revealSellBtn');
 const armoryInspectStage=$('armoryInspectStage'),invStageBar=$('invStageBar'),armoryPreviewCanvas=$('armoryPreviewCanvas');
-const armoryInvGrid=$('armoryInvGrid');
+const armoryInvGrid=$('armoryInvGrid'),invSellBtn=$('invSellBtn');
+const invBulkToggleBtn=$('invBulkToggleBtn'),invBulkBar=$('invBulkBar');
+const bulkSelSummary=$('bulkSelSummary'),bulkSellConfirmBtn=$('bulkSellConfirmBtn');
+const sellConfirmModal=$('sellConfirmModal'),sellConfirmTitle=$('sellConfirmTitle'),sellConfirmSub=$('sellConfirmSub');
+const sellConfirmWarn=$('sellConfirmWarn'),sellConfirmList=$('sellConfirmList'),sellConfirmBalance=$('sellConfirmBalance');
+const sellConfirmCancelBtn=$('sellConfirmCancelBtn'),sellConfirmYesBtn=$('sellConfirmYesBtn');
 
 let inLevel=false;
 let archiveCourses=[];
@@ -294,9 +300,16 @@ let selectedInvWeaponId=window.activeInventory.equippedRifleId;
 let selectedInvKnifeId=window.activeInventory.equippedKnifeId;
 let selectedInvGloveId=window.activeInventory.equippedGloveId;
 let lastRevealedItem=null;
+let bulkSellMode=false;
+const bulkSelectedIds=new Set();
+let pendingSale=null;
 let rouletteRafId=0;
 let rouletteFinishCb=null;
 const thumbCache=new Map();
+
+function fmtCoins(n){
+  return Math.max(0,Math.floor(Number(n)||0)).toLocaleString('en-US');
+}
 
 function localPbFor(courseId){
   return Number(localStorage.getItem('velocity_pb_'+courseId)||0);
@@ -778,13 +791,19 @@ function getThumbForItem(item){
 }
 
 function updateArmoryBadges(){
+  const coins=window.activeInventory.coins||0;
   const casesTotal=KnivesSystem.totalCaseCount(window.activeInventory);
   const weaponTotal=(window.activeInventory.weapons||[]).length;
   const knifeTotal=window.activeInventory.knives.length;
   const gloveTotal=window.activeInventory.gloves.length;
   const invTotal=weaponTotal+knifeTotal+gloveTotal;
-  if(menuArmoryBtn)menuArmoryBtn.textContent=casesTotal>0?`ARMORY (${casesTotal})`:'ARMORY';
-  if(armTabCases)armTabCases.textContent=`CASES (${casesTotal})`;
+  if(armoryCoinBalance)armoryCoinBalance.textContent=`${fmtCoins(coins)} COINS`;
+  if(menuArmoryBtn){
+    menuArmoryBtn.textContent=casesTotal>0
+      ?`ARMORY · ${fmtCoins(coins)}C (${casesTotal})`
+      :`ARMORY · ${fmtCoins(coins)}C`;
+  }
+  if(armTabCases)armTabCases.textContent=casesTotal>0?`CASE SHOP (${casesTotal})`:'CASE SHOP';
   if(armTabInventory)armTabInventory.textContent=`INVENTORY (${invTotal})`;
   const catW=$('invCatWeapons'),catK=$('invCatKnives'),catG=$('invCatGloves');
   if(catW)catW.textContent=`WEAPONS (${weaponTotal})`;
@@ -904,10 +923,13 @@ function stopRouletteAnimation(){
 
 function renderArmoryCases(){
   if(!armoryCaseGrid)return;
+  const coins=window.activeInventory.coins||0;
   armoryCaseGrid.textContent='';
   for(const cid of KnivesSystem.CASE_IDS){
     const c=KnivesSystem.CASES[cid];
     const count=window.activeInventory.caseCounts[cid]||0;
+    const price=KnivesSystem.getCasePrice(cid);
+    const odds=KnivesSystem.getCaseOdds(cid);
     const btn=document.createElement('button');
     btn.type='button';
     btn.className='case-card'+(cid===selectedCaseId?' selected':'');
@@ -928,11 +950,22 @@ function renderArmoryCases(){
     const nm=document.createElement('span');
     nm.className='case-name';
     nm.textContent=c.name;
-    const cnt=document.createElement('span');
-    cnt.className='case-count'+(count===0?' zero':'');
-    cnt.textContent=`×${count}`;
+    const tier=document.createElement('span');
+    tier.className='case-tier';
+    tier.textContent=c.tierLabel||'TIER';
     top.appendChild(nm);
-    top.appendChild(cnt);
+    top.appendChild(tier);
+
+    const priceRow=document.createElement('div');
+    priceRow.className='case-price-row';
+    const pr=document.createElement('span');
+    pr.className='case-price';
+    pr.textContent=`${fmtCoins(price)} COINS`;
+    const own=document.createElement('span');
+    own.className='case-owned-tag'+(count>0?'':' odds');
+    own.textContent=count>0?`OWNED ×${count}`:`${odds.gold}% GOLD`;
+    priceRow.appendChild(pr);
+    priceRow.appendChild(own);
 
     const desc=document.createElement('div');
     desc.className='case-desc';
@@ -940,6 +973,7 @@ function renderArmoryCases(){
 
     btn.appendChild(art);
     btn.appendChild(top);
+    btn.appendChild(priceRow);
     btn.appendChild(desc);
     btn.onclick=()=>{selectedCaseId=cid;renderArmoryCases();};
     armoryCaseGrid.appendChild(btn);
@@ -947,7 +981,15 @@ function renderArmoryCases(){
 
   const sel=KnivesSystem.CASES[selectedCaseId]||KnivesSystem.CASES.velocity;
   const selCount=window.activeInventory.caseCounts[sel.id]||0;
-  selectedCaseTitle.textContent=`${sel.name.toUpperCase()} — 85% WEAPON SKINS · 15% RARE GOLD KNIVES & GLOVES`;
+  const selPrice=KnivesSystem.getCasePrice(sel.id);
+  const selOdds=KnivesSystem.getCaseOdds(sel.id);
+  const canAfford=coins>=selPrice;
+  const deficit=Math.max(0,selPrice-coins);
+
+  selectedCaseTitle.textContent=`${sel.name.toUpperCase()} · ${sel.tierLabel} · ${fmtCoins(selPrice)} COINS`;
+  if(caseOddsLine){
+    caseOddsLine.textContent=`ODDS: ${selOdds.milspec}% MIL-SPEC · ${selOdds.restricted}% RESTRICTED · ${selOdds.classified}% CLASSIFIED · ${selOdds.covert}% COVERT · ${selOdds.gold}% GOLD`;
+  }
   selectedCasePool.textContent='';
   const previewTiers=['gold','covert','classified','restricted','milspec'];
   for(const rid of previewTiers){
@@ -978,10 +1020,44 @@ function renderArmoryCases(){
       selectedCasePool.appendChild(tag);
     }
   }
-  openCaseBtn.disabled=selCount<=0;
-  openCaseBtn.textContent=selCount>0?`OPEN ${sel.name.replace(' Case','').toUpperCase()} (${selCount})`:'NO CASES OWNED';
-  openCaseHint.textContent=selCount>0?'Consumes 1 container · 15% Gold drop rate for Knives & Gloves':'Finish any course, Daily, or Arena match to earn more cases';
+
+  if(selCount>0){
+    openCaseBtn.disabled=false;
+    openCaseBtn.textContent=`OPEN OWNED (${selCount})`;
+    if(buyCaseBtn){
+      buyCaseBtn.style.display='';
+      buyCaseBtn.disabled=!canAfford;
+      buyCaseBtn.textContent=canAfford
+        ?`BUY +1 CASE · ${fmtCoins(selPrice)}C`
+        :`NEED ${fmtCoins(deficit)}C TO BUY`;
+    }
+    openCaseHint.textContent=`Consumes 1 owned container · ${selOdds.gold}% Gold Knives & Gloves`;
+  }else{
+    if(buyCaseBtn)buyCaseBtn.style.display='none';
+    openCaseBtn.disabled=!canAfford;
+    openCaseBtn.textContent=canAfford
+      ?`BUY & OPEN · ${fmtCoins(selPrice)} COINS`
+      :`NEED ${fmtCoins(deficit)} MORE COINS`;
+    openCaseHint.textContent=canAfford
+      ?`Deducts ${fmtCoins(selPrice)} coins & unlocks immediately · ${selOdds.gold}% Gold`
+      :`Beat courses, set PBs, win arenas, or sell skins for ${fmtCoins(deficit)} more coins`;
+  }
   updateArmoryBadges();
+}
+
+function buyCaseOnly(caseId){
+  const cid=KnivesSystem.CASES[caseId]?caseId:'velocity';
+  const res=KnivesSystem.buyCase(window.activeInventory,cid);
+  if(!res.purchased){
+    showToast(`NEED ${fmtCoins(res.deficit)} MORE COINS`);
+    return;
+  }
+  window.activeInventory=res.inventory;
+  persistInventorySummary(true);
+  CaseAudio.coinChime('buy');
+  renderArmoryCases();
+  const cDef=KnivesSystem.CASES[cid];
+  showToast(`PURCHASED ${cDef.name.toUpperCase()} · -${fmtCoins(res.price)} COINS`);
 }
 
 function showCasesView(mode){
@@ -1002,6 +1078,44 @@ function isWeaponEquipped(item){
   return window.activeInventory[weaponEquipField(item.weaponType)]===item.id;
 }
 
+function refreshRevealActionButtons(){
+  if(!lastRevealedItem)return;
+  const item=lastRevealedItem;
+  const isGlove=KnivesSystem.isGloveItem(item);
+  const isWeapon=KnivesSystem.isWeaponItem(item);
+  const isEq=KnivesSystem.isItemEquippedInInventory(window.activeInventory,item);
+  $('revealEquipBtn').textContent=isEq?'EQUIPPED':(isWeapon?'EQUIP SKIN':isGlove?'EQUIP GLOVES':'EQUIP KNIFE');
+  $('revealEquipBtn').disabled=isEq;
+
+  const sellCheck=KnivesSystem.isItemSellable(window.activeInventory,item);
+  const wear=KnivesSystem.getWearGrade(item.floatValue);
+  if(revealValueLine){
+    revealValueLine.textContent=`MARKET VALUE · ${fmtCoins(sellCheck.value)} COINS · ${wear.code}`;
+  }
+  if(revealSellBtn){
+    revealSellBtn.disabled=!sellCheck.sellable;
+    revealSellBtn.textContent=sellCheck.sellable
+      ?`QUICK SELL · +${fmtCoins(sellCheck.value)}C`
+      :sellCheck.reason;
+  }
+
+  const cid=KnivesSystem.CASES[selectedCaseId]?selectedCaseId:'velocity';
+  const remCount=window.activeInventory.caseCounts[cid]||0;
+  const price=KnivesSystem.getCasePrice(cid);
+  const coins=window.activeInventory.coins||0;
+  const openAgainBtn=$('revealOpenAgainBtn');
+  if(remCount>0){
+    openAgainBtn.disabled=false;
+    openAgainBtn.textContent=`OPEN OWNED (${remCount})`;
+  }else if(coins>=price){
+    openAgainBtn.disabled=false;
+    openAgainBtn.textContent=`BUY & OPEN · ${fmtCoins(price)}C`;
+  }else{
+    openAgainBtn.disabled=true;
+    openAgainBtn.textContent=`NEED ${fmtCoins(price-coins)}C`;
+  }
+}
+
 function showRevealStage(item){
   stopRouletteAnimation();
   lastRevealedItem=item;
@@ -1012,19 +1126,16 @@ function showRevealStage(item){
   else selectedInvKnifeId=item.id;
   showCasesView('reveal');
   fillItemSpecs('reveal',item);
-  const isEq=isWeapon
-    ?isWeaponEquipped(item)
-    :isGlove
-      ?(window.activeInventory.equippedGloveId===item.id)
-      :(window.activeInventory.equippedKnifeId===item.id);
-  $('revealEquipBtn').textContent=isEq?'EQUIPPED':(isWeapon?'EQUIP SKIN':isGlove?'EQUIP GLOVES':'EQUIP KNIFE');
-  $('revealEquipBtn').disabled=isEq;
-  const remCount=window.activeInventory.caseCounts[selectedCaseId]||0;
-  $('revealOpenAgainBtn').disabled=remCount<=0;
-  $('revealOpenAgainBtn').textContent=remCount>0?`OPEN ANOTHER (${remCount})`:'NO MORE OF THIS CASE';
-  const showTricks=!isWeapon;
-  $('revealTrickBtn').style.display=showTricks?'':'none';
-  if($('revealMythicBtn'))$('revealMythicBtn').style.display=showTricks?'':'none';
+  refreshRevealActionButtons();
+  const revTrickBtn=$('revealTrickBtn'),revMythicBtn=$('revealMythicBtn');
+  if(revTrickBtn){
+    revTrickBtn.style.display='';
+    revTrickBtn.textContent=isWeapon?'INSPECT':'PLAY TRICK';
+  }
+  if(revMythicBtn){
+    revMythicBtn.style.display='';
+    revMythicBtn.textContent=isWeapon?'RARE TRICK ★':'MYTHIC ★';
+  }
   const previewGlove=isGlove?item:KnivesSystem.getEquippedGlove(window.activeInventory);
   const previewItem=isGlove?KnivesSystem.getEquippedKnife(window.activeInventory):item;
   mountArmoryCanvas(armoryRevealStage,previewItem,previewGlove,'combo');
@@ -1033,10 +1144,18 @@ function showRevealStage(item){
 
 function startCaseUnboxing(caseId){
   const cid=KnivesSystem.CASES[caseId]?caseId:'velocity';
-  const curCount=window.activeInventory.caseCounts[cid]||0;
+  const cDef=KnivesSystem.CASES[cid];
+  let curCount=window.activeInventory.caseCounts[cid]||0;
   if(curCount<=0){
-    showToast('NO CASES AVAILABLE — FINISH A COURSE OR ARENA TO EARN MORE');
-    return;
+    const bought=KnivesSystem.buyCase(window.activeInventory,cid);
+    if(!bought.purchased){
+      showToast(`NEED ${fmtCoins(bought.deficit)} MORE COINS FOR ${cDef.shortName.toUpperCase()}`);
+      renderArmoryCases();
+      return;
+    }
+    window.activeInventory=bought.inventory;
+    curCount=window.activeInventory.caseCounts[cid]||0;
+    CaseAudio.coinChime('buy');
   }
   selectedCaseId=cid;
   const roll=KnivesSystem.rollCaseDrop(cid);
@@ -1044,7 +1163,7 @@ function startCaseUnboxing(caseId){
   const isWeaponWin=KnivesSystem.isWeaponItem(roll.winner);
 
   // Commit immediately so the drop is safe even if user skips or closes Armory
-  window.activeInventory.caseCounts[cid]=curCount-1;
+  window.activeInventory.caseCounts[cid]=Math.max(0,curCount-1);
   window.activeInventory.totalOpened=(window.activeInventory.totalOpened||0)+1;
   if(isWeaponWin){
     window.activeInventory.weapons.unshift(roll.winner);
@@ -1065,7 +1184,6 @@ function startCaseUnboxing(caseId){
   }
 
   showCasesView('roulette');
-  const cDef=KnivesSystem.CASES[cid];
   rouletteCaseLabel.textContent=`UNLOCKING ${cDef.name.toUpperCase()}`;
   rouletteStatus.textContent='ROLLING PATTERN SEED & WEAR FLOAT...';
 
@@ -1154,85 +1272,273 @@ function equipWeaponById(weaponId){
   const found=(window.activeInventory.weapons||[]).find(w=>w.id===weaponId);
   if(!found)return;
   window.activeInventory[weaponEquipField(found.weaponType)]=found.id;
+  bulkSelectedIds.delete(found.id);
   persistInventorySummary(true);
   ViewmodelSystem.equipWeaponSkin(found);
   showToast(`EQUIPPED ${KnivesSystem.formatWeaponFullName(found).toUpperCase()}`);
   if(activeArmoryTab==='inventory')renderArmoryInventory();
-  if(lastRevealedItem&&lastRevealedItem.id===found.id){
-    $('revealEquipBtn').textContent='EQUIPPED';
-    $('revealEquipBtn').disabled=true;
-  }
+  if(lastRevealedItem&&lastRevealedItem.id===found.id)refreshRevealActionButtons();
 }
 
 function equipKnifeById(knifeId){
   const found=window.activeInventory.knives.find(k=>k.id===knifeId);
   if(!found)return;
   window.activeInventory.equippedKnifeId=found.id;
+  bulkSelectedIds.delete(found.id);
   persistInventorySummary(true);
   ViewmodelSystem.equipKnife(found,true);
   showToast(`EQUIPPED ${KnivesSystem.formatKnifeFullName(found).toUpperCase()}`);
   if(activeArmoryTab==='inventory')renderArmoryInventory();
-  if(lastRevealedItem&&lastRevealedItem.id===found.id){
-    $('revealEquipBtn').textContent='EQUIPPED';
-    $('revealEquipBtn').disabled=true;
-  }
+  if(lastRevealedItem&&lastRevealedItem.id===found.id)refreshRevealActionButtons();
 }
 
 function equipGloveById(gloveId){
   const found=window.activeInventory.gloves.find(g=>g.id===gloveId);
   if(!found)return;
   window.activeInventory.equippedGloveId=found.id;
+  bulkSelectedIds.delete(found.id);
   persistInventorySummary(true);
   ViewmodelSystem.equipGlove(found);
   showToast(`EQUIPPED ${KnivesSystem.formatGloveFullName(found).toUpperCase()}`);
   if(activeArmoryTab==='inventory')renderArmoryInventory();
-  if(lastRevealedItem&&lastRevealedItem.id===found.id){
-    $('revealEquipBtn').textContent='EQUIPPED';
-    $('revealEquipBtn').disabled=true;
+  if(lastRevealedItem&&lastRevealedItem.id===found.id)refreshRevealActionButtons();
+}
+
+function getAllInventoryItems(){
+  return [
+    ...(window.activeInventory.weapons||[]),
+    ...(window.activeInventory.knives||[]),
+    ...(window.activeInventory.gloves||[])
+  ];
+}
+
+function getVisibleInventoryList(){
+  const isWeaponCat=invCategory==='weapons';
+  const isGloveCat=invCategory==='gloves';
+  const sourceList=isWeaponCat?(window.activeInventory.weapons||[]):isGloveCat?window.activeInventory.gloves:window.activeInventory.knives;
+  return sourceList.filter(it=>invFilterType==='all'||(isWeaponCat?it.weaponType===invFilterType:isGloveCat?it.gloveType===invFilterType:it.knifeType===invFilterType));
+}
+
+function closeSellConfirmModal(){
+  pendingSale=null;
+  if(sellConfirmModal)sellConfirmModal.style.display='none';
+}
+
+function openSellConfirmModal(items,mode){
+  if(!sellConfirmModal)return;
+  const valid=[];
+  let totalCoins=0;
+  let highValueCount=0;
+  for(const item of (items||[])){
+    const check=KnivesSystem.isItemSellable(window.activeInventory,item);
+    if(!check.sellable)continue;
+    valid.push({item,value:check.value});
+    totalCoins+=check.value;
+    if(item.rarity==='covert'||item.rarity==='gold')highValueCount++;
+  }
+  if(valid.length===0){
+    showToast('NO SELLABLE SKINS SELECTED');
+    return;
+  }
+
+  pendingSale={items:valid.map(v=>v.item),mode:mode||'single',totalCoins};
+  const curCoins=window.activeInventory.coins||0;
+  const nextCoins=Math.min(KnivesSystem.ECONOMY.MAX_COINS,curCoins+totalCoins);
+
+  if(sellConfirmTitle){
+    sellConfirmTitle.textContent=valid.length===1
+      ?'Sell Skin for Coins?'
+      :`Sell ${valid.length} Skins for ${fmtCoins(totalCoins)} Coins?`;
+  }
+  if(sellConfirmSub){
+    sellConfirmSub.textContent=valid.length===1
+      ?'This skin will be permanently removed from your inventory and converted to coins.'
+      :`These ${valid.length} skins will be permanently removed from your inventory. Starter and equipped items are always protected.`;
+  }
+  if(sellConfirmWarn){
+    if(highValueCount>0){
+      sellConfirmWarn.style.display='';
+      sellConfirmWarn.textContent=`HIGH-VALUE WARNING: Includes ${highValueCount} rare Covert / Exceedingly Rare Gold item${highValueCount>1?'s':''}.`;
+    }else{
+      sellConfirmWarn.style.display='none';
+    }
+  }
+
+  if(sellConfirmList){
+    sellConfirmList.textContent='';
+    const previewCap=12;
+    const shown=valid.slice(0,previewCap);
+    for(const entry of shown){
+      const rar=KnivesSystem.RARITIES[entry.item.rarity]||KnivesSystem.RARITIES.milspec;
+      const row=document.createElement('div');
+      row.className='sell-modal-row';
+      row.style.setProperty('--rar-col',rar.color);
+
+      const left=document.createElement('div');
+      left.style.minWidth='0';
+      left.style.display='flex';
+      left.style.alignItems='baseline';
+      const nm=document.createElement('span');
+      nm.className='sell-modal-row-name';
+      nm.textContent=KnivesSystem.formatItemFullName(entry.item);
+      const mt=document.createElement('span');
+      mt.className='sell-modal-row-meta';
+      mt.textContent=`${entry.item.wearGrade}${entry.item.specialTag?' · '+entry.item.specialTag:''}`;
+      left.appendChild(nm);
+      left.appendChild(mt);
+
+      const val=document.createElement('span');
+      val.className='sell-modal-row-val';
+      val.textContent=`+${fmtCoins(entry.value)}C`;
+
+      row.appendChild(left);
+      row.appendChild(val);
+      sellConfirmList.appendChild(row);
+    }
+    if(valid.length>previewCap){
+      const extra=valid.length-previewCap;
+      const moreRow=document.createElement('div');
+      moreRow.className='sell-modal-row';
+      moreRow.style.setProperty('--rar-col','#65e7ff');
+      const moreTxt=document.createElement('span');
+      moreTxt.className='sell-modal-row-meta';
+      moreTxt.style.marginLeft='0';
+      moreTxt.textContent=`+ ${extra} MORE SKIN${extra>1?'S':''} INCLUDED IN SALE`;
+      moreRow.appendChild(moreTxt);
+      sellConfirmList.appendChild(moreRow);
+    }
+  }
+
+  if(sellConfirmBalance){
+    sellConfirmBalance.innerHTML=`<span>BALANCE</span><span>${fmtCoins(curCoins)} → ${fmtCoins(nextCoins)} COINS (+${fmtCoins(totalCoins)}C)</span>`;
+  }
+  if(sellConfirmYesBtn){
+    sellConfirmYesBtn.textContent=`CONFIRM SELL · +${fmtCoins(totalCoins)}C`;
+  }
+  sellConfirmModal.style.display='grid';
+}
+
+function executeConfirmedSale(){
+  if(!pendingSale||!pendingSale.items||pendingSale.items.length===0){
+    closeSellConfirmModal();
+    return;
+  }
+  const {items,mode}=pendingSale;
+  const ids=items.map(it=>it.id);
+  const res=KnivesSystem.sellItems(window.activeInventory,ids);
+  closeSellConfirmModal();
+  if(!res.soldItems||res.soldItems.length===0){
+    showToast('NO ELIGIBLE ITEMS SOLD');
+    return;
+  }
+
+  window.activeInventory=res.inventory;
+  for(const sold of res.soldItems){
+    bulkSelectedIds.delete(sold.id);
+  }
+  persistInventorySummary(true);
+
+  if(window.DailyBackend){
+    Promise.allSettled(res.soldItems.map(sold=>{
+      if(KnivesSystem.isWeaponItem(sold))return window.DailyBackend.deleteCloudWeapon(sold.id);
+      if(KnivesSystem.isGloveItem(sold))return window.DailyBackend.deleteCloudGlove(sold.id);
+      return window.DailyBackend.deleteCloudKnife(sold.id);
+    })).catch(()=>{});
+  }
+
+  CaseAudio.coinChime('sell');
+  const label=res.soldItems.length===1
+    ?KnivesSystem.formatItemFullName(res.soldItems[0]).toUpperCase()
+    :`${res.soldItems.length} SKINS`;
+  showToast(`SOLD ${label} · +${fmtCoins(res.coinsEarned)} COINS`);
+
+  if(mode==='reveal'){
+    lastRevealedItem=null;
+    showCasesView('select');
+    renderArmoryCases();
+  }else{
+    if(mode==='bulk'){
+      bulkSellMode=false;
+      bulkSelectedIds.clear();
+    }
+    if(!(window.activeInventory.weapons||[]).some(w=>w.id===selectedInvWeaponId)){
+      selectedInvWeaponId=window.activeInventory.equippedRifleId;
+    }
+    if(!window.activeInventory.knives.some(k=>k.id===selectedInvKnifeId)){
+      selectedInvKnifeId=window.activeInventory.equippedKnifeId;
+    }
+    if(!window.activeInventory.gloves.some(g=>g.id===selectedInvGloveId)){
+      selectedInvGloveId=window.activeInventory.equippedGloveId;
+    }
+    renderArmoryInventory();
   }
 }
 
-function discardWeaponById(weaponId){
-  const found=(window.activeInventory.weapons||[]).find(w=>w.id===weaponId);
-  if(!found||found.id.startsWith('starter_')||isWeaponEquipped(found))return;
-  const idx=window.activeInventory.weapons.findIndex(w=>w.id===weaponId);
-  if(idx<0)return;
-  const removed=window.activeInventory.weapons.splice(idx,1)[0];
-  persistInventorySummary(true);
-  if(window.DailyBackend){
-    window.DailyBackend.deleteCloudWeapon(removed.id).catch(()=>{});
+function updateBulkSellBarUI(){
+  if(!invBulkBar||!invBulkToggleBtn)return;
+  invBulkToggleBtn.classList.toggle('bulk-on',bulkSellMode);
+  invBulkToggleBtn.textContent=bulkSellMode?'DONE BULK':'BULK SELL';
+  invBulkBar.style.display=bulkSellMode?'':'none';
+  if(!bulkSellMode)return;
+
+  const byId=new Map(getAllInventoryItems().map(it=>[it.id,it]));
+  let count=0;
+  let totalCoins=0;
+  for(const id of Array.from(bulkSelectedIds)){
+    const it=byId.get(id);
+    const check=it?KnivesSystem.isItemSellable(window.activeInventory,it):{sellable:false,value:0};
+    if(!check.sellable){
+      bulkSelectedIds.delete(id);
+      continue;
+    }
+    count++;
+    totalCoins+=check.value;
   }
-  selectedInvWeaponId=window.activeInventory.equippedRifleId;
-  renderArmoryInventory();
-  showToast(`DISCARDED ${KnivesSystem.formatWeaponFullName(removed).toUpperCase()}`);
+  if(bulkSelSummary){
+    bulkSelSummary.textContent=`${count} SELECTED · +${fmtCoins(totalCoins)} COINS`;
+  }
+  if(bulkSellConfirmBtn){
+    bulkSellConfirmBtn.disabled=count===0;
+    bulkSellConfirmBtn.textContent=count>0?`SELL SELECTED (${count}) · +${fmtCoins(totalCoins)}C`:'SELL SELECTED';
+  }
 }
 
-function discardKnifeById(knifeId){
-  if(knifeId==='starter_default_vanilla'||knifeId===window.activeInventory.equippedKnifeId)return;
-  const idx=window.activeInventory.knives.findIndex(k=>k.id===knifeId);
-  if(idx<0)return;
-  const removed=window.activeInventory.knives.splice(idx,1)[0];
-  persistInventorySummary(true);
-  if(window.DailyBackend){
-    window.DailyBackend.deleteCloudKnife(removed.id).catch(()=>{});
-  }
-  selectedInvKnifeId=window.activeInventory.equippedKnifeId;
+function toggleBulkSellMode(forceState){
+  const next=typeof forceState==='boolean'?forceState:!bulkSellMode;
+  bulkSellMode=next;
+  if(!bulkSellMode)bulkSelectedIds.clear();
   renderArmoryInventory();
-  showToast(`DISCARDED ${KnivesSystem.formatKnifeFullName(removed).toUpperCase()}`);
 }
 
-function discardGloveById(gloveId){
-  if(gloveId==='starter_standard_tactical'||gloveId===window.activeInventory.equippedGloveId)return;
-  const idx=window.activeInventory.gloves.findIndex(g=>g.id===gloveId);
-  if(idx<0)return;
-  const removed=window.activeInventory.gloves.splice(idx,1)[0];
-  persistInventorySummary(true);
-  if(window.DailyBackend){
-    window.DailyBackend.deleteCloudGlove(removed.id).catch(()=>{});
+function applyBulkPreset(preset){
+  if(!bulkSellMode)bulkSellMode=true;
+  const visible=getVisibleInventoryList();
+  const visibleIds=new Set(visible.map(it=>it.id));
+  if(preset==='clear'){
+    bulkSelectedIds.clear();
+    renderArmoryInventory();
+    return;
   }
-  selectedInvGloveId=window.activeInventory.equippedGloveId;
+  let added=0;
+  if(preset==='duplicates'){
+    const dupIds=KnivesSystem.findDuplicateSellableIds(window.activeInventory,invCategory);
+    for(const id of dupIds){
+      if(visibleIds.has(id)){
+        bulkSelectedIds.add(id);
+        added++;
+      }
+    }
+    if(added===0)showToast('NO SELLABLE DUPLICATES IN THIS VIEW');
+  }else if(preset==='milspec'||preset==='restricted'){
+    for(const it of visible){
+      if(it.rarity===preset&&KnivesSystem.isItemSellable(window.activeInventory,it).sellable){
+        bulkSelectedIds.add(it.id);
+        added++;
+      }
+    }
+    if(added===0)showToast(`NO SELLABLE ${preset==='milspec'?'MIL-SPEC':'RESTRICTED'} SKINS HERE`);
+  }
   renderArmoryInventory();
-  showToast(`DISCARDED ${KnivesSystem.formatGloveFullName(removed).toUpperCase()}`);
 }
 
 function renderInventoryFilterButtons(){
@@ -1284,19 +1590,20 @@ function renderArmoryInventory(){
     btn.setAttribute('aria-selected',on?'true':'false');
   });
   renderInventoryFilterButtons();
+  updateBulkSellBarUI();
 
   const sourceList=isWeaponCat?(window.activeInventory.weapons||[]):isGloveCat?window.activeInventory.gloves:window.activeInventory.knives;
-  const list=sourceList.filter(it=>invFilterType==='all'||(isWeaponCat?it.weaponType===invFilterType:isGloveCat?it.gloveType===invFilterType:it.knifeType===invFilterType));
+  const list=getVisibleInventoryList();
   armoryInvGrid.textContent='';
 
   if(list.length===0){
     const empty=document.createElement('div');
     empty.className='inv-empty';
     empty.textContent=isWeaponCat
-      ?'No skins for this firearm yet. Open cases in the Cases tab to unbox V-47 Rifle, AWP, and Deagle finishes.'
+      ?'No skins for this firearm yet. Buy & open cases in the Case Shop to unbox V-47 Rifle, AWP, and Deagle finishes.'
       :isGloveCat
-        ?'No gloves in this archetype yet. Rare Gold drops (15%) in any CS case can unbox Sport, Specialist, Hand Wraps, or Standard gloves.'
-        :'No knives in this category yet. Rare Gold drops (15%) in any CS case unbox knives & gloves.';
+        ?'No gloves in this archetype yet. Rare Gold drops in any case (8%–18% by tier) can unbox Sport, Specialist, Hand Wraps, or Standard gloves.'
+        :'No knives in this category yet. Rare Gold drops in any case (8%–18% by tier) unbox knives & gloves.';
     armoryInvGrid.appendChild(empty);
   }
 
@@ -1319,15 +1626,29 @@ function renderArmoryInventory(){
 
   for(const item of list){
     const rar=KnivesSystem.RARITIES[item.rarity]||KnivesSystem.RARITIES.milspec;
-    const isEq=isWeaponCat?isWeaponEquipped(item):(isGloveCat?item.id===window.activeInventory.equippedGloveId:item.id===window.activeInventory.equippedKnifeId);
+    const isEq=KnivesSystem.isItemEquippedInInventory(window.activeInventory,item);
+    const sellCheck=KnivesSystem.isItemSellable(window.activeInventory,item);
+    const isBulkPicked=bulkSellMode&&bulkSelectedIds.has(item.id);
+    const isBulkLocked=bulkSellMode&&!sellCheck.sellable;
+
     const card=document.createElement('button');
     card.type='button';
-    card.className='inv-card'+(item.id===selectedId?' selected':'');
+    card.className='inv-card'
+      +(item.id===selectedId?' selected':'')
+      +(isBulkPicked?' bulk-selected':'')
+      +(isBulkLocked?' bulk-locked':'');
     card.style.setProperty('--rar-col',rar.color);
     card.dataset.itemId=item.id;
     if(isWeaponCat)card.dataset.weaponId=item.id;
     else if(isGloveCat)card.dataset.gloveId=item.id;
     else card.dataset.knifeId=item.id;
+
+    if(bulkSellMode&&sellCheck.sellable){
+      const chk=document.createElement('span');
+      chk.className='inv-check';
+      chk.textContent=isBulkPicked?'✓':'';
+      card.appendChild(chk);
+    }
 
     if(isEq){
       const eq=document.createElement('span');
@@ -1347,7 +1668,16 @@ function renderArmoryInventory(){
 
     const meta=document.createElement('div');
     meta.className='inv-meta';
-    meta.textContent=KnivesSystem.formatKnifeMetaLine(item);
+    const metaTxt=document.createTextNode(KnivesSystem.formatKnifeMetaLine(item));
+    meta.appendChild(metaTxt);
+    if(sellCheck.value>0){
+      const sep=document.createTextNode(' · ');
+      const pr=document.createElement('span');
+      pr.className='inv-price';
+      pr.textContent=`${fmtCoins(sellCheck.value)}C`;
+      meta.appendChild(sep);
+      meta.appendChild(pr);
+    }
 
     card.appendChild(img);
     card.appendChild(nm);
@@ -1356,21 +1686,41 @@ function renderArmoryInventory(){
       if(isWeaponCat)selectedInvWeaponId=item.id;
       else if(isGloveCat)selectedInvGloveId=item.id;
       else selectedInvKnifeId=item.id;
+      if(bulkSellMode){
+        if(!sellCheck.sellable){
+          showToast(sellCheck.reason==='STARTER ITEM'?'STARTER ITEMS CANNOT BE SOLD':'UNEQUIP ITEM FIRST TO SELL');
+        }else if(bulkSelectedIds.has(item.id)){
+          bulkSelectedIds.delete(item.id);
+        }else{
+          bulkSelectedIds.add(item.id);
+        }
+      }
       renderArmoryInventory();
     };
     armoryInvGrid.appendChild(card);
   }
 
   fillItemSpecs('inv',selected);
-  const isSelectedEquipped=isWeaponCat?isWeaponEquipped(selected):(isGloveCat?selected.id===window.activeInventory.equippedGloveId:selected.id===window.activeInventory.equippedKnifeId);
-  const isStarter=selected.id.startsWith('starter_');
+  const isSelectedEquipped=KnivesSystem.isItemEquippedInInventory(window.activeInventory,selected);
+  const selCheck=KnivesSystem.isItemSellable(window.activeInventory,selected);
   $('invEquipBtn').textContent=isSelectedEquipped?'EQUIPPED':(isWeaponCat?'EQUIP SKIN':isGloveCat?'EQUIP GLOVES':'EQUIP KNIFE');
   $('invEquipBtn').disabled=isSelectedEquipped;
-  $('invDiscardBtn').disabled=isStarter||isSelectedEquipped;
+  if(invSellBtn){
+    invSellBtn.disabled=!selCheck.sellable;
+    invSellBtn.textContent=selCheck.sellable
+      ?`SELL FOR +${fmtCoins(selCheck.value)}C`
+      :selCheck.reason;
+  }
 
-  const showTricks=!isWeaponCat;
-  $('invTrickBtn').style.display=showTricks?'':'none';
-  if($('invMythicBtn'))$('invMythicBtn').style.display=showTricks?'':'none';
+  const invTrickBtn=$('invTrickBtn'),invMythicBtn=$('invMythicBtn');
+  if(invTrickBtn){
+    invTrickBtn.style.display='';
+    invTrickBtn.textContent=isWeaponCat?'INSPECT':'PLAY TRICK';
+  }
+  if(invMythicBtn){
+    invMythicBtn.style.display='';
+    invMythicBtn.textContent=isWeaponCat?'RARE TRICK ★':'MYTHIC ★';
+  }
 
   const effectiveMode=isGloveCat?'combo':invPreviewMode;
   const modeComboBtn=$('invModeCombo'),modeSoloBtn=$('invModeSolo'),stageCap=$('invStageCaption');
@@ -1391,6 +1741,11 @@ function renderArmoryInventory(){
 
 function setArmoryTab(tab){
   stopRouletteAnimation();
+  closeSellConfirmModal();
+  if(tab!=='inventory'){
+    bulkSellMode=false;
+    bulkSelectedIds.clear();
+  }
   activeArmoryTab=tab==='inventory'?'inventory':'cases';
   document.querySelectorAll('[data-arm-tab]').forEach(btn=>{
     const on=btn.dataset.armTab===activeArmoryTab;
@@ -1411,6 +1766,7 @@ function setArmoryTab(tab){
 function openArmory(returnTo,initialTab){
   cancelRebind();
   stopRouletteAnimation();
+  closeSellConfirmModal();
   stopServersSubscription();
   armoryReturnTarget=returnTo==='pause'?'pause':'menu';
   overlay.style.display='grid';
@@ -1601,6 +1957,9 @@ async function handleJoinPrivateCode(){
 
 function closeArmory(){
   stopRouletteAnimation();
+  closeSellConfirmModal();
+  bulkSellMode=false;
+  bulkSelectedIds.clear();
   ArmoryPreview.stop();
   if(armoryReturnTarget==='pause'&&inLevel){
     showPause();
@@ -1957,6 +2316,9 @@ async function openDailyHub(focusDateKey){
 function showMenu(){
   cancelRebind();
   stopRouletteAnimation();
+  closeSellConfirmModal();
+  bulkSellMode=false;
+  bulkSelectedIds.clear();
   stopServersSubscription();
   ArmoryPreview.stop();
   if(NetcodeSystem.getState().isArena)NetcodeSystem.leaveSession();
@@ -1985,6 +2347,7 @@ function showMenu(){
 function showPause(){
   cancelRebind();
   stopRouletteAnimation();
+  closeSellConfirmModal();
   stopServersSubscription();
   ArmoryPreview.stop();
   CombatSystem.clearScope();
@@ -2004,6 +2367,7 @@ function showPause(){
 function enter(){
   cancelRebind();
   stopRouletteAnimation();
+  closeSellConfirmModal();
   stopServersSubscription();
   ArmoryPreview.stop();
   overlay.style.display='none';
@@ -2021,37 +2385,45 @@ function enter(){
 
 function onUnlock(){if(inLevel&&overlay.style.display==='none')showPause();}
 
-// Award CS cases on course completion + auto-submit daily runs to Firestore when signed in
+// Award coins on course completion + auto-submit daily runs to Firestore when signed in
 window.onCourseFinished=async function(info){
   if(!info)return;
   const reward=KnivesSystem.grantRunRewards(window.activeInventory,{
     dateKey:info.dateKey||'',
     isNewBest:!!info.isNewBest,
+    cleanGauntlet:Boolean(info.gauntlet&&info.gauntlet.cleanRun),
     todayKey:DailyCourseGen.getTodayDateKey()
   });
   window.activeInventory=reward.inventory;
   persistInventorySummary(true);
-  const earnedCount=reward.awarded.length;
-  let dropMsg='';
-  if(earnedCount>0){
-    dropMsg=`+${earnedCount} CASE${earnedCount>1?'S':''} EARNED`;
+  let coinMsg='';
+  if(reward.coinsEarned>0){
+    CaseAudio.coinChime('earn');
+    const tags=reward.breakdown.map(b=>{
+      if(b.reason==='Course Finish')return 'FINISH';
+      if(b.reason==='Clean Gauntlet')return 'CLEAN';
+      if(b.reason==='New Personal Best')return 'PB';
+      if(b.reason==='Daily First Clear')return 'DAILY';
+      return b.reason.toUpperCase();
+    });
+    coinMsg=`+${fmtCoins(reward.coinsEarned)} COINS (${tags.join(' + ')})`;
   }
 
   if(!info.dateKey||!window.DailyBackend){
-    if(dropMsg)showToast(dropMsg);
+    if(coinMsg)showToast(coinMsg);
     return;
   }
   try{
     const res=await window.DailyBackend.submitDailyRun(info.dateKey,info.runTime,info.splits);
     if(res.submitted&&res.improved){
-      showToast((res.rank?`LEADERBOARD #${res.rank}`:'LEADERBOARD UPDATED')+(dropMsg?' · '+dropMsg:''));
+      showToast((res.rank?`LEADERBOARD #${res.rank}`:'LEADERBOARD UPDATED')+(coinMsg?' · '+coinMsg:''));
     }else if(res.reason==='signed-out'&&info.isNewBest){
-      showToast(`NEW PB ${fmt(info.runTime)}`+(dropMsg?' · '+dropMsg:''));
-    }else if(dropMsg){
-      showToast(dropMsg);
+      showToast(`NEW PB ${fmt(info.runTime)}`+(coinMsg?' · '+coinMsg:''));
+    }else if(coinMsg){
+      showToast(coinMsg);
     }
   }catch(_){
-    if(dropMsg)showToast(dropMsg);
+    if(coinMsg)showToast(coinMsg);
   }
 };
 
@@ -2062,12 +2434,22 @@ NetcodeSystem.setCallbacks({
   onBanner:(b)=>message(b.subtext?`${b.text} · ${b.subtext}`:b.text,{duration:b.durationMs||2000}),
   onLocalRespawn:(sp,refill)=>respawnAtSpawn(sp,refill),
   onRemoteTracer:(m)=>CombatSystem.spawnTracer(V3(m.sx,m.sy,m.sz),V3(m.ex,m.ey,m.ez),m.slot==='awp'?0x7ef2ff:0xffa065),
+  onLocalKill:(info)=>{
+    const res=KnivesSystem.grantArenaKillCoins(window.activeInventory,{headshot:Boolean(info&&info.isHeadshot)});
+    window.activeInventory=res.inventory;
+    persistInventorySummary(true);
+    CaseAudio.coinChime('earn');
+    showToast(`${info&&info.isHeadshot?'HEADSHOT':'ELIMINATION'} · +${fmtCoins(res.coinsEarned)} COINS`);
+  },
   onMatchEnd:(info)=>{
-    const reward=KnivesSystem.grantArenaReward(window.activeInventory,{won:info.isLocalWinner});
+    const reward=KnivesSystem.grantArenaReward(window.activeInventory,{won:Boolean(info&&info.isLocalWinner)});
     window.activeInventory=reward.inventory;
     persistInventorySummary(true);
-    const n=reward.awarded.length;
-    if(n>0)showToast(`MATCH COMPLETE · +${n} CASE${n>1?'S':''} EARNED`);
+    if(reward.coinsEarned>0){
+      CaseAudio.coinChime('earn');
+      const prefix=info&&info.isLocalWinner?'VICTORY':'MATCH COMPLETE';
+      showToast(`${prefix} · +${fmtCoins(reward.coinsEarned)} COINS`);
+    }
     document.exitPointerLock?.();
   }
 });
@@ -2153,6 +2535,7 @@ document.querySelectorAll('[data-arm-tab]').forEach(btn=>{
   btn.onclick=()=>setArmoryTab(btn.dataset.armTab);
 });
 openCaseBtn.onclick=()=>startCaseUnboxing(selectedCaseId);
+if(buyCaseBtn)buyCaseBtn.onclick=()=>buyCaseOnly(selectedCaseId);
 $('skipRouletteBtn').onclick=()=>{
   if(rouletteFinishCb){
     const fn=rouletteFinishCb;
@@ -2166,6 +2549,12 @@ $('revealEquipBtn').onclick=()=>{
   else if(KnivesSystem.isGloveItem(lastRevealedItem))equipGloveById(lastRevealedItem.id);
   else equipKnifeById(lastRevealedItem.id);
 };
+if(revealSellBtn){
+  revealSellBtn.onclick=()=>{
+    if(!lastRevealedItem)return;
+    openSellConfirmModal([lastRevealedItem],'reveal');
+  };
+}
 $('revealTrickBtn').onclick=()=>ArmoryPreview.playTrick('normal');
 if($('revealMythicBtn'))$('revealMythicBtn').onclick=()=>ArmoryPreview.playTrick('mythic');
 $('revealOpenAgainBtn').onclick=()=>startCaseUnboxing(selectedCaseId);
@@ -2191,11 +2580,46 @@ $('invEquipBtn').onclick=()=>{
 };
 $('invTrickBtn').onclick=()=>ArmoryPreview.playTrick('normal');
 if($('invMythicBtn'))$('invMythicBtn').onclick=()=>ArmoryPreview.playTrick('mythic');
-$('invDiscardBtn').onclick=()=>{
-  if(invCategory==='weapons')discardWeaponById(selectedInvWeaponId);
-  else if(invCategory==='gloves')discardGloveById(selectedInvGloveId);
-  else discardKnifeById(selectedInvKnifeId);
-};
+if(invSellBtn){
+  invSellBtn.onclick=()=>{
+    const item=invCategory==='weapons'
+      ?(window.activeInventory.weapons||[]).find(w=>w.id===selectedInvWeaponId)
+      :invCategory==='gloves'
+        ?window.activeInventory.gloves.find(g=>g.id===selectedInvGloveId)
+        :window.activeInventory.knives.find(k=>k.id===selectedInvKnifeId);
+    if(item)openSellConfirmModal([item],'single');
+  };
+}
+if(invBulkToggleBtn)invBulkToggleBtn.onclick=()=>toggleBulkSellMode();
+if($('bulkSelectDupsBtn'))$('bulkSelectDupsBtn').onclick=()=>applyBulkPreset('duplicates');
+if($('bulkSelectMilspecBtn'))$('bulkSelectMilspecBtn').onclick=()=>applyBulkPreset('milspec');
+if($('bulkSelectRestrictedBtn'))$('bulkSelectRestrictedBtn').onclick=()=>applyBulkPreset('restricted');
+if($('bulkClearBtn'))$('bulkClearBtn').onclick=()=>applyBulkPreset('clear');
+if(bulkSellConfirmBtn){
+  bulkSellConfirmBtn.onclick=()=>{
+    const byId=new Map(getAllInventoryItems().map(it=>[it.id,it]));
+    const items=[];
+    for(const id of bulkSelectedIds){
+      const it=byId.get(id);
+      if(it)items.push(it);
+    }
+    openSellConfirmModal(items,'bulk');
+  };
+}
+if(sellConfirmCancelBtn)sellConfirmCancelBtn.onclick=closeSellConfirmModal;
+if(sellConfirmYesBtn)sellConfirmYesBtn.onclick=executeConfirmedSale;
+if(sellConfirmModal){
+  sellConfirmModal.addEventListener('click',e=>{
+    if(e.target===sellConfirmModal)closeSellConfirmModal();
+  });
+}
+addEventListener('keydown',e=>{
+  if(e.code==='Escape'&&pendingSale&&sellConfirmModal&&sellConfirmModal.style.display!=='none'){
+    e.preventDefault();
+    e.stopPropagation();
+    closeSellConfirmModal();
+  }
+},true);
 
 $('menuSettingsBtn').onclick=()=>openSettings('menu');
 $('pauseSettings').onclick=()=>openSettings('pause');

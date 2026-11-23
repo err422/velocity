@@ -147,27 +147,32 @@
   .ch-stage-caption{position:absolute;bottom:10px;left:12px;right:12px;display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;color:#93b4c8}
 
   /* Armory & CS Cases Panel */
+  .arm-coin-bal{font-size:12px;font-weight:800;letter-spacing:.12em;font-variant-numeric:tabular-nums;color:#f5c542;padding:5px 10px;background:rgba(36,28,8,.78);border:1px solid rgba(245,197,66,.45);white-space:nowrap}
   .arm-case-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
-  .case-card{position:relative;display:flex;flex-direction:column;gap:8px;padding:14px;background:rgba(9,20,32,.84);border:1px solid rgba(111,210,238,.18);color:#eaf7ff;text-align:left;font-weight:600;letter-spacing:.02em}
+  .case-card{position:relative;display:flex;flex-direction:column;gap:7px;padding:14px;background:rgba(9,20,32,.84);border:1px solid rgba(111,210,238,.18);color:#eaf7ff;text-align:left;font-weight:600;letter-spacing:.02em}
   .case-card:hover{border-color:rgba(101,231,255,.6);filter:none;transform:none}
   .case-card.selected{background:rgba(17,40,58,.94);border-color:var(--case-accent,var(--cyan));box-shadow:inset 0 0 0 1px var(--case-accent,var(--cyan))}
-  .case-art{height:76px;display:grid;place-items:center;background:linear-gradient(150deg,rgba(14,32,48,.92),rgba(5,11,18,.95));border:1px solid rgba(255,255,255,.08);position:relative;overflow:hidden}
+  .case-art{height:72px;display:grid;place-items:center;background:linear-gradient(150deg,rgba(14,32,48,.92),rgba(5,11,18,.95));border:1px solid rgba(255,255,255,.08);position:relative;overflow:hidden}
   .case-art::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--case-accent,var(--cyan))}
-  .case-crate{width:64px;height:44px;border:2px solid var(--case-accent,var(--cyan));background:rgba(8,18,28,.9);position:relative;display:grid;place-items:center}
+  .case-crate{width:62px;height:42px;border:2px solid var(--case-accent,var(--cyan));background:rgba(8,18,28,.9);position:relative;display:grid;place-items:center}
   .case-crate::before{content:'';position:absolute;left:6px;right:6px;top:50%;height:1px;background:rgba(255,255,255,.22)}
   .case-crate-lock{width:14px;height:14px;border:2px solid var(--case-accent,var(--cyan));background:#091522;z-index:1}
   .case-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
   .case-name{font-size:12px;font-weight:800;letter-spacing:.04em;color:#f1fbff}
-  .case-count{font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--case-accent,var(--cyan));font-variant-numeric:tabular-nums;white-space:nowrap}
-  .case-count.zero{color:#678296}
+  .case-tier{font-size:9px;font-weight:800;letter-spacing:.14em;color:var(--case-accent,var(--cyan));white-space:nowrap}
+  .case-price-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-variant-numeric:tabular-nums}
+  .case-price{font-size:12px;font-weight:800;letter-spacing:.08em;color:#f5c542}
+  .case-owned-tag{font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--cyan);white-space:nowrap}
+  .case-owned-tag.odds{color:#8fb2c7;font-weight:700}
   .case-desc{font-size:11px;color:#8aa8bc;line-height:1.45;font-weight:500}
   .case-detail-bar{margin-top:14px;padding:14px 16px;background:rgba(8,18,29,.78);border:1px solid var(--line);display:grid;grid-template-columns:1.35fr auto;gap:16px;align-items:center}
-  .case-pool-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .case-odds-line{font-size:10px;letter-spacing:.08em;color:#9ac0d6;font-variant-numeric:tabular-nums;margin-bottom:6px}
+  .case-pool-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
   .case-pool-item{font-size:10px;letter-spacing:.06em;color:#cfe7f5;background:rgba(12,26,40,.9);border:1px solid rgba(111,210,238,.14);border-left:3px solid var(--rar-col,#4b69ff);padding:4px 8px}
-  .case-open-col{display:flex;flex-direction:column;gap:6px;min-width:190px}
-  .case-open-btn{padding:13px 18px;font-size:12px;letter-spacing:.16em}
+  .case-open-col{display:flex;flex-direction:column;gap:6px;min-width:210px}
+  .case-open-btn{padding:13px 18px;font-size:12px;letter-spacing:.14em}
   .case-open-btn:disabled{opacity:.42;cursor:not-allowed;filter:none;transform:none}
-  .arm-earn-note{margin-top:10px;font-size:11px;color:#7d9cb0;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .arm-earn-note{margin-top:10px;font-size:10.5px;color:#7d9cb0;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;letter-spacing:.04em}
 
   /* CS Roulette Unboxing Strip */
   .roulette-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:14px 0 10px}
@@ -201,6 +206,7 @@
   .arm-special-tag.gem{background:#47d7ff;color:#04131c}
   .arm-special-tag.ruby{background:#ff3b5c;color:#fff}
   .arm-special-tag.sapphire{background:#2d78ff;color:#fff}
+  .arm-value-line{font-size:11px;font-weight:800;letter-spacing:.12em;color:#f5c542;font-variant-numeric:tabular-nums;padding:6px 10px;background:rgba(36,28,8,.68);border-left:3px solid #f5c542}
   .arm-spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .arm-spec-cell{padding:8px 10px;background:rgba(8,19,31,.82);border:1px solid rgba(111,210,238,.12)}
   .arm-spec-k{font-size:9px;letter-spacing:.16em;color:#7e9cb0;text-transform:uppercase}
@@ -215,6 +221,9 @@
   .arm-mode-btn:hover{border-color:var(--cyan);color:#ffffff;filter:none;transform:none}
   .arm-mode-btn.active{background:rgba(20,54,76,.95);border-color:var(--cyan);color:#ffffff}
   .arm-mode-btn:disabled{opacity:.35;cursor:not-allowed}
+  .arm-btn-coin{background:rgba(44,33,8,.88);color:#ffd86b;border:1px solid rgba(245,197,66,.55)}
+  .arm-btn-coin:hover{border-color:#f5c542;color:#ffffff;background:rgba(66,49,12,.95);filter:none}
+  .arm-btn-coin:disabled{opacity:.38;cursor:not-allowed;filter:none;transform:none}
   .arm-btn-mythic{background:rgba(52,38,10,.82);color:#ffe484;border:1px solid rgba(255,215,0,.55)}
   .arm-btn-mythic:hover{border-color:#ffd700;color:#ffffff;filter:none}
   .arm-btn-danger{background:rgba(70,18,28,.75);color:#ffbac7;border:1px solid #8a3142}
@@ -225,19 +234,45 @@
   .arm-cat-btn{padding:8px 8px;font-size:10px;letter-spacing:.14em;background:rgba(9,22,34,.8);color:#92b0c4;border:1px solid #26485e}
   .arm-cat-btn:hover{border-color:rgba(101,231,255,.55);color:#eaf7ff;filter:none;transform:none}
   .arm-cat-btn.active{background:rgba(20,54,76,.94);border-color:var(--cyan);color:#ffffff}
-  .arm-filter-bar{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+  .arm-filter-row{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+  .arm-filter-bar{display:flex;gap:4px;flex-wrap:wrap}
   .arm-filter-btn{width:auto;padding:5px 8px;font-size:9.5px;letter-spacing:.1em;background:rgba(9,22,34,.75);color:#92b0c4;border:1px solid #26485e}
   .arm-filter-btn:hover{border-color:rgba(101,231,255,.55);color:#eaf7ff;filter:none;transform:none}
   .arm-filter-btn.active{background:rgba(20,54,76,.92);border-color:var(--cyan);color:#ffffff}
+  .arm-filter-btn.bulk-on{background:rgba(56,42,10,.95);border-color:#f5c542;color:#ffe484}
+  .inv-bulk-bar{padding:8px 10px;margin-bottom:8px;background:rgba(14,24,36,.94);border:1px solid rgba(245,197,66,.38);display:flex;flex-direction:column;gap:7px}
+  .inv-bulk-presets{display:flex;gap:4px;flex-wrap:wrap}
+  .inv-bulk-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .inv-bulk-summary{font-size:10.5px;font-weight:800;letter-spacing:.1em;color:#f5c542;font-variant-numeric:tabular-nums}
   .inv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:365px;overflow-y:auto;padding-right:4px}
   .inv-card{position:relative;display:flex;flex-direction:column;gap:5px;padding:9px 10px;background:rgba(9,21,33,.84);border:1px solid rgba(111,210,238,.14);border-bottom:3px solid var(--rar-col,#4b69ff);color:#eaf7ff;text-align:left;font-weight:600;letter-spacing:.02em}
   .inv-card:hover{border-color:rgba(101,231,255,.55);filter:none;transform:none}
   .inv-card.selected{background:rgba(19,49,70,.92);border-color:var(--cyan)}
+  .inv-card.bulk-selected{background:rgba(48,37,10,.92);border-color:#f5c542;box-shadow:inset 0 0 0 1px #f5c542}
+  .inv-card.bulk-locked{opacity:.44}
+  .inv-check{position:absolute;top:6px;left:6px;width:16px;height:16px;border:1px solid rgba(245,197,66,.7);background:rgba(6,13,22,.92);display:grid;place-items:center;font-size:10px;font-weight:900;color:#06121b;line-height:1}
+  .inv-card.bulk-selected .inv-check{background:#f5c542;border-color:#f5c542}
   .inv-equipped{position:absolute;top:6px;right:6px;font-size:8px;font-weight:900;letter-spacing:.14em;color:#06121b;background:var(--cyan);padding:2px 5px}
   .inv-thumb{width:100%;height:62px;object-fit:contain;display:block}
   .inv-name{font-size:11px;font-weight:800;color:#effaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .inv-meta{font-size:10px;color:#8aa7ba;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .inv-price{color:#f5c542;font-weight:700}
   .inv-empty{grid-column:1 / -1;padding:20px 14px;font-size:12px;color:#8aa6b8;background:rgba(8,18,28,.55);border:1px solid rgba(111,210,238,.12)}
+
+  /* Sell Confirmation Modal */
+  #sellConfirmModal{position:fixed;inset:0;z-index:50;background:rgba(3,9,16,.84);backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px}
+  .sell-modal-card{width:min(460px,100%);background:rgba(8,18,29,.98);border:1px solid rgba(245,197,66,.5);padding:22px 24px;box-shadow:0 24px 64px rgba(0,0,0,.78);display:flex;flex-direction:column;gap:12px}
+  .sell-modal-title{margin:0;font-size:18px;font-weight:800;letter-spacing:-.01em;color:#f3fbff}
+  .sell-modal-sub{font-size:12px;color:#93b2c6;line-height:1.45}
+  .sell-modal-warn{padding:8px 10px;background:rgba(76,22,28,.82);border:1px solid rgba(255,94,122,.55);color:#ffd0d8;font-size:11px;font-weight:700;letter-spacing:.04em}
+  .sell-modal-list{max-height:185px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:4px}
+  .sell-modal-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 10px;background:rgba(11,24,38,.88);border:1px solid rgba(111,210,238,.12);border-left:3px solid var(--rar-col,#4b69ff);font-size:11px}
+  .sell-modal-row-name{color:#eaf7ff;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sell-modal-row-meta{font-size:10px;color:#87a5b8;font-weight:600;margin-left:6px}
+  .sell-modal-row-val{color:#f5c542;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .sell-modal-balance{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:rgba(36,28,8,.68);border:1px solid rgba(245,197,66,.35);font-size:11px;font-weight:800;letter-spacing:.08em;color:#f5c542;font-variant-numeric:tabular-nums}
+  .sell-modal-actions{display:flex;gap:8px;margin-top:2px}
+  .sell-modal-actions button{flex:1;margin-top:0;padding:12px 14px;font-size:11px}
 
   /* Servers & Arenas Panel */
   .srv-grid{display:grid;grid-template-columns:1.22fr .98fr;gap:22px;margin-top:16px;align-items:start}
@@ -337,7 +372,7 @@
         <div class="eyebrow">MOVEMENT LAB</div>
         <div class="auth-bar" id="menuAuthBar">
           <span class="auth-name" id="menuAuthName" style="display:none"></span>
-          <button type="button" class="btn-inline" id="menuArmoryBtn">ARMORY (3)</button>
+          <button type="button" class="btn-inline" id="menuArmoryBtn">ARMORY · 150C</button>
           <button type="button" class="btn-inline" id="menuSettingsBtn">SETTINGS</button>
           <button type="button" class="btn-inline" id="menuAuthBtn">SIGN IN</button>
         </div>
@@ -589,17 +624,18 @@
     <div id="armoryPanel" style="display:none">
       <div class="hub-head">
         <div>
-          <div class="eyebrow">WEAPONS, KNIVES, GLOVES &amp; CONTAINERS</div>
-          <h2 class="hub-title">Armory &amp; Cases</h2>
+          <div class="eyebrow">WEAPONS, KNIVES, GLOVES &amp; CASE SHOP</div>
+          <h2 class="hub-title">Armory &amp; Case Shop</h2>
         </div>
         <div class="hub-actions">
+          <span class="arm-coin-bal" id="armoryCoinBalance">150 COINS</span>
           <span class="set-sync" id="armorySyncNote">LOCAL ONLY</span>
           <button type="button" class="btn-inline" id="armoryBackBtn">MENU</button>
         </div>
       </div>
 
       <div class="set-tabs" role="tablist" aria-label="Armory sections">
-        <button type="button" class="set-tab active" data-arm-tab="cases" id="armTabCases" role="tab" aria-selected="true">CASES (3)</button>
+        <button type="button" class="set-tab active" data-arm-tab="cases" id="armTabCases" role="tab" aria-selected="true">CASE SHOP</button>
         <button type="button" class="set-tab" data-arm-tab="inventory" id="armTabInventory" role="tab" aria-selected="false">INVENTORY (5)</button>
       </div>
 
@@ -608,16 +644,18 @@
           <div class="arm-case-grid" id="armoryCaseGrid"></div>
           <div class="case-detail-bar">
             <div>
-              <div class="section-label" id="selectedCaseTitle" style="margin-bottom:4px">VELOCITY WEAPON CASE</div>
+              <div class="section-label" id="selectedCaseTitle" style="margin-bottom:4px">VELOCITY CLASSIC CASE</div>
+              <div class="case-odds-line" id="caseOddsLine">ODDS: 48% MIL-SPEC · 24% RESTRICTED · 13% CLASSIFIED · 7% COVERT · 8% GOLD</div>
               <div class="case-pool-list" id="selectedCasePool"></div>
             </div>
             <div class="case-open-col">
-              <button type="button" class="case-open-btn" id="openCaseBtn">OPEN CASE</button>
-              <div style="font-size:10px;color:#7fa1b8;text-align:center" id="openCaseHint">1 container consumed on unlock</div>
+              <button type="button" class="case-open-btn" id="openCaseBtn">BUY &amp; OPEN · 150 COINS</button>
+              <button type="button" class="alt arm-btn-coin" id="buyCaseBtn" style="display:none;margin-top:0;padding:9px 14px;font-size:10.5px;letter-spacing:.12em">BUY +1 CASE · 150C</button>
+              <div style="font-size:10px;color:#7fa1b8;text-align:center" id="openCaseHint">Deducts coins &amp; unlocks container immediately</div>
             </div>
           </div>
           <div class="arm-earn-note">
-            <span>EARN CASES: +1 COURSE / ARENA · +1 NEW PB · +2 DAILY CLEAR</span>
+            <span>EARN COINS: +25 FINISH · +10 CLEAN GAUNTLET · +30 PB · +40 DAILY · +8/+12 ARENA KILL · +20/+65 ARENA</span>
             <span id="armoryOpenedStat">0 UNBOXED</span>
           </div>
         </div>
@@ -644,6 +682,7 @@
               <div class="arm-rar-label" id="revealRarity">EXCEEDINGLY RARE</div>
               <h3 class="arm-item-title" id="revealTitle">Karambit | Case Hardened</h3>
               <div class="arm-special-tag" id="revealSpecialTag" style="display:none">BLUE GEM</div>
+              <div class="arm-value-line" id="revealValueLine">MARKET VALUE · 0 COINS</div>
               <div class="arm-spec-grid">
                 <div class="arm-spec-cell"><div class="arm-spec-k">Wear Grade</div><div class="arm-spec-v" id="revealWear">FN</div></div>
                 <div class="arm-spec-cell"><div class="arm-spec-k">Float Value</div><div class="arm-spec-v" id="revealFloat">0.0124</div></div>
@@ -655,12 +694,15 @@
               </div>
               <div class="arm-btn-row">
                 <button type="button" id="revealEquipBtn">EQUIP NOW</button>
+                <button type="button" class="arm-btn-coin" id="revealSellBtn">QUICK SELL</button>
+              </div>
+              <div class="arm-btn-row">
                 <button type="button" class="alt" id="revealTrickBtn">PLAY TRICK</button>
                 <button type="button" class="arm-btn-mythic" id="revealMythicBtn">MYTHIC ★</button>
               </div>
               <div class="arm-btn-row">
-                <button type="button" class="alt" id="revealOpenAgainBtn">OPEN ANOTHER</button>
-                <button type="button" class="alt" id="revealBackCasesBtn">BACK TO CASES</button>
+                <button type="button" class="alt" id="revealOpenAgainBtn">BUY &amp; OPEN</button>
+                <button type="button" class="alt" id="revealBackCasesBtn">BACK TO SHOP</button>
               </div>
             </div>
           </div>
@@ -675,7 +717,22 @@
               <button type="button" class="arm-cat-btn" id="invCatKnives" data-inv-cat="knives" role="tab" aria-selected="false">KNIVES (1)</button>
               <button type="button" class="arm-cat-btn" id="invCatGloves" data-inv-cat="gloves" role="tab" aria-selected="false">GLOVES (1)</button>
             </div>
-            <div class="arm-filter-bar" id="armoryFilterBar"></div>
+            <div class="arm-filter-row">
+              <div class="arm-filter-bar" id="armoryFilterBar"></div>
+              <button type="button" class="arm-filter-btn arm-btn-coin" id="invBulkToggleBtn">BULK SELL</button>
+            </div>
+            <div class="inv-bulk-bar" id="invBulkBar" style="display:none">
+              <div class="inv-bulk-presets">
+                <button type="button" class="arm-filter-btn" id="bulkSelectDupsBtn">DUPLICATES</button>
+                <button type="button" class="arm-filter-btn" id="bulkSelectMilspecBtn">MIL-SPEC</button>
+                <button type="button" class="arm-filter-btn" id="bulkSelectRestrictedBtn">RESTRICTED</button>
+                <button type="button" class="arm-filter-btn" id="bulkClearBtn">CLEAR</button>
+              </div>
+              <div class="inv-bulk-footer">
+                <span class="inv-bulk-summary" id="bulkSelSummary">0 SELECTED · +0 COINS</span>
+                <button type="button" class="arm-filter-btn arm-btn-coin" id="bulkSellConfirmBtn" disabled style="padding:6px 10px;font-weight:800">SELL SELECTED</button>
+              </div>
+            </div>
             <div class="inv-grid" id="armoryInvGrid"></div>
           </div>
 
@@ -703,7 +760,7 @@
             </div>
             <div class="arm-btn-row">
               <button type="button" id="invEquipBtn">EQUIPPED</button>
-              <button type="button" class="arm-btn-danger" id="invDiscardBtn">DISCARD</button>
+              <button type="button" class="arm-btn-coin" id="invSellBtn">STARTER ITEM</button>
             </div>
             <div class="arm-btn-row">
               <button type="button" class="alt" id="invTrickBtn">PLAY TRICK</button>
@@ -748,7 +805,7 @@
           </div>
 
           <div class="srv-warmup-box">
-            <div class="section-label">Solo Arena Warmup (Hologram Bots · No Sign-In Required)</div>
+            <div class="section-label">Solo Arena Warmup (Practice Bots · Live P2P Servers Award Coins)</div>
             <div class="srv-warmup-grid">
               <button type="button" class="alt srv-warmup-btn" id="warmupSurfBtn" style="margin-top:0">
                 <span>SURF DUEL WARMUP</span>
@@ -806,6 +863,20 @@
       <button type="button" class="alt" id="pauseArchive">DAILY ARCHIVE &amp; LEADERBOARD</button>
       <button type="button" class="alt arm-btn-danger" id="pauseLeaveServer" style="display:none">LEAVE SERVER</button>
       <button type="button" class="alt" id="tomenu">MAIN MENU</button>
+    </div>
+  </div>
+  <div id="sellConfirmModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="sellConfirmTitle">
+    <div class="sell-modal-card">
+      <div class="eyebrow" style="color:#f5c542">CONFIRM SALE</div>
+      <h3 class="sell-modal-title" id="sellConfirmTitle">Sell Skin for Coins?</h3>
+      <div class="sell-modal-sub" id="sellConfirmSub">Sold skins are permanently removed from your inventory in exchange for coins.</div>
+      <div class="sell-modal-warn" id="sellConfirmWarn" style="display:none"></div>
+      <div class="sell-modal-list" id="sellConfirmList"></div>
+      <div class="sell-modal-balance" id="sellConfirmBalance"><span>BALANCE</span><span>0 → 0 COINS</span></div>
+      <div class="sell-modal-actions">
+        <button type="button" class="alt" id="sellConfirmCancelBtn">CANCEL</button>
+        <button type="button" class="arm-btn-coin" id="sellConfirmYesBtn">CONFIRM SELL</button>
+      </div>
     </div>
   </div>
 </div>

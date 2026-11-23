@@ -506,6 +506,7 @@ async function loadUserInventory() {
   }
   const data = snap.data();
   const clean = window.KnivesSystem.sanitizeInventory({
+    coins: data.coins,
     equippedKnifeId: data.equippedKnifeId,
     equippedGloveId: data.equippedGloveId,
     equippedRifleId: data.equippedRifleId,
@@ -541,6 +542,7 @@ async function saveUserInventorySummary(inventory) {
   if (existingSnap && existingSnap.exists()) {
     try {
       await updateDoc(invRef, {
+        coins: payload.coins,
         equippedKnifeId: payload.equippedKnifeId,
         equippedGloveId: payload.equippedGloveId,
         equippedRifleId: payload.equippedRifleId,
