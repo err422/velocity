@@ -1,6 +1,6 @@
 // =====================================================================
 // VELOCITY COURSE CATALOG & HANDCRAFTED LEVEL BUILDERS
-// 12 Counter-Strike inspired Surf Maps (Tiers 1-4, Linear & Staged)
+// 13 Counter-Strike inspired Surf Maps (Tiers 1-4, Linear & Staged)
 // + 4 Movement & Gauntlet Time Trials
 // =====================================================================
 (function (root) {
@@ -546,6 +546,108 @@
   }
 
   // ===================================================================
+
+  // ===================================================================
+  // SURF — BREAKWATER RUN (T2 · Linear · Slate)
+  // Industrial harbor course: bank transfer, two sweeping turns, a slipway wrap.
+  // ===================================================================
+  function buildSurfBreakwater(bOpts) {
+    const b = makeBuilder('slate', bOpts);
+    const catchDeck = (x, top, z, w, d) => {
+      b.addDeck(x, top, z, w, d);
+      b.addBox(x, top + 0.14, z - d * 0.5, w, 0.28, 0.5, b.mats.accent, false);
+      b.addBox(x, top + 0.14, z + d * 0.5, w, 0.28, 0.5, b.mats.accent, false);
+      b.addBox(x - w * 0.5, top + 0.14, z, 0.5, 0.28, d, b.mats.lip, false);
+      b.addBox(x + w * 0.5, top + 0.14, z, 0.5, 0.28, d, b.mats.lip, false);
+    };
+
+    buildSurfDeck(b, 0, 92, -26, 16, 34, 'end');
+    b.addNeonFrame(0, 105, 5, 38, 24, 0);
+    b.addSurfWedge([0, 91.5, 18], [0, 80, 126], {
+      faceWidth: 14, slopeDeg: 50.5, side: 'left', lipStart: true, lipEnd: true
+    });
+    buildSurfDeck(b, 0, 68.5, 130, 168, 38, 'end');
+
+    const turn1 = b.addSurfCurve({
+      start: [0, 67.8, 170], yawStart: 0, yawDelta: Math.PI / 2,
+      radius: 54, pitchDrop: -9, segments: 20,
+      faceWidth: 14, slopeDeg: 50.5, side: 'both', lipStart: true, lipEnd: true
+    });
+    const t1End = turn1.curve.end;
+    catchDeck(76, 51.5, 224, 44, 42);
+
+    b.addSurfWedge([99, 50.5, 224], [208, 40, 224], {
+      faceWidth: 13.5, slopeDeg: 51, side: 'right', lipStart: true, lipEnd: true
+    });
+    catchDeck(226, 28.5, 224, 40, 40);
+
+    const turn2 = b.addSurfCurve({
+      start: [248, 27.5, 224], yawStart: Math.PI / 2, yawDelta: Math.PI / 2,
+      radius: 54, pitchDrop: -9, segments: 20,
+      faceWidth: 14, slopeDeg: 50.5, side: 'both', lipStart: true, lipEnd: true
+    });
+    const t2End = turn2.curve.end;
+    catchDeck(302, 11.5, 151, 40, 42);
+
+    b.addSurfWedge([302, 10.5, 126], [302, 1, 48], {
+      faceWidth: 13.5, slopeDeg: 51, side: 'left', lipStart: true, lipEnd: true
+    });
+    buildSurfDeck(b, 302, -10.5, 12, 48, 38, 'end');
+
+    const slipwayTurn = b.addSurfCurve({
+      start: [302, -10.5, 9], yawStart: Math.PI, yawDelta: Math.PI,
+      radius: 48, pitchDrop: -8, segments: 24,
+      faceWidth: 13, slopeDeg: 51.5, side: 'both', lipStart: true, lipEnd: true
+    });
+    const uEnd = slipwayTurn.curve.end;
+    catchDeck(206, -25.5, 27, 42, 38);
+
+    b.addSurfWedge([206, -26.5, 50], [206, -37.5, 150], {
+      faceWidth: 14, slopeDeg: 50.5, side: 'both', lipStart: true, lipEnd: true
+    });
+    buildSurfDeck(b, 206, -49.5, 154, 218, 42, 'start');
+    b.addNeonFrame(206, -28, 184, 38, 22, 0);
+
+    b.addPylon(-30, 65, 82, 58);
+    b.addPylon(30, 65, 82, 58);
+    b.addBox(0, 123, 82, 64, 1.4, 1.6, b.mats.accent, false);
+    b.addBox(-58, 24, 178, 30, 48, 46, b.mats.dark, false);
+    b.addBox(-58, 49, 178, 31, 0.8, 47, b.mats.lip, false);
+    b.addBox(128, 12, 280, 34, 28, 44, b.mats.dark, false);
+    b.addBox(128, 27, 280, 35, 0.8, 45, b.mats.accent, false);
+    b.addPylon(354, -13, 150, 44);
+    b.addBox(254, -10, 9, 14, 54, 14, b.mats.dark, false);
+    b.addBox(254, 17.5, 9, 18, 0.9, 18, b.mats.accent, false);
+    b.addBox(254, -37.5, 9, 18, 0.9, 18, b.mats.lip, false);
+    b.addPylon(178, -63, 184, 25);
+    b.addPylon(234, -63, 184, 25);
+    b.gateText('BREAKWATER RUN', 0, 111, 5, '#65e7ff');
+    b.gateText('FINISH', 206, -35, 184, '#ff9b55');
+
+    const gates = b.buildGates([
+      [0, 96, 6, 8],
+      [0, 72.5, 149, 12, 0, 68.6, 137],
+      [80, 55.5, 224, 12, 66, 51.6, 224, 1, 0],
+      [228, 32.5, 224, 12, 214, 28.6, 224, 1, 0],
+      [302, -6.5, 28, 12, 302, -10.4, 40, 0, -1],
+      [206, -21.5, 30, 12, 206, -25.4, 18, 0, 1],
+      [206, -45.5, 184, 14, undefined, undefined, undefined, 0, 1]
+    ]);
+
+    return {
+      id: 'surf_breakwater', theme: 'slate', format: 'linear', tier: 2,
+      spawn: V3(0, 92, -10), yaw: Math.PI, course: gates, bound: 0,
+      killY: -78, surfHint: true,
+      previewWaypoints: [
+        [-20, 105, 8], [0, 88, 112], [26, 70, 198],
+        [t1End[0], t1End[1] + 15, t1End[2]], [154, 56, 238], [226, 43, 224],
+        [286, 28, 198], [t2End[0] + 8, t2End[1] + 12, t2End[2] - 84],
+        [302, 12, 86], [254, -12, -30], [uEnd[0], uEnd[1] - 6, uEnd[2] + 24],
+        [206, -35, 112], [206, -39, 184]
+      ]
+    };
+  }
+
   // SURF 08 — HELIX SPIRE (T3 · Linear · Prism)
   // Chained 360-degree helical corkscrew spirals & inner-ring flicks
   // ===================================================================
@@ -1124,10 +1226,10 @@
   }
 
   // ===================================================================
-  // UNIFIED COURSE CATALOG (12 Surf Maps + 4 Time Trials)
+  // UNIFIED COURSE CATALOG (13 Surf Maps + 4 Time Trials)
   // ===================================================================
   const COURSE_CATALOG = [
-    // --- SURF MAPS (12) ---
+    // --- SURF MAPS (13) ---
     {
       id: 'surf1', category: 'surf', name: 'Skyline Drift', code: 'surf_skyline',
       author: 'Velocity Core', tier: 1, format: 'linear', cpCount: 4,
@@ -1183,6 +1285,14 @@
       pieces: ['Boosters', 'Half-Pipe Tube', '270° Corkscrew'],
       description: 'Five escalating surf stages combining boosters, twin tubes, S-chicanes, spines, and a corkscrew.',
       build: buildSurfRookie
+    },
+    {
+      id: 'surf_breakwater', category: 'surf', name: 'Breakwater Run', code: 'surf_breakwater',
+      author: 'Velocity Core', tier: 2, format: 'linear', cpCount: 5,
+      parGold: 42.0, parSilver: 56.0, theme: 'slate',
+      pieces: ['One-Sided Banks', '90° Surf Transfers', '180° Slipway Wrap'],
+      description: 'A night-shift container port run with two sweeping transfers, a descending slipway, and a full U-turn finish.',
+      build: buildSurfBreakwater
     },
     {
       id: 'surf_helix', category: 'surf', name: 'Helix Spire', code: 'surf_helix',
