@@ -13,6 +13,7 @@
   const DUEL_WIN_ROUNDS = 5;
   const FFA_WIN_KILLS = 15;
   const FFA_RESPAWN_SEC = 2.5;
+  const WARMUP_RESPAWN_SEC = 2.4;
   const DUEL_FREEZE_SEC = 2.2;
   const DUEL_POST_ROUND_SEC = 2.4;
 
@@ -369,6 +370,43 @@
     });
     syncLobbyMetaNow();
     emitState();
+  }
+
+  function applyWarmupDamage(damage, botName, weapon, isHeadshot) {
+    const isWarmup = state.role === 'warmup' ||
+      ((state.role === 'host' || state.role === 'client') && state.phase === 'warmup');
+    if (!isWarmup || !state.localAlive || state.localHp <= 0) return false;
+
+    const cleanDmg = Math.max(1, Math.min(35, Math.round(Number(damage) || 0)));
+    state.localHp = Math.max(0, state.localHp - cleanDmg);
+    const killed = state.localHp <= 0;
+    if (killed) {
+      state.localAlive = false;
+      state.respawnTimer = WARMUP_RESPAWN_SEC;
+      const attackerName = String(botName || 'HOLOGRAM').slice(0, 24);
+      pushKillFeed(attackerName, state.localName || 'Runner', weapon || 'rifle', isHeadshot);
+      showBanner('ELIMINATED', 'OUTPLAYED BY ' + attackerName.toUpperCase() + ' · RESPAWNING', 1900);
+    }
+
+    const localRecord = state.players.get(state.localUid);
+    if (localRecord) {
+      localRecord.hp = state.localHp;
+      localRecord.alive = state.localAlive;
+    }
+    if (root.CombatSystem) root.CombatSystem.triggerDamageFlash();
+    if (typeof callbacks.onLocalDamage === 'function') {
+      callbacks.onLocalDamage({
+        attackerName: botName || 'HOLOGRAM',
+        damage: cleanDmg,
+        hp: state.localHp,
+        alive: state.localAlive,
+        killed,
+        slot: weapon || 'rifle',
+        headshot: Boolean(isHeadshot)
+      });
+    }
+    emitState();
+    return true;
   }
 
   function hostResolveDamage(attackerUid, victimUid, damage, slot, isHeadshot) {
@@ -1141,6 +1179,21 @@
 
     if (state.respawnTimer > 0) {
       state.respawnTimer = Math.max(0, state.respawnTimer - dt);
+      if (state.respawnTimer === 0 && !state.localAlive && state.phase === 'warmup' &&
+          (state.role === 'warmup' || state.role === 'host' || state.role === 'client')) {
+        state.localHp = 100;
+        state.localAlive = true;
+        const spawn = getSpawnForIndex(Math.floor(Math.random() * Math.max(1, arenaSpawns.length)));
+        const localRecord = state.players.get(state.localUid);
+        if (localRecord) {
+          localRecord.hp = 100;
+          localRecord.alive = true;
+        }
+        if (root.CombatSystem) root.CombatSystem.resetAmmo();
+        if (typeof callbacks.onLocalRespawn === 'function') callbacks.onLocalRespawn(spawn, true);
+        showBanner('BACK IN THE FIGHT', 'WARMUP RESPAWNED', 1000);
+        emitState();
+      }
     }
 
     if (state.role === 'host' || state.role === 'client') {
@@ -1195,6 +1248,7 @@
     leaveSession,
     requestRematch,
     reportShot,
+    applyWarmupDamage,
     update,
     pushWarmupKill: (botName, weapon, headshot) => pushKillFeed(state.localName || 'You', botName, weapon, headshot),
     getState: getPublicState

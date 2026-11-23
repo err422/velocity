@@ -83,7 +83,14 @@ function render(dt){
   // Advance combat first so the world camera and viewmodel consume the same ADS snapshot.
   let combatFrameState=null;
   if(inLevel){
-    CombatSystem.update(dt,_rp);
+    const botTargetState=NetcodeSystem.getState();
+    CombatSystem.update(dt,{
+      position:_rp,
+      yaw:p.yaw,
+      eye:p.eye,
+      velocity:p.vel,
+      alive:botTargetState.localAlive!==false
+    },solidMeshes);
     combatFrameState=CombatSystem.getState();
   }
   const baseFov=(window.activeSettings&&window.activeSettings.baseFov)||C.fovBase;

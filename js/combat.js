@@ -186,6 +186,30 @@
   const _worldUp = new THREE.Vector3(0, 1, 0);
   const _combatRay = new THREE.Raycaster();
 
+  // Dedicated scratch state for local warmup bot navigation, sight and firing.
+  const _botOrigin = new THREE.Vector3();
+  const _botDirection = new THREE.Vector3();
+  const _botTargetPos = new THREE.Vector3();
+  const _botToTarget = new THREE.Vector3();
+  const _botForward = new THREE.Vector3();
+  const _botRight = new THREE.Vector3();
+  const _botUp = new THREE.Vector3();
+  const _botDesiredDir = new THREE.Vector3();
+  const _botCandidateDir = new THREE.Vector3();
+  const _botEndPoint = new THREE.Vector3();
+  const _botFloorOrigin = new THREE.Vector3();
+  const _botDown = new THREE.Vector3(0, -1, 0);
+  const _botSightRay = new THREE.Raycaster();
+  const _botShotRay = new THREE.Raycaster();
+  const _botNavRay = new THREE.Raycaster();
+  const _botFloorRay = new THREE.Raycaster();
+
+  const WARMUP_BOT_ARCHETYPES = [
+    { role: 'RUSHER', weapon: 'smg', preferredRange: 12, sightRange: 44, moveSpeed: 8.4, damage: 5, shotInterval: 0.22, magSize: 30, reloadTime: 1.45, aimSpread: 0.040, reaction: 0.24, color: 0xff8b47, tracer: 0xff9c62 },
+    { role: 'RIFLE', weapon: 'rifle', preferredRange: 19, sightRange: 54, moveSpeed: 7.0, damage: 7, shotInterval: 0.30, magSize: 24, reloadTime: 1.75, aimSpread: 0.032, reaction: 0.38, color: 0xffbd42, tracer: 0xffc36b },
+    { role: 'SKIRMISHER', weapon: 'deagle', preferredRange: 24, sightRange: 58, moveSpeed: 6.4, damage: 10, shotInterval: 0.62, magSize: 10, reloadTime: 1.95, aimSpread: 0.025, reaction: 0.48, color: 0x9b78ff, tracer: 0xb79aff }
+  ];
+
   // Pooled bullet tracers
   const TRACER_POOL_SIZE = 28;
   const tracers = [];
@@ -835,33 +859,357 @@
   function setupWarmupBots(spawns, count = 3) {
     clearWarmupBots();
     if (!avatarGroup || !Array.isArray(spawns) || spawns.length === 0) return;
-    warmupSpawns = spawns;
+    warmupSpawns = spawns.slice();
     warmupEnabled = true;
     warmupKills = 0;
     const names = ['HOLO-ALPHA', 'HOLO-BRAVO', 'HOLO-CHARLIE', 'HOLO-DELTA'];
+    const playerSpawn = spawns[0];
     const n = Math.min(count, spawns.length);
     for (let i = 0; i < n; i++) {
       const sp = spawns[(i + 1) % spawns.length];
-      const visual = createAvatarMesh({ name: names[i % names.length], accentColor: 0xff8b47, isBot: true });
+      const profile = WARMUP_BOT_ARCHETYPES[i % WARMUP_BOT_ARCHETYPES.length];
+      const visual = createAvatarMesh({ name: names[i % names.length], accentColor: profile.color, isBot: true });
       visual.headMesh.userData.botIndex = i;
       visual.headMesh.userData.hitbox = 'head';
       visual.bodyMesh.userData.botIndex = i;
       visual.bodyMesh.userData.hitbox = 'body';
+      const yaw = Math.atan2(-(playerSpawn.x - sp.x), -(playerSpawn.z - sp.z));
       visual.group.position.set(sp.x, sp.y, sp.z);
+      visual.group.rotation.y = yaw;
       avatarGroup.add(visual.group);
       warmupBots.push({
         index: i,
         name: names[i % names.length],
+        profile,
         visual,
         hp: 100,
         alive: true,
         respawnTimer: 0,
         anchor: new THREE.Vector3(sp.x, sp.y, sp.z),
-        strafeDir: i % 2 === 0 ? 1 : -1,
-        strafePhase: i * 1.9,
-        strafeRange: 5.5 + (i % 2) * 2.5,
-        strafeSpeed: 1.45 + i * 0.22
+        wanderPoint: new THREE.Vector3(sp.x, sp.y, sp.z),
+        lastKnownPlayer: new THREE.Vector3(playerSpawn.x, playerSpawn.y, playerSpawn.z),
+        velocity: new THREE.Vector3(),
+        yaw,
+        orbitDir: i % 2 === 0 ? 1 : -1,
+        decisionTimer: 0.8 + i * 0.35,
+        wanderTimer: 0,
+        aimTimer: 0,
+        alertTimer: 0,
+        alertOnNextUpdate: false,
+        magazine: profile.magSize,
+        reloadTimer: 0,
+        fireCooldown: 0.45 + i * 0.17,
+        strafePhase: i * 1.9
       });
+    }
+  }
+
+  function warmupBotFloorAt(x, z, currentY, solidList) {
+    if (!solidList || solidList.length === 0) return currentY;
+    _botFloorOrigin.set(x, currentY + 2.7, z);
+    _botFloorRay.set(_botFloorOrigin, _botDown);
+    _botFloorRay.near = 0.05;
+    _botFloorRay.far = 4.2;
+    const hits = _botFloorRay.intersectObjects(solidList, false);
+    for (const hit of hits) {
+      const floorY = hit.point.y;
+      // Follow ramps and small ledges, but do not walk off a platform or climb crates.
+      if (floorY <= currentY + 0.9 && floorY >= currentY - 1.15) return floorY;
+    }
+    return null;
+  }
+
+  function warmupBotCanSeePlayer(bot, playerPos, targetPos, solidList, distance) {
+    const profile = bot.profile;
+    if (distance > profile.sightRange) return false;
+    const dx = playerPos.x - bot.visual.group.position.x;
+    const dz = playerPos.z - bot.visual.group.position.z;
+    const horizontalLen = Math.max(0.001, Math.hypot(dx, dz));
+    _botForward.set(-Math.sin(bot.yaw), 0, -Math.cos(bot.yaw));
+    _botDirection.set(dx / horizontalLen, 0, dz / horizontalLen);
+    const facingDot = _botForward.dot(_botDirection);
+    if (facingDot < (bot.alertTimer > 0 ? -0.58 : -0.08)) return false;
+
+    _botOrigin.set(
+      bot.visual.group.position.x,
+      bot.visual.group.position.y + 1.22,
+      bot.visual.group.position.z
+    );
+    _botDirection.subVectors(targetPos, _botOrigin);
+    const rayDistance = _botDirection.length();
+    if (rayDistance < 0.1) return true;
+    _botDirection.divideScalar(rayDistance);
+    _botSightRay.set(_botOrigin, _botDirection);
+    _botSightRay.near = 0.08;
+    _botSightRay.far = Math.max(0.08, rayDistance - 0.45);
+    if (!solidList || solidList.length === 0) return true;
+    return _botSightRay.intersectObjects(solidList, false).length === 0;
+  }
+
+  function warmupBotClearance(origin, direction, solidList) {
+    if (!solidList || solidList.length === 0) return 2.5;
+    _botNavRay.set(origin, direction);
+    _botNavRay.near = 0.08;
+    _botNavRay.far = 2.5;
+    const hits = _botNavRay.intersectObjects(solidList, false);
+    return hits.length > 0 ? hits[0].distance : 2.5;
+  }
+
+  function steerWarmupBotAroundWalls(bot, direction, solidList) {
+    if (direction.lengthSq() < 0.001) return;
+    _botOrigin.set(
+      bot.visual.group.position.x,
+      bot.visual.group.position.y + 0.95,
+      bot.visual.group.position.z
+    );
+    if (warmupBotClearance(_botOrigin, direction, solidList) > 1.35) return;
+
+    const turn = bot.orbitDir >= 0 ? 1 : -1;
+    const c = Math.cos(1.05);
+    const s = Math.sin(1.05) * turn;
+    _botCandidateDir.set(
+      direction.x * c - direction.z * s,
+      0,
+      direction.x * s + direction.z * c
+    ).normalize();
+    const firstClearance = warmupBotClearance(_botOrigin, _botCandidateDir, solidList);
+
+    _botCandidateDir.set(
+      direction.x * c + direction.z * s,
+      0,
+      -direction.x * s + direction.z * c
+    ).normalize();
+    const secondClearance = warmupBotClearance(_botOrigin, _botCandidateDir, solidList);
+
+    if (firstClearance > secondClearance && firstClearance > 0.75) {
+      _botCandidateDir.set(
+        direction.x * c - direction.z * s,
+        0,
+        direction.x * s + direction.z * c
+      ).normalize();
+      direction.copy(_botCandidateDir);
+    } else if (secondClearance > 0.75) {
+      direction.copy(_botCandidateDir);
+    } else {
+      direction.negate();
+    }
+  }
+
+  function fireWarmupBot(bot, targetPos, solidList) {
+    const profile = bot.profile;
+    if (bot.reloadTimer > 0 || bot.magazine <= 0) return false;
+    _botOrigin.set(
+      bot.visual.group.position.x,
+      bot.visual.group.position.y + 1.22,
+      bot.visual.group.position.z
+    );
+    _botToTarget.subVectors(targetPos, _botOrigin);
+    const targetDistance = _botToTarget.length();
+    if (targetDistance < 0.1 || targetDistance > profile.sightRange) return false;
+    _botDirection.copy(_botToTarget).divideScalar(targetDistance);
+
+    _botRight.crossVectors(_botDirection, _worldUp).normalize();
+    if (_botRight.lengthSq() < 0.001) _botRight.set(1, 0, 0);
+    _botUp.crossVectors(_botRight, _botDirection).normalize();
+
+    const settle = Math.min(1, bot.aimTimer / 0.7);
+    const movingPenalty = bot.velocity.length() > 3.2 ? 0.009 : 0.003;
+    const spread = profile.aimSpread * (1.25 - settle * 0.48) + movingPenalty;
+    const angle = Math.random() * Math.PI * 2;
+    const radius = Math.sqrt(Math.random()) * spread;
+    _botDirection
+      .addScaledVector(_botRight, Math.cos(angle) * radius)
+      .addScaledVector(_botUp, Math.sin(angle) * radius)
+      .normalize();
+
+    _botShotRay.set(_botOrigin, _botDirection);
+    _botShotRay.near = 0.08;
+    _botShotRay.far = profile.sightRange;
+    const blockers = solidList && solidList.length
+      ? _botShotRay.intersectObjects(solidList, false)
+      : [];
+    const wallDistance = blockers.length > 0 ? blockers[0].distance : Infinity;
+    const alongRay = _botToTarget.dot(_botDirection);
+    const missDistanceSq = Math.max(0, _botToTarget.lengthSq() - alongRay * alongRay);
+    const hitsPlayer = alongRay > 0 &&
+      alongRay <= profile.sightRange &&
+      missDistanceSq <= 0.46 * 0.46 &&
+      wallDistance >= alongRay - 0.28;
+
+    let endDistance = Math.min(profile.sightRange, wallDistance);
+    if (hitsPlayer) endDistance = Math.min(endDistance, alongRay);
+    _botEndPoint.copy(_botOrigin).addScaledVector(_botDirection, endDistance);
+    spawnTracer(_botOrigin, _botEndPoint, profile.tracer);
+
+    bot.magazine -= 1;
+    bot.fireCooldown = profile.shotInterval * (0.92 + Math.random() * 0.16);
+    if (root.WeaponAudio) root.WeaponAudio.fireWeapon(profile.weapon, { suppressed: false });
+
+    if (hitsPlayer && root.NetcodeSystem && typeof root.NetcodeSystem.applyWarmupDamage === 'function') {
+      const falloff = Math.max(0.82, 1 - (targetDistance / profile.sightRange) * 0.18);
+      const damage = Math.max(3, Math.round(profile.damage * falloff));
+      root.NetcodeSystem.applyWarmupDamage(damage, bot.name, profile.weapon, false);
+      spawnBurst(_botEndPoint, 0xff5e78, 4, 2.8);
+    } else if (blockers.length > 0 && blockers[0].distance < profile.sightRange) {
+      spawnBurst(_botEndPoint, 0xffb347, 2, 2.2);
+    }
+    return hitsPlayer;
+  }
+
+  function updateWarmupBot(bot, dt, playerState, playerPos, targetPos, solidList) {
+    const profile = bot.profile;
+    const group = bot.visual.group;
+    bot.alertTimer = Math.max(0, bot.alertTimer - dt);
+    bot.decisionTimer -= dt;
+    bot.wanderTimer -= dt;
+
+    if (bot.alertOnNextUpdate && playerPos) {
+      bot.lastKnownPlayer.copy(playerPos);
+      bot.alertOnNextUpdate = false;
+    }
+    if (bot.decisionTimer <= 0) {
+      if (Math.random() < 0.42) bot.orbitDir *= -1;
+      bot.decisionTimer = 1.2 + Math.random() * 2.0;
+    }
+
+    let horizontalDistance = Infinity;
+    let seesPlayer = false;
+    if (playerPos && targetPos && playerState.alive !== false) {
+      const dx = playerPos.x - group.position.x;
+      const dz = playerPos.z - group.position.z;
+      horizontalDistance = Math.hypot(dx, dz);
+      const verticalDistance = targetPos.y - (group.position.y + 1.22);
+      const distance3d = Math.hypot(horizontalDistance, verticalDistance);
+      seesPlayer = warmupBotCanSeePlayer(bot, playerPos, targetPos, solidList, distance3d);
+      if (seesPlayer) {
+        bot.lastKnownPlayer.copy(playerPos);
+        bot.alertTimer = 3.8;
+        bot.aimTimer = Math.min(1.8, bot.aimTimer + dt);
+      }
+    }
+    if (!seesPlayer) bot.aimTimer = Math.max(0, bot.aimTimer - dt * 1.7);
+
+    _botDesiredDir.set(0, 0, 0);
+    if (seesPlayer && horizontalDistance > 0.1) {
+      const dx = playerPos.x - group.position.x;
+      const dz = playerPos.z - group.position.z;
+      const towardX = dx / horizontalDistance;
+      const towardZ = dz / horizontalDistance;
+      let radial = 0;
+      if (horizontalDistance > profile.preferredRange * 1.2) radial = 1;
+      else if (horizontalDistance < profile.preferredRange * 0.72) radial = -0.88;
+      if (horizontalDistance < 4.4) radial = -1.1;
+      const tangent = bot.orbitDir * (horizontalDistance < 5.5 ? 0.28 : 0.92);
+      _botDesiredDir.set(
+        towardX * radial - towardZ * tangent,
+        0,
+        towardZ * radial + towardX * tangent
+      );
+    } else if (bot.alertTimer > 0) {
+      const dx = bot.lastKnownPlayer.x - group.position.x;
+      const dz = bot.lastKnownPlayer.z - group.position.z;
+      const len = Math.hypot(dx, dz);
+      if (len > 1.25) _botDesiredDir.set(dx / len, 0, dz / len);
+      else _botDesiredDir.set(-dz, 0, dx).multiplyScalar(0.35);
+    } else {
+      const wx = bot.wanderPoint.x - group.position.x;
+      const wz = bot.wanderPoint.z - group.position.z;
+      const wanderDistance = Math.hypot(wx, wz);
+      if (bot.wanderTimer <= 0 || wanderDistance < 1.8) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 2.5 + Math.random() * 4.5;
+        bot.wanderPoint.set(
+          bot.anchor.x + Math.cos(angle) * radius,
+          bot.anchor.y,
+          bot.anchor.z + Math.sin(angle) * radius
+        );
+        bot.wanderTimer = 2.0 + Math.random() * 2.4;
+      }
+      const wx2 = bot.wanderPoint.x - group.position.x;
+      const wz2 = bot.wanderPoint.z - group.position.z;
+      const len = Math.hypot(wx2, wz2);
+      if (len > 0.5) _botDesiredDir.set(wx2 / len, 0, wz2 / len);
+    }
+
+    // Keep bots from collapsing into the same lane or occupying the same space.
+    for (const other of warmupBots) {
+      if (other === bot || !other.alive) continue;
+      const sx = group.position.x - other.visual.group.position.x;
+      const sz = group.position.z - other.visual.group.position.z;
+      const separationSq = sx * sx + sz * sz;
+      if (separationSq > 0.001 && separationSq < 7.0) {
+        const strength = (Math.sqrt(7.0) - Math.sqrt(separationSq)) / Math.sqrt(7.0);
+        _botDesiredDir.x += (sx / Math.sqrt(separationSq)) * strength * 1.25;
+        _botDesiredDir.z += (sz / Math.sqrt(separationSq)) * strength * 1.25;
+      }
+    }
+
+    if (_botDesiredDir.lengthSq() > 0.001) {
+      _botDesiredDir.normalize();
+      steerWarmupBotAroundWalls(bot, _botDesiredDir, solidList);
+    }
+    const speedScale = seesPlayer && bot.aimTimer < 0.3 ? 0.78 : 1;
+    const targetSpeed = profile.moveSpeed * speedScale;
+    bot.velocity.x += (_botDesiredDir.x * targetSpeed - bot.velocity.x) * Math.min(1, dt * 5.2);
+    bot.velocity.z += (_botDesiredDir.z * targetSpeed - bot.velocity.z) * Math.min(1, dt * 5.2);
+
+    const nextX = group.position.x + bot.velocity.x * dt;
+    const nextZ = group.position.z + bot.velocity.z * dt;
+    const floorY = warmupBotFloorAt(nextX, nextZ, group.position.y, solidList);
+    if (floorY == null) {
+      bot.velocity.x *= 0.12;
+      bot.velocity.z *= 0.12;
+      if (_botDesiredDir.lengthSq() > 0.01) bot.orbitDir *= -1;
+    } else {
+      group.position.x = nextX;
+      group.position.z = nextZ;
+      group.position.y += (floorY - group.position.y) * Math.min(1, dt * 12);
+    }
+
+    let faceX = bot.velocity.x;
+    let faceZ = bot.velocity.z;
+    if (seesPlayer && playerPos) {
+      faceX = playerPos.x - group.position.x;
+      faceZ = playerPos.z - group.position.z;
+    } else if (bot.alertTimer > 0) {
+      faceX = bot.lastKnownPlayer.x - group.position.x;
+      faceZ = bot.lastKnownPlayer.z - group.position.z;
+    }
+    if (Math.hypot(faceX, faceZ) > 0.12) {
+      const targetYaw = Math.atan2(-faceX, -faceZ);
+      let yawDelta = targetYaw - bot.yaw;
+      while (yawDelta > Math.PI) yawDelta -= Math.PI * 2;
+      while (yawDelta < -Math.PI) yawDelta += Math.PI * 2;
+      bot.yaw += yawDelta * Math.min(1, dt * (seesPlayer ? 8.5 : 4.5));
+      group.rotation.y = bot.yaw;
+    }
+
+    const strideSpeed = Math.hypot(bot.velocity.x, bot.velocity.z);
+    const stride = Math.sin(animClock * (7.2 + strideSpeed * 0.35) + bot.strafePhase) *
+      Math.min(0.42, strideSpeed * 0.055);
+    bot.visual.legL.rotation.x = stride;
+    bot.visual.legR.rotation.x = -stride;
+    bot.visual.hpBg.lookAt(
+      playerPos ? playerPos.x : group.position.x,
+      group.position.y + 2.16,
+      playerPos ? playerPos.z : group.position.z + 1
+    );
+    bot.visual.hpFill.lookAt(
+      playerPos ? playerPos.x : group.position.x,
+      group.position.y + 2.16,
+      playerPos ? playerPos.z : group.position.z + 1
+    );
+
+    bot.fireCooldown = Math.max(0, bot.fireCooldown - dt);
+    if (bot.reloadTimer > 0) {
+      bot.reloadTimer = Math.max(0, bot.reloadTimer - dt);
+      if (bot.reloadTimer === 0) bot.magazine = profile.magSize;
+    } else if (bot.magazine <= 0) {
+      bot.reloadTimer = profile.reloadTime;
+    }
+    if (seesPlayer && playerState.alive !== false && bot.fireCooldown <= 0 &&
+        bot.reloadTimer <= 0 && bot.magazine > 0 && bot.aimTimer >= profile.reaction) {
+      fireWarmupBot(bot, targetPos, solidList);
     }
   }
 
@@ -1165,6 +1513,9 @@
           const dmg = isKnife
             ? (o.heavy ? 100 : 55)
             : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, true) : (isHead ? build.damageHead : build.damageBody));
+          bot.alertTimer = Math.max(bot.alertTimer, 4.2);
+          bot.alertOnNextUpdate = true;
+          bot.aimTimer = 0;
           const prev = botDmgMap.get(ud.botIndex) || { bot, dmg: 0, isHead: false, point: bestHit.point };
           prev.dmg += dmg;
           prev.isHead = prev.isHead || isHead;
@@ -1265,7 +1616,15 @@
 
   // ---------- Per-Frame Update (Zero Allocations) ----------
   let animClock = 0;
-  function update(dt, playerPos) {
+  function update(dt, playerState, solidMeshes) {
+    const playerPos = playerState && (playerState.position || playerState.pos || playerState);
+    const playerAlive = !playerState || playerState.alive !== false;
+    const playerEye = playerState && Number(playerState.eye) > 0 ? Number(playerState.eye) : 1.6;
+    const botTargetPos = playerPos
+      ? _botTargetPos.set(playerPos.x, playerPos.y + Math.min(1.2, playerEye * 0.72), playerPos.z)
+      : null;
+    const botSolids = Array.isArray(solidMeshes) ? solidMeshes : [];
+    const botPlayerState = { alive: playerAlive, eye: playerEye };
     animClock += dt;
     if (state.fireCooldown > 0) state.fireCooldown = Math.max(0, state.fireCooldown - dt);
     if (state.spreadBloom > 0) state.spreadBloom = Math.max(0, state.spreadBloom - dt * 0.055);
@@ -1334,17 +1693,45 @@
       updateRangeScoreboard();
     }
 
-    // Update Solo Warmup Hologram Bots
+    // Update Solo Warmup Hologram Bots: movement, awareness, cover steering and combat.
     if (warmupEnabled) {
       for (let i = 0; i < warmupBots.length; i++) {
         const bot = warmupBots[i];
         if (!bot.alive) {
           bot.respawnTimer -= dt;
           if (bot.respawnTimer <= 0 && warmupSpawns.length > 0) {
-            const sp = warmupSpawns[Math.floor(Math.random() * warmupSpawns.length)];
-            bot.anchor.set(sp.x, sp.y, sp.z);
+            let spawn = warmupSpawns[Math.floor(Math.random() * warmupSpawns.length)];
+            if (playerPos) {
+              let farthest = -1;
+              for (const candidate of warmupSpawns) {
+                const dx = candidate.x - playerPos.x;
+                const dz = candidate.z - playerPos.z;
+                const score = dx * dx + dz * dz + Math.random() * 18;
+                if (score > farthest) {
+                  farthest = score;
+                  spawn = candidate;
+                }
+              }
+            }
+            bot.anchor.set(spawn.x, spawn.y, spawn.z);
+            bot.wanderPoint.set(spawn.x, spawn.y, spawn.z);
+            bot.lastKnownPlayer.set(playerPos ? playerPos.x : spawn.x, playerPos ? playerPos.y : spawn.y, playerPos ? playerPos.z : spawn.z);
+            bot.velocity.set(0, 0, 0);
+            bot.yaw = playerPos
+              ? Math.atan2(-(playerPos.x - spawn.x), -(playerPos.z - spawn.z))
+              : (spawn.yaw || 0);
+            bot.visual.group.position.set(spawn.x, spawn.y, spawn.z);
+            bot.visual.group.rotation.y = bot.yaw;
             bot.hp = 100;
             bot.alive = true;
+            bot.alertTimer = 0;
+            bot.alertOnNextUpdate = false;
+            bot.aimTimer = 0;
+            bot.magazine = bot.profile.magSize;
+            bot.reloadTimer = 0;
+            bot.fireCooldown = 0.7;
+            bot.decisionTimer = 0.8 + Math.random() * 1.2;
+            bot.wanderTimer = 0;
             bot.visual.hpFill.scale.x = 1;
             bot.visual.hpFill.position.x = 0;
             bot.visual.hpFill.material.color.setHex(0x62f58a);
@@ -1352,17 +1739,14 @@
           }
           continue;
         }
-        const strafe = Math.sin(animClock * bot.strafeSpeed + bot.strafePhase) * bot.strafeRange;
-        bot.visual.group.position.set(bot.anchor.x + strafe * bot.strafeDir, bot.anchor.y, bot.anchor.z);
-        if (playerPos) {
-          const dx = playerPos.x - bot.visual.group.position.x;
-          const dz = playerPos.z - bot.visual.group.position.z;
-          bot.visual.group.rotation.y = Math.atan2(dx, dz) + Math.PI;
-        }
-        // Subtle stride leg bob
-        const stride = Math.sin(animClock * 7.5 + bot.strafePhase) * 0.35;
-        bot.visual.legL.rotation.x = stride;
-        bot.visual.legR.rotation.x = -stride;
+        updateWarmupBot(
+          bot,
+          dt,
+          botPlayerState,
+          playerPos,
+          botTargetPos,
+          botSolids
+        );
       }
     }
 
