@@ -82,7 +82,8 @@ function render(dt){
   const sp=Math.hypot(p.vel.x,p.vel.z);
   const baseFov=(window.activeSettings&&window.activeSettings.baseFov)||C.fovBase;
   const scopeMul=CombatSystem.getScopeFovMultiplier();
-  const targetFov=scopeMul<1?(baseFov*scopeMul):(baseFov+Math.min(sp*C.fovPerSpeed,C.fovMax));
+  const speedFov=Math.min(sp*C.fovPerSpeed,C.fovMax);
+  const targetFov=(baseFov+speedFov)*scopeMul;
   camera.fov+=(targetFov-camera.fov)*Math.min(1,dt*(scopeMul<1?18:5));camera.updateProjectionMatrix();
   speedEl.textContent=Math.round(sp);
   if(p.runStarted)timerEl.textContent=fmt(p.runTime);
@@ -106,7 +107,7 @@ function render(dt){
   if(inLevel){
     CombatSystem.update(dt,_rp);
     NetcodeSystem.update(dt,{x:_rp.x,y:_rp.y,z:_rp.z,yaw:p.yaw,slot:CombatSystem.getState().activeSlot});
-    ViewmodelSystem.update(dt,p);
+    ViewmodelSystem.update(dt,p,CombatSystem.getState().adsProgress);
     updateCombatHud();
   }
   document.body.dataset.runStarted=p.runStarted?'1':'0';
@@ -3296,7 +3297,7 @@ function renderLoadoutsOverview(){
     if(build.equippedList.length===0){
       atts.textContent='Stock configuration — open Gunsmith to equip up to 5 attachments.';
     }else{
-      atts.textContent=build.equippedList.map(a=>a.def.name).join(' · ');
+      atts.textContent=build.equippedList.map(a=>a.name).join(' · ');
     }
 
     const cta=document.createElement('button');
@@ -3386,7 +3387,9 @@ function renderLoadoutsOverview(){
     return card;
   };
 
-  loadoutsSlotsGridEl.append(buildFirearmCard('primary'),buildFirearmCard('secondary'),buildMeleeCard());
+  loadoutsSlotsGridEl.appendChild(buildFirearmCard('primary'));
+  loadoutsSlotsGridEl.appendChild(buildFirearmCard('secondary'));
+  loadoutsSlotsGridEl.appendChild(buildMeleeCard());
 }
 
 function openGunsmith(slotCategory){

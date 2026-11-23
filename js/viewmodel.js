@@ -5988,6 +5988,10 @@
       }
     }
 
+    function isAdsReady() {
+      return activeSlot !== 'knife' && weaponAnim.reloadT >= 1 && weaponAnim.drawT >= 0.85;
+    }
+
     function equipKnife(item, playDraw = true) {
       if (!vmScene || !rig) return;
       if (currentKnifeMesh) {
@@ -6146,12 +6150,8 @@
       if (weaponAnim.inspectT < 1) weaponAnim.inspectT = Math.min(1, weaponAnim.inspectT + dt / weaponAnim.inspectDuration);
       if (weaponAnim.boltT < 1) weaponAnim.boltT = Math.min(1, weaponAnim.boltT + dt / (wt === 'shotgun' ? 0.45 : 0.85));
 
-      // Smooth True First-Person ADS transition governed by Gunsmith adsTimeSec
-      const adsTarget = adsActive && weaponAnim.reloadT >= 1 && weaponAnim.drawT >= 0.85 ? 1 : 0;
-      const adsRate = dt / Math.max(0.08, adsDuration);
-      if (adsTarget > adsProgress) adsProgress = Math.min(1, adsProgress + adsRate);
-      else adsProgress = Math.max(0, adsProgress - adsRate * 1.25);
-
+      // adsProgress is supplied by CombatSystem so camera, overlay, and weapon
+      // all use the exact same per-frame transition value.
       if (adsScopedOptic) {
         const shouldHideForScope = adsProgress >= 0.72 && adsActive;
         if (isScoped !== shouldHideForScope) {
@@ -6211,8 +6211,11 @@
       lockSupportHandToWeapon(rig, mesh, wt, reloadArc, _weaponOut);
     }
 
-    function update(dt, playerState) {
+    function update(dt, playerState, sharedAdsProgress) {
       if (!rig || !currentItem) return;
+      if (Number.isFinite(sharedAdsProgress)) {
+        adsProgress = Math.max(0, Math.min(1, sharedAdsProgress));
+      }
       const damp = Math.min(1, dt * 11);
 
       swayX += (0 - swayX) * Math.min(1, dt * 10);
@@ -6309,6 +6312,7 @@
       triggerReload,
       setScoped,
       setAdsState,
+      isAdsReady,
       getAdsProgress: () => adsProgress,
       applySettings,
       triggerDraw,

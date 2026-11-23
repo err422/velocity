@@ -32,6 +32,13 @@ test('expanded 6-weapon roster separates Primary (4) and Secondary (2) cleanly',
   }
 });
 
+test('resolved attachment entries expose their display name directly for loadout overview cards', () => {
+  const build = LoadoutsSystem.resolveWeaponBuild('rifle', { optic: 'reflex_dot' });
+  assert.equal(build.equippedList.length, 1);
+  assert.equal(build.equippedList[0].name, 'Micro Reflex Dot');
+  assert.equal(build.equippedList[0].def, undefined);
+});
+
 test('5-of-8 Gunsmith attachment cap is strictly enforced and allows swapping within occupied slots', () => {
   let state = LoadoutsSystem.createDefaultLoadoutState();
   // Grant max XP so all attachments on V-47 Rifle are unlocked

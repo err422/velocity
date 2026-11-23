@@ -1261,9 +1261,13 @@
     if (state.hitmarkerTimer > 0) state.hitmarkerTimer = Math.max(0, state.hitmarkerTimer - dt);
     if (state.damageFlashTimer > 0) state.damageFlashTimer = Math.max(0, state.damageFlashTimer - dt);
 
-    // Smooth ADS progress synchronized with Gunsmith adsTimeSec
+    // One ADS timeline for camera, weapon alignment, and scope overlay.
+    // Wait for the weapon draw/reload animation before starting the shared transition.
     const activeBuild = getActiveBuild(state.activeSlot);
-    const adsTarget = activeBuild && state.adsHeld && !state.reloading ? 1 : 0;
+    const viewmodelReady = !root.ViewmodelSystem
+      || typeof root.ViewmodelSystem.isAdsReady !== 'function'
+      || root.ViewmodelSystem.isAdsReady();
+    const adsTarget = activeBuild && state.adsHeld && !state.reloading && viewmodelReady ? 1 : 0;
     const adsDur = activeBuild ? Math.max(0.08, activeBuild.adsTimeSec) : 0.18;
     if (adsTarget > state.adsProgress) state.adsProgress = Math.min(1, state.adsProgress + dt / adsDur);
     else state.adsProgress = Math.max(0, state.adsProgress - (dt / adsDur) * 1.25);
