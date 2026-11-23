@@ -778,6 +778,27 @@
           r = (156 + n * 42) * mesh; g = (14 + n * 12) * mesh; b = (20 + n * 14) * mesh;
           rough = 72;
           bump = 122 + (mesh > 1 ? 8 : -8);
+        } else if (skinId === 'emberstrike') {
+          const flow = KS.fbm2D(u * 5 + ox, v * 4 + oy, seed + 83, 4);
+          const crackle = KS.fbm2D(u * 17 + ox, v * 12 + oy, seed + 127, 3);
+          const vein = Math.sin((u * 8.5 + v * 3.2 + flow * 5.8) * Math.PI);
+          const heat = Math.max(0, Math.min(1, (vein * 0.34 + crackle * 0.82 + flow * 0.22) - 0.82));
+          const glow = Math.pow(heat, 1.25);
+          r = 22 + flow * 24 + glow * 226;
+          g = 26 + flow * 18 + glow * 88;
+          b = 34 + flow * 22 + glow * 25;
+          rough = 72 - glow * 48;
+          bump = 104 + crackle * 40 + glow * 48;
+        } else if (skinId === 'arctic_veil') {
+          const frost = KS.fbm2D(u * 8 + ox, v * 8 + oy, seed + 151, 4);
+          const facet = Math.abs(Math.sin((u * 9.0 + v * 6.5 + frost * 2.4) * Math.PI));
+          const ice = Math.max(0, Math.min(1, frost * 0.58 + facet * 0.42));
+          const base = 106 + ice * 116;
+          r = base * 0.70;
+          g = base * 0.92 + facet * 12;
+          b = Math.min(255, base * 1.10 + 18);
+          rough = 46 + (1 - ice) * 26;
+          bump = 96 + facet * 68 + grind * 10;
         } else if (skinId === 'ultraviolet') {
           const grain = KS.fbm2D(u * 26, v * 26, seed + 9, 2);
           r = 24 + grain * 16; g = 26 + grain * 16; b = 34 + grain * 20;
@@ -896,7 +917,10 @@
     leather:        { palm: 0x4a2f1d, knuckle: 0x70482b, cuff: 0xa26d42, cuffEmissive: 0x1a0e06, sleeve: 0x181412, metal: 0.08, rough: 0.84 },
     slaughter:      { palm: 0x2a1419, knuckle: 0x9c1e2e, cuff: 0xe03a52, cuffEmissive: 0x3b0b13, sleeve: 0x161114, metal: 0.18, rough: 0.68 },
     cobalt_skulls:  { palm: 0x101c32, knuckle: 0x2864d8, cuff: 0x68baff, cuffEmissive: 0x0b254a, sleeve: 0x0d1522, metal: 0.14, rough: 0.76 },
-    overprint:      { palm: 0x0d2026, knuckle: 0x1aa8a8, cuff: 0x44f4e8, cuffEmissive: 0x093a38, sleeve: 0x0b161a, metal: 0.14, rough: 0.74 }
+    overprint:      { palm: 0x0d2026, knuckle: 0x1aa8a8, cuff: 0x44f4e8, cuffEmissive: 0x093a38, sleeve: 0x0b161a, metal: 0.14, rough: 0.74 },
+    breachline:     { palm: 0x15191b, knuckle: 0x343d42, cuff: 0xf3a43b, cuffEmissive: 0x4b2a08, sleeve: 0x0d1116, metal: 0.28, rough: 0.72 },
+    stormgrid:      { palm: 0x101b30, knuckle: 0x285a9a, cuff: 0x4bd9ff, cuffEmissive: 0x0b3552, sleeve: 0x0c1424, metal: 0.22, rough: 0.68 },
+    eclipse_mantle: { palm: 0x15171a, knuckle: 0x39372f, cuff: 0xc69a55, cuffEmissive: 0x3d2b12, sleeve: 0x0d1517, metal: 0.42, rough: 0.54 }
   });
 
   function gloveCacheKey(item) {
@@ -1144,6 +1168,42 @@
             bump = 108;
           }
           rough = 178;
+        } else if (skinId === 'breachline') {
+          const grain = KS.fbm2D(u * 34 + ox, v * 24 + oy, seed + 101, 3);
+          const hazard = Math.abs(Math.sin((u * 7.5 + v * 1.3 + grain * 0.8) * Math.PI));
+          const panel = Math.abs(((u * 1.4 + v * 0.8 + seed * 0.001) % 1) - 0.5);
+          if (hazard > 0.76 && panel < 0.34) {
+            r = 238 + grain * 12; g = 148 + grain * 32; b = 42 + grain * 16;
+            rough = 142; bump = 160;
+          } else if (panel > 0.43) {
+            r = (18 + grain * 20) * twill; g = (24 + grain * 22) * twill; b = (29 + grain * 22) * twill;
+            rough = 212; bump = 102 + grain * 18;
+          } else {
+            r = (52 + grain * 24) * twill; g = (61 + grain * 22) * twill; b = (64 + grain * 18) * twill;
+            rough = 188; bump = 132 + hexMesh * 12;
+          }
+        } else if (skinId === 'stormgrid') {
+          const gx = Math.abs(Math.sin((u * 22 + seed * 0.01) * Math.PI));
+          const gy = Math.abs(Math.sin((v * 18 + seed * 0.02) * Math.PI));
+          const grid = Math.max(gx, gy);
+          const storm = KS.fbm2D(u * 6 + ox, v * 6 + oy, seed + 173, 3);
+          if (grid > 0.91) {
+            r = 55 + storm * 28; g = 201 + storm * 36; b = 240 + storm * 15;
+            rough = 126; bump = 158;
+          } else {
+            r = (18 + storm * 30) * twill; g = (40 + storm * 48) * twill; b = (82 + storm * 82) * twill;
+            rough = 174; bump = 112 + grid * 20;
+          }
+        } else if (skinId === 'eclipse_mantle') {
+          const fold = KS.fbm2D(u * 12 + ox, v * 20 + oy, seed + 229, 3);
+          const rib = Math.abs(Math.sin((u * 12 + v * 3 + fold * 2.2) * Math.PI));
+          if (rib > 0.82) {
+            r = 190 + fold * 36; g = 143 + fold * 34; b = 68 + fold * 25;
+            rough = 86; bump = 166;
+          } else {
+            r = (18 + fold * 22) * twill; g = (24 + fold * 20) * twill; b = (27 + fold * 20) * twill;
+            rough = 186; bump = 108 + rib * 28;
+          }
         }
 
         // Authentic CS glove wear scuffing along knuckles / edges
@@ -1295,8 +1355,8 @@
 
     const skinId = item.skinId || 'vanilla';
     const isMatte = skinId === 'ultraviolet' || skinId === 'crimson_web';
-    const isGem = skinId === 'doppler' || skinId === 'fade' || skinId === 'marble_fade' || skinId === 'tiger_tooth';
-    const iri = skinId === 'fade' ? 0.45 : skinId === 'doppler' ? 0.38 : skinId === 'case_hardened' ? 0.34 : skinId === 'marble_fade' ? 0.30 : 0.0;
+    const isGem = skinId === 'doppler' || skinId === 'fade' || skinId === 'marble_fade' || skinId === 'tiger_tooth' || skinId === 'arctic_veil' || skinId === 'emberstrike';
+    const iri = skinId === 'fade' ? 0.45 : skinId === 'doppler' ? 0.38 : skinId === 'case_hardened' ? 0.34 : skinId === 'marble_fade' ? 0.30 : skinId === 'arctic_veil' ? 0.28 : 0.0;
 
     return new THREE.MeshPhysicalMaterial({
       map,
@@ -1570,6 +1630,63 @@
             r = 64 + wave * 82; g = 12 + wave * 16; b = 18 + wave * 16;
             rough = 86; bump = 112 + scaleRim * 24;
           }
+        } else if (skinId === 'hazard_pay') {
+          const grain = KS.fbm2D(u * 42, v * 13 + oy, seed + 181, 2);
+          const stripe = Math.abs(((u * 5.5 + v * 2.1 + (seed % 9) * 0.06) % 1) - 0.5);
+          const armor = v < 0.22 || (u > 0.34 && u < 0.48 && v > 0.36 && v < 0.72);
+          if (stripe < 0.075 && v > 0.24 && v < 0.86) {
+            r = 242; g = 158 + grain * 24; b = 50; rough = 68; bump = 160;
+          } else if (armor) {
+            r = 17 + grain * 12; g = 22 + grain * 12; b = 27 + grain * 14; rough = 148; bump = 112;
+          } else {
+            r = 48 + grain * 20; g = 56 + grain * 20; b = 62 + grain * 24; rough = 118; bump = 134;
+          }
+        } else if (skinId === 'coldfront') {
+          const frost = KS.fbm2D(u * 7 + ox, v * 6 + oy, seed + 239, 4);
+          const facet = Math.abs(Math.sin((u * 9 + v * 7 + frost * 2.3) * Math.PI));
+          const ice = Math.max(0, Math.min(1, frost * 0.60 + facet * 0.40));
+          const panel = Math.abs(Math.sin((u * 2.2 - v * 1.3) * Math.PI));
+          if (panel > 0.94) {
+            r = 18; g = 31; b = 48; rough = 156; bump = 112;
+          } else {
+            r = 174 + ice * 60; g = 202 + ice * 48; b = 218 + ice * 37;
+            rough = 54 + (1 - ice) * 26; bump = 100 + facet * 56;
+          }
+        } else if (skinId === 'redshift') {
+          const smoke = KS.fbm2D(u * 4 + ox, v * 4 + oy, seed + 271, 3);
+          const slash = Math.sin((u * 5.0 + v * 2.1 + smoke * 2.8) * Math.PI);
+          const glow = Math.max(0, Math.min(1, (slash * 0.5 + smoke * 0.68) - 0.72));
+          r = 24 + smoke * 30 + glow * 215;
+          g = 22 + smoke * 20 + glow * 34;
+          b = 30 + smoke * 27 + glow * 31;
+          rough = 78 - glow * 44; bump = 108 + smoke * 28 + glow * 42;
+        } else if (skinId === 'nitro') {
+          const carbon = Math.floor((u * 72 + v * 64 + seed) % 4) < 2;
+          const sweep = Math.sin((u * 1.3 + v * 0.74 + (seed % 11) * 0.04) * Math.PI * 6);
+          if (carbon) {
+            r = 18 + micro * 12; g = 23 + micro * 14; b = 31 + micro * 18; rough = 126; bump = 156;
+          } else {
+            r = 25 + micro * 10; g = 35 + micro * 16; b = 45 + micro * 22; rough = 148; bump = 96;
+          }
+          if (sweep > 0.56) { r = 30; g = 222 + micro * 24; b = 232; rough = 44; bump = 154; }
+          else if (sweep < -0.62) { r = 218; g = 40 + micro * 16; b = 174 + micro * 38; rough = 46; bump = 148; }
+        } else if (skinId === 'solarflare') {
+          const rays = KS.fbm2D(u * 3 + ox, v * 3 + oy, seed + 313, 3);
+          const radial = Math.abs(Math.sin((u * 4.5 + v * 2.8 + rays * 2.1) * Math.PI));
+          const gold = Math.max(0, Math.min(1, 0.52 + rays * 0.38 + radial * 0.25));
+          r = 104 + gold * 146; g = 57 + gold * 143; b = 24 + gold * 62;
+          if (v < 0.18 || v > 0.84) { r *= 0.48; g *= 0.44; b *= 0.42; }
+          rough = 34 + (1 - gold) * 28; bump = 92 + radial * 65;
+        } else if (skinId === 'voidglass') {
+          const wx = KS.fbm2D(u * 3.4 + ox, v * 3.4 + oy, seed + 353, 3);
+          const wy = KS.fbm2D(u * 3.4 + ox + 3.1, v * 3.4 + oy + 1.7, seed + 389, 3);
+          const shard = Math.abs(Math.sin((u * 8.5 + wx * 5.0 - v * 3.2 + wy) * Math.PI));
+          const prism = Math.max(0, Math.min(1, (shard * 0.58 + wx * 0.48) - 0.50));
+          r = 13 + prism * 140 + wy * 10;
+          g = 15 + prism * 76 + wx * 13;
+          b = 27 + prism * 198 + wy * 22;
+          if (prism > 0.75) { r += 45; g += 24; b = 245; }
+          rough = 28 + (1 - prism) * 36; bump = 92 + prism * 112;
         }
 
         // Authentic edge-weighted float wear scuffing
@@ -1838,15 +1955,15 @@
     bumpMap.wrapT = THREE.ClampToEdgeWrapping;
 
     const sk = (weaponItem && weaponItem.skinId) || 'factory_slate';
-    const isMetallic = sk === 'fade' || sk === 'case_hardened' || sk === 'damascus' || sk === 'dragon_gold' || sk === 'blaze';
-    const isGlossy = isMetallic || sk === 'printstream' || sk === 'hyper_chroma' || sk === 'neon_rider';
-    const iri = sk === 'printstream' ? 0.78 : sk === 'fade' ? 0.45 : sk === 'case_hardened' ? 0.36 : sk === 'hyper_chroma' ? 0.42 : 0.0;
+    const isMetallic = sk === 'fade' || sk === 'case_hardened' || sk === 'damascus' || sk === 'dragon_gold' || sk === 'blaze' || sk === 'redshift' || sk === 'solarflare';
+    const isGlossy = isMetallic || sk === 'printstream' || sk === 'hyper_chroma' || sk === 'neon_rider' || sk === 'coldfront' || sk === 'nitro' || sk === 'voidglass';
+    const iri = sk === 'printstream' ? 0.78 : sk === 'fade' ? 0.45 : sk === 'case_hardened' ? 0.36 : sk === 'hyper_chroma' ? 0.42 : sk === 'voidglass' ? 0.54 : sk === 'coldfront' ? 0.26 : 0.0;
 
     return new THREE.MeshPhysicalMaterial({
       map,
       roughnessMap,
       bumpMap,
-      bumpScale: sk === 'redline' || sk === 'dragon_gold' || sk === 'damascus' ? 0.0032 : 0.0016,
+      bumpScale: sk === 'redline' || sk === 'dragon_gold' || sk === 'damascus' || sk === 'solarflare' ? 0.0032 : 0.0016,
       roughness: isGlossy ? 0.30 : 0.58,
       metalness: isMetallic ? 0.88 : sk === 'printstream' ? 0.16 : 0.32,
       clearcoat: isGlossy ? 0.78 : 0.18,
