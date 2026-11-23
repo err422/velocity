@@ -388,6 +388,24 @@
       maxFloat: 0.99,
       accent: '#2ea8ff',
       description: 'Color case-hardened steel patina — seeded blue/gold distribution with Blue Gem patterns.'
+    },
+    emberstrike: {
+      id: 'emberstrike',
+      name: 'Emberstrike',
+      patternBased: true,
+      minFloat: 0.02,
+      maxFloat: 0.24,
+      accent: '#ff6b35',
+      description: 'Dark forged steel cut with glowing ember channels and a heat-darkened edge.'
+    },
+    arctic_veil: {
+      id: 'arctic_veil',
+      name: 'Arctic Veil',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.18,
+      accent: '#8eeaff',
+      description: 'Frosted silver alloy with fractured glacier-blue facets and a glassy ice sheen.'
     }
   });
 
@@ -510,6 +528,33 @@
       maxFloat: 0.80,
       accent: '#2ee6d6',
       description: 'Electric cyan and deep teal arrow-weave cloth wraps built for surf speed.'
+    },
+    breachline: {
+      id: 'breachline',
+      name: 'Breachline',
+      patternBased: true,
+      minFloat: 0.04,
+      maxFloat: 0.72,
+      accent: '#f5a33b',
+      description: 'Reinforced black ballistic weave with amber hazard panels and stitched utility tabs.'
+    },
+    stormgrid: {
+      id: 'stormgrid',
+      name: 'Stormgrid',
+      patternBased: true,
+      minFloat: 0.04,
+      maxFloat: 0.72,
+      accent: '#4bd9ff',
+      description: 'Deep cobalt mesh traced with electric-cyan gridlines and violet impact padding.'
+    },
+    eclipse_mantle: {
+      id: 'eclipse_mantle',
+      name: 'Eclipse Mantle',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.68,
+      accent: '#c69a55',
+      description: 'Obsidian tactical gloves with brushed-gold armor ribs and muted teal stitching.'
     }
   });
 
@@ -641,6 +686,60 @@
       maxFloat: 0.45,
       accent: '#f5c542',
       description: 'Burnished bullion-gold etched dragon scales sweeping across deep crimson-obsidian steel.'
+    },
+    hazard_pay: {
+      id: 'hazard_pay',
+      name: 'Hazard Pay',
+      patternBased: true,
+      minFloat: 0.04,
+      maxFloat: 0.72,
+      accent: '#f3a43b',
+      description: 'Matte graphite armor broken up by industrial amber panels, black hazard bars, and stamped unit marks.'
+    },
+    coldfront: {
+      id: 'coldfront',
+      name: 'Coldfront',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.58,
+      accent: '#8eeaff',
+      description: 'Pale ceramic plating, glacier-blue facets, and crisp frost-white receiver ribs.'
+    },
+    redshift: {
+      id: 'redshift',
+      name: 'Redshift',
+      patternBased: true,
+      minFloat: 0.02,
+      maxFloat: 0.62,
+      accent: '#f04443',
+      description: 'Smoked gunmetal swept by deep crimson heat bands and razor-red speed cuts.'
+    },
+    nitro: {
+      id: 'nitro',
+      name: 'Nitro',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.58,
+      accent: '#4be5ef',
+      description: 'Carbon-black racing shell with liquid cyan and magenta energy streaks.'
+    },
+    solarflare: {
+      id: 'solarflare',
+      name: 'Solar Flare',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.34,
+      accent: '#f6bb49',
+      description: 'Burnished champagne-gold panels with a dark bronze sunburst and engraved radial cuts.'
+    },
+    voidglass: {
+      id: 'voidglass',
+      name: 'Voidglass',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.42,
+      accent: '#9e82ff',
+      description: 'Black mirror finish fractured by prismatic violet and deep teal glass-like shards.'
     }
   });
 
@@ -837,6 +936,157 @@
           { itemKind: 'glove', gloveType: 'sport', skinId: 'slingshot' },
           { itemKind: 'glove', gloveType: 'specialist', skinId: 'fade', forceFullFade: true },
           { itemKind: 'glove', gloveType: 'wraps', skinId: 'overprint' }
+        ]
+      }
+    },
+    blacksite: {
+      id: 'blacksite',
+      name: 'Blacksite Case',
+      shortName: 'Blacksite',
+      tierLabel: 'SPECIAL OPS',
+      price: 575,
+      accent: '#f3a43b',
+      rarityWeights: Object.freeze({ milspec: 30, restricted: 25, classified: 18, covert: 12, gold: 15 }),
+      description: 'Industrial finishes, arctic ceramics, and ember-cut blades · 15% Gold tactical gloves & knives.',
+      pools: {
+        milspec: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'hazard_pay' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'hazard_pay' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'coldfront' },
+          { itemKind: 'weapon', weaponType: 'pistol', skinId: 'coldfront' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'hazard_pay' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'coldfront' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'ultraviolet' }
+        ],
+        restricted: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'coldfront' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'redshift' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'hazard_pay' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'redline' },
+          { itemKind: 'weapon', weaponType: 'pistol', skinId: 'hazard_pay' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'redshift' }
+        ],
+        classified: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'redshift' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'hazard_pay' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'coldfront' }
+        ],
+        covert: [
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'redshift' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'hazard_pay' }
+        ],
+        gold: [
+          { knifeType: 'm9', skinId: 'emberstrike' },
+          { knifeType: 'karambit', skinId: 'arctic_veil' },
+          { knifeType: 'butterfly', skinId: 'emberstrike' },
+          { itemKind: 'glove', gloveType: 'specialist', skinId: 'breachline' },
+          { itemKind: 'glove', gloveType: 'wraps', skinId: 'leather' },
+          { itemKind: 'glove', gloveType: 'standard', skinId: 'case_hardened', forceBlueGem: true }
+        ]
+      }
+    },
+    overdrive: {
+      id: 'overdrive',
+      name: 'Overdrive Case',
+      shortName: 'Overdrive',
+      tierLabel: 'RACE SPEC',
+      price: 725,
+      accent: '#4be5ef',
+      rarityWeights: Object.freeze({ milspec: 22, restricted: 22, classified: 20, covert: 16, gold: 20 }),
+      description: 'Carbon-fiber race finishes, neon energy cuts, and the Stormgrid glove set · 20% Gold.',
+      pools: {
+        milspec: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'nitro' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'nitro' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'redshift' },
+          { itemKind: 'weapon', weaponType: 'pistol', skinId: 'coldfront' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'nitro' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'redshift' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'neon_rider' }
+        ],
+        restricted: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'redshift' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'nitro' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'nitro' },
+          { itemKind: 'weapon', weaponType: 'pistol', skinId: 'redshift' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'coldfront' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'nitro' }
+        ],
+        classified: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'nitro' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'redshift' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'nitro' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'voidglass' }
+        ],
+        covert: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'nitro' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'redshift' }
+        ],
+        gold: [
+          { knifeType: 'butterfly', skinId: 'arctic_veil' },
+          { knifeType: 'karambit', skinId: 'doppler', forceGem: true },
+          { knifeType: 'm9', skinId: 'emberstrike' },
+          { itemKind: 'glove', gloveType: 'sport', skinId: 'stormgrid' },
+          { itemKind: 'glove', gloveType: 'wraps', skinId: 'vice' },
+          { itemKind: 'glove', gloveType: 'specialist', skinId: 'overprint' }
+        ]
+      }
+    },
+    eclipse: {
+      id: 'eclipse',
+      name: 'Eclipse Case',
+      shortName: 'Eclipse',
+      tierLabel: 'BLACK LABEL',
+      price: 900,
+      accent: '#9e82ff',
+      rarityWeights: Object.freeze({ milspec: 14, restricted: 19, classified: 21, covert: 21, gold: 25 }),
+      description: 'Voidglass, Solar Flare, and premium obsidian finishes · 25% Gold Eclipse Mantle gloves & rare blades.',
+      pools: {
+        milspec: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'coldfront' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'hazard_pay' },
+          { itemKind: 'weapon', weaponType: 'pistol', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'voidglass' }
+        ],
+        restricted: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'redshift' },
+          { itemKind: 'weapon', weaponType: 'pistol', skinId: 'nitro' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'voidglass' }
+        ],
+        classified: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'nitro' }
+        ],
+        covert: [
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'dragon_gold' }
+        ],
+        gold: [
+          { knifeType: 'karambit', skinId: 'emberstrike' },
+          { knifeType: 'skeleton', skinId: 'arctic_veil' },
+          { knifeType: 'butterfly', skinId: 'doppler', forceGem: true },
+          { knifeType: 'm9', skinId: 'fade', forceFullFade: true },
+          { itemKind: 'glove', gloveType: 'specialist', skinId: 'eclipse_mantle' },
+          { itemKind: 'glove', gloveType: 'sport', skinId: 'stormgrid' },
+          { itemKind: 'glove', gloveType: 'wraps', skinId: 'breachline' }
         ]
       }
     }
@@ -1289,11 +1539,7 @@
       equippedAwpId: 'starter_awp_slate',
       equippedDeagleId: 'starter_deagle_slate',
       equippedPistolId: 'starter_pistol_slate',
-      caseCounts: {
-        velocity: 0,
-        chroma: 0,
-        spectrum: 0
-      },
+      caseCounts: Object.fromEntries(CASE_IDS.map((id) => [id, 0])),
       totalOpened: 0,
       lastDailyDropDate: '',
       knives: [starterKnife],
@@ -1415,11 +1661,9 @@
       ? ECONOMY.STARTING_COINS
       : clampInt(raw.coins, 0, ECONOMY.MAX_COINS, ECONOMY.STARTING_COINS);
     const rawCases = raw.caseCounts && typeof raw.caseCounts === 'object' ? raw.caseCounts : {};
-    const caseCounts = {
-      velocity: clampInt(rawCases.velocity, 0, 999, 0),
-      chroma: clampInt(rawCases.chroma, 0, 999, 0),
-      spectrum: clampInt(rawCases.spectrum, 0, 999, 0)
-    };
+    const caseCounts = Object.fromEntries(
+      CASE_IDS.map((id) => [id, clampInt(rawCases[id], 0, 999, 0)])
+    );
     const totalOpened = clampInt(raw.totalOpened, 0, 99999, 0);
     const lastDailyDropDate = typeof raw.lastDailyDropDate === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(raw.lastDailyDropDate)
       ? raw.lastDailyDropDate
@@ -1815,11 +2059,7 @@
       equippedRifleId: clean.equippedRifleId,
       equippedAwpId: clean.equippedAwpId,
       equippedDeagleId: clean.equippedDeagleId,
-      caseCounts: {
-        velocity: clean.caseCounts.velocity,
-        chroma: clean.caseCounts.chroma,
-        spectrum: clean.caseCounts.spectrum
-      },
+      caseCounts: Object.fromEntries(CASE_IDS.map((id) => [id, clean.caseCounts[id]])),
       totalOpened: clean.totalOpened,
       lastDailyDropDate: clean.lastDailyDropDate
     };
@@ -2093,17 +2333,8 @@
       soldIdSet.size > 0;
 
     const coins = preferLocalBalances ? local.coins : cloud.coins;
-    const caseCounts = preferLocalBalances
-      ? {
-          velocity: local.caseCounts.velocity,
-          chroma: local.caseCounts.chroma,
-          spectrum: local.caseCounts.spectrum
-        }
-      : {
-          velocity: cloud.caseCounts.velocity,
-          chroma: cloud.caseCounts.chroma,
-          spectrum: cloud.caseCounts.spectrum
-        };
+    const balanceSource = preferLocalBalances ? local.caseCounts : cloud.caseCounts;
+    const caseCounts = Object.fromEntries(CASE_IDS.map((id) => [id, balanceSource[id]]));
 
     const inventory = sanitizeInventory({
       coins,
@@ -2132,9 +2363,7 @@
       inventory.equippedRifleId !== cloud.equippedRifleId ||
       inventory.equippedAwpId !== cloud.equippedAwpId ||
       inventory.equippedDeagleId !== cloud.equippedDeagleId ||
-      inventory.caseCounts.velocity !== cloud.caseCounts.velocity ||
-      inventory.caseCounts.chroma !== cloud.caseCounts.chroma ||
-      inventory.caseCounts.spectrum !== cloud.caseCounts.spectrum;
+      CASE_IDS.some((id) => inventory.caseCounts[id] !== cloud.caseCounts[id]);
 
     return {
       inventory,
