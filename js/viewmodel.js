@@ -5297,6 +5297,21 @@
       }
     }
 
+    // Store the actual optical center in weapon-local coordinates. ADS uses
+    // this 3D point (not just its Y coordinate) to solve the final hand pose.
+    if (wt === 'awp') {
+      // The AWP's built-in scope rear eyepiece is the true eye point.
+      g.userData.opticEyePoint = new THREE.Vector3(0, 0.094, 0.128);
+    } else if (atts.optic === 'reflex_dot' || atts.optic === 'holo_eotech') {
+      g.userData.opticEyePoint = new THREE.Vector3(anchor.optic[0], eyeY, anchor.optic[2] - 0.001);
+    } else if (atts.optic === 'acog_25') {
+      // Rear/eye-side end of the ACOG tube (+Z is toward the shooter).
+      g.userData.opticEyePoint = new THREE.Vector3(anchor.optic[0], eyeY, anchor.optic[2] + 0.050);
+    } else if (atts.optic === 'sniper_4x' || atts.optic === 'sniper_var') {
+      g.userData.opticEyePoint = new THREE.Vector3(anchor.optic[0], eyeY, anchor.optic[2] + 0.090);
+    } else {
+      g.userData.opticEyePoint = new THREE.Vector3(0, eyeY, anchor.optic[2]);
+    }
     g.userData.opticEyeY = eyeY;
     g.userData.weaponType = wt;
     g.userData.attachments = Object.assign({}, atts);
@@ -5794,6 +5809,10 @@
     let bankRoll = 0, crouchDip = 0;
     const _animOut = createAnimOut();
     const _weaponOut = createWeaponAnimOut();
+    // Reused scratch vectors for the exact ADS optic-to-camera alignment solve.
+    const _adsEyeWorld = new THREE.Vector3();
+    const _adsEyeLocal = new THREE.Vector3();
+    const _adsTargetLocal = new THREE.Vector3();
 
     function init(renderer) {
       if (vmScene) return;
@@ -6124,6 +6143,40 @@
       swayY = Math.max(-0.04, Math.min(0.04, swayY + dy * 0.00014));
     }
 
+    function solveAdsPivotPosition(mesh, adsRz) {
+      const pivot = rig.rightHandPivot;
+      const eyePoint = mesh.userData.opticEyePoint;
+      if (!eyePoint) {
+        return {
+          x: -vmOffset.offsetX * 0.022,
+          y: -vmOffset.offsetY * 0.022,
+          z: adsRz
+        };
+      }
+
+      // Evaluate the complete weapon -> socket -> hand -> rig transform at the
+      // final ADS rotation, with the pivot temporarily at the rig origin.
+      pivot.position.set(0, 0, 0);
+      pivot.rotation.set(0, 0, RIGHT_HAND_GRIP_ROLL);
+      rig.rootRig.updateMatrixWorld(true);
+
+      _adsEyeWorld.copy(eyePoint);
+      mesh.localToWorld(_adsEyeWorld);
+      _adsEyeLocal.copy(_adsEyeWorld);
+      rig.rootRig.worldToLocal(_adsEyeLocal);
+
+      // The viewmodel camera sits at world origin. Convert that target into
+      // rig-local space so user viewmodel offsets are handled automatically.
+      _adsTargetLocal.set(0, 0, 0);
+      rig.rootRig.worldToLocal(_adsTargetLocal);
+
+      return {
+        x: _adsTargetLocal.x - _adsEyeLocal.x,
+        y: _adsTargetLocal.y - _adsEyeLocal.y,
+        z: adsRz
+      };
+    }
+
     function updateWeaponViewmodel(dt, bobX, bobY, isSurf) {
       const wt = activeSlot;
       const mesh = currentWeaponMeshes[wt];
@@ -6176,16 +6229,14 @@
       const hipRy = isPistol ? -0.152 : wt === 'awp' ? -0.172 : wt === 'smg' ? -0.158 : -0.166;
       const hipRz = isPistol ? -0.320 : wt === 'awp' ? -0.252 : wt === 'smg' ? -0.285 : -0.268;
 
-      // Center the optic's actual eye point on the viewmodel camera axis.
-      // The grip-center and optic-eye offsets cancel in the hand-pivot position.
-      const spec = WEAPON_GRIP_SPECS[wt] || WEAPON_GRIP_SPECS.rifle;
-      const eyeY = Number.isFinite(mesh.userData.opticEyeY) ? mesh.userData.opticEyeY : 0.060;
-      const adsRx = -spec.gripCenter[0] - (vmOffset.offsetX * 0.022);
-      const adsRy = spec.gripCenter[1] - eyeY - (vmOffset.offsetY * 0.022);
+      // Apply the animated weapon socket transform before solving its actual
+      // optic point; the old gripCenter/eyeY shortcut ignored X/Z and rotation.
       const adsRz = isPistol ? -0.245 : wt === 'smg' ? -0.205 : -0.190;
+      applyWeaponSocketTransform(mesh, wt, _weaponOut);
+      const adsPivot = solveAdsPivotPosition(mesh, adsRz);
 
-      let rx = THREE.MathUtils.lerp(hipRx, adsRx, adsEase) + (bobX * 0.85 + swayX) * motionDamp + _weaponOut.rx * (1 - adsEase);
-      let ry = THREE.MathUtils.lerp(hipRy, adsRy, adsEase) + (-bobY * 0.85 + swayY) * motionDamp + crouchDip * motionDamp - drawDip - reloadArc * 0.06 + _weaponOut.ry * (1 - adsEase);
+      let rx = THREE.MathUtils.lerp(hipRx, adsPivot.x, adsEase) + (bobX * 0.85 + swayX) * motionDamp + _weaponOut.rx * (1 - adsEase);
+      let ry = THREE.MathUtils.lerp(hipRy, adsPivot.y, adsEase) + (-bobY * 0.85 + swayY) * motionDamp + crouchDip * motionDamp - drawDip - reloadArc * 0.06 + _weaponOut.ry * (1 - adsEase);
       let rz = THREE.MathUtils.lerp(hipRz, adsRz, adsEase) + weaponAnim.recoilKick + _weaponOut.rz * (1 - adsEase);
 
       let rRotX = THREE.MathUtils.lerp(0.03, 0.0, adsEase) + swayY * 1.1 * motionDamp + weaponAnim.recoilPitch - drawDip * 1.35 - reloadArc * 0.28 + _weaponOut.rRotX * (1 - adsEase);
@@ -6200,7 +6251,6 @@
       rig.rightHandPivot.position.set(rx, ry, rz);
       rig.rightHandPivot.rotation.set(rRotX, rRotY, rRotZ);
 
-      applyWeaponSocketTransform(mesh, wt, _weaponOut);
       applyWeaponMechanicalParts(mesh, wt, _weaponOut, reloadArc, boltArc, weaponAnim.slideKick, weaponAnim.hammerKick);
       lockSupportHandToWeapon(rig, mesh, wt, reloadArc, _weaponOut);
     }
