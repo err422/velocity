@@ -1,6 +1,6 @@
 // =====================================================================
 // VELOCITY COURSE CATALOG & HANDCRAFTED LEVEL BUILDERS
-// 13 Counter-Strike inspired Surf Maps (Tiers 1-4, Linear & Staged)
+// 14 Counter-Strike inspired Surf Maps (Tiers 1-4, Linear & Staged)
 // + 4 Movement & Gauntlet Time Trials
 // =====================================================================
 (function (root) {
@@ -1384,7 +1384,7 @@
   }
 
   // ===================================================================
-  // UNIFIED COURSE CATALOG (13 Surf Maps + 4 Time Trials)
+  // UNIFIED COURSE CATALOG (14 Surf Maps + 4 Time Trials)
   // ===================================================================
   const COURSE_CATALOG = [
     // --- SURF MAPS (13) ---
