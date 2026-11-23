@@ -889,6 +889,7 @@
         wanderPoint: new THREE.Vector3(sp.x, sp.y, sp.z),
         lastKnownPlayer: new THREE.Vector3(playerSpawn.x, playerSpawn.y, playerSpawn.z),
         velocity: new THREE.Vector3(),
+        verticalVelocity: 0,
         yaw,
         orbitDir: i % 2 === 0 ? 1 : -1,
         decisionTimer: 0.8 + i * 0.35,
@@ -909,12 +910,14 @@
     _botFloorOrigin.set(x, currentY + 2.7, z);
     _botFloorRay.set(_botFloorOrigin, _botDown);
     _botFloorRay.near = 0.05;
-    _botFloorRay.far = 4.2;
+    // A long downward probe lets bots step off elevated platforms and continue
+    // fighting on the arena floor instead of treating every drop as a wall.
+    _botFloorRay.far = 24.0;
     const hits = _botFloorRay.intersectObjects(solidList, false);
     for (const hit of hits) {
       const floorY = hit.point.y;
-      // Follow ramps and small ledges, but do not walk off a platform or climb crates.
-      if (floorY <= currentY + 0.9 && floorY >= currentY - 1.15) return floorY;
+      // Follow ramps and ledges, while allowing a controlled drop of up to 20m.
+      if (floorY <= currentY + 0.9 && floorY >= currentY - 20.4) return floorY;
     }
     return null;
   }
@@ -1159,11 +1162,20 @@
     if (floorY == null) {
       bot.velocity.x *= 0.12;
       bot.velocity.z *= 0.12;
+      bot.verticalVelocity = Math.min(0, bot.verticalVelocity);
       if (_botDesiredDir.lengthSq() > 0.01) bot.orbitDir *= -1;
     } else {
       group.position.x = nextX;
       group.position.z = nextZ;
-      group.position.y += (floorY - group.position.y) * Math.min(1, dt * 12);
+      if (floorY < group.position.y - 0.12) {
+        // Gravity-driven drops from platforms; land cleanly on the lower surface.
+        bot.verticalVelocity = Math.max(-30, bot.verticalVelocity - 24 * dt);
+        group.position.y = Math.max(floorY, group.position.y + bot.verticalVelocity * dt);
+        if (group.position.y <= floorY + 0.001) bot.verticalVelocity = 0;
+      } else {
+        bot.verticalVelocity = 0;
+        group.position.y += (floorY - group.position.y) * Math.min(1, dt * 12);
+      }
     }
 
     let faceX = bot.velocity.x;
@@ -1717,6 +1729,7 @@
             bot.wanderPoint.set(spawn.x, spawn.y, spawn.z);
             bot.lastKnownPlayer.set(playerPos ? playerPos.x : spawn.x, playerPos ? playerPos.y : spawn.y, playerPos ? playerPos.z : spawn.z);
             bot.velocity.set(0, 0, 0);
+            bot.verticalVelocity = 0;
             bot.yaw = playerPos
               ? Math.atan2(-(playerPos.x - spawn.x), -(playerPos.z - spawn.z))
               : (spawn.yaw || 0);
