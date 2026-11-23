@@ -1163,7 +1163,8 @@
     return {
       id: 'surf_tetherline', theme: 'slate', format: 'linear', tier: 2,
       spawn: V3(0, 104, -9), yaw: Math.PI, course: gates, bound: 0,
-      killY: -38, surfHint: true,
+      // Keep the death plane below the entire descending route, including the finish deck.
+      killY: finishDeck[1] - 32, surfHint: true,
       previewWaypoints: [
         [-24, 120, 12], [16, 94, 152], [deck1[0] + 18, deck1[1] + 20, deck1[2] + 55],
         [deck2[0] + 24, deck2[1] + 35, deck2[2] + 100],
