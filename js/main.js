@@ -49,9 +49,12 @@ function syncVelocityTestMode(){
   if(wantsTest){
     if(!window.VELOCITY_TEST_MODE){
       try{
-        const snapshot={};
-        for(const key of keys)snapshot[key]=localStorage.getItem(key);
-        localStorage.setItem(VELOCITY_TEST_SNAPSHOT_KEY,JSON.stringify(snapshot));
+        // Keep the original snapshot across reloads while the test username is active.
+        if(!localStorage.getItem(VELOCITY_TEST_SNAPSHOT_KEY)){
+          const snapshot={};
+          for(const key of keys)snapshot[key]=localStorage.getItem(key);
+          localStorage.setItem(VELOCITY_TEST_SNAPSHOT_KEY,JSON.stringify(snapshot));
+        }
       }catch(err){
         console.warn('Could not snapshot the normal inventory before entering test mode:',err);
       }
@@ -1724,7 +1727,7 @@ function executeConfirmedSale(){
   KnivesSystem.recordPendingSoldItems(res.soldItems);
   persistInventorySummary(true,{allowBackupReset:true});
 
-  if(window.DailyBackend){
+  if(!window.VELOCITY_TEST_MODE&&window.DailyBackend){
     Promise.allSettled(res.soldItems.map(sold=>{
       const delPromise=KnivesSystem.isWeaponItem(sold)
         ?window.DailyBackend.deleteCloudWeapon(sold.id)
