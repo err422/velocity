@@ -37,6 +37,56 @@ const surfHintEl=$('surfHint');
 const crosshairEl=$('crosshair');
 window.activeSettings=VelocitySettings.loadLocal();
 window.activeInventory=KnivesSystem.loadLocal();
+
+// VELOCITY_TEST is a disposable local sandbox. Snapshot every inventory-owned
+// storage key before entering so test purchases/drops/sales never touch the
+// normal local profile or the signed-in cloud inventory.
+const VELOCITY_TEST_SNAPSHOT_KEY='velocity_test_inventory_snapshot_v1';
+const VELOCITY_TEST_COINS=9999999;
+function syncVelocityTestMode(){
+  const wantsTest=String(window.activeSettings&&window.activeSettings.displayName||'').trim().toUpperCase()==='VELOCITY_TEST';
+  const keys=[KnivesSystem.STORAGE_KEY,KnivesSystem.BACKUP_STORAGE_KEY,KnivesSystem.SOLD_IDS_STORAGE_KEY,KnivesSystem.DIRTY_STORAGE_KEY];
+  if(wantsTest){
+    if(!window.VELOCITY_TEST_MODE){
+      try{
+        const snapshot={};
+        for(const key of keys)snapshot[key]=localStorage.getItem(key);
+        localStorage.setItem(VELOCITY_TEST_SNAPSHOT_KEY,JSON.stringify(snapshot));
+      }catch(err){
+        console.warn('Could not snapshot the normal inventory before entering test mode:',err);
+      }
+    }
+    window.VELOCITY_TEST_MODE=true;
+    window.activeInventory.coins=VELOCITY_TEST_COINS;
+    window.activeInventory=KnivesSystem.saveLocal(window.activeInventory);
+    KnivesSystem.setLocalDirty(false);
+    updateArmorySyncLabel('TEST MODE · LOCAL ONLY');
+    updateArmoryBadges();
+    return;
+  }
+  if(window.VELOCITY_TEST_MODE){
+    window.VELOCITY_TEST_MODE=false;
+    try{
+      const raw=localStorage.getItem(VELOCITY_TEST_SNAPSHOT_KEY);
+      if(raw){
+        const snapshot=JSON.parse(raw);
+        for(const key of keys){
+          if(Object.prototype.hasOwnProperty.call(snapshot,key)){
+            if(snapshot[key]===null)localStorage.removeItem(key);
+            else localStorage.setItem(key,snapshot[key]);
+          }
+        }
+        localStorage.removeItem(VELOCITY_TEST_SNAPSHOT_KEY);
+      }
+    }catch(err){
+      console.warn('Could not restore the normal inventory after test mode:',err);
+    }
+    window.activeInventory=KnivesSystem.loadLocal();
+    updateArmorySyncLabel('LOCAL ONLY');
+    updateArmoryBadges();
+  }
+}
+syncVelocityTestMode();
 window.activeLoadouts=LoadoutsSystem.loadLocal();
 window.isRebindingInput=false;
 window.isScoreboardHeld=false;
@@ -997,8 +1047,12 @@ function updateArmorySyncLabel(override){
 
 function persistInventorySummary(syncCloud=true,options){
   window.activeInventory=KnivesSystem.saveLocal(window.activeInventory,undefined,options);
-  KnivesSystem.setLocalDirty(true);
+  KnivesSystem.setLocalDirty(!window.VELOCITY_TEST_MODE);
   updateArmoryBadges();
+  if(window.VELOCITY_TEST_MODE){
+    updateArmorySyncLabel('TEST MODE · LOCAL ONLY');
+    return Promise.resolve({saved:false,testMode:true});
+  }
   if(syncCloud&&window.DailyBackend){
     const st=window.DailyBackend.getState();
     if(st.user&&st.user.emailVerified){
@@ -1374,9 +1428,11 @@ function startCaseUnboxing(caseId){
   }
   // Save locally first so a force-reload mid-spin can NEVER lose the unboxed skin
   window.activeInventory=KnivesSystem.saveLocal(window.activeInventory);
-  KnivesSystem.setLocalDirty(true);
+  KnivesSystem.setLocalDirty(!window.VELOCITY_TEST_MODE);
   updateArmoryBadges();
-  if(window.DailyBackend){
+  if(window.VELOCITY_TEST_MODE){
+    updateArmorySyncLabel('TEST MODE · LOCAL ONLY');
+  }else if(window.DailyBackend){
     const st=window.DailyBackend.getState();
     if(st.user&&st.user.emailVerified){
       const invSnapshot=window.activeInventory;
@@ -2265,6 +2321,10 @@ async function hydrateCloudSettingsForUser(user){
 }
 
 async function hydrateCloudInventoryForUser(user){
+  if(window.VELOCITY_TEST_MODE){
+    updateArmorySyncLabel('TEST MODE · LOCAL ONLY');
+    return;
+  }
   if(!user||!user.emailVerified||!window.DailyBackend)return;
   if(lastInvSyncedUid===user.uid)return;
   lastInvSyncedUid=user.uid;
@@ -4283,6 +4343,7 @@ setDisplayNameInput.addEventListener('input',()=>{
   const cleaned=VelocitySettings.sanitizeDisplayName(setDisplayNameInput.value);
   setDisplayNameCount.textContent=`${cleaned.length} / 32`;
   window.activeSettings=VelocitySettings.saveLocal({...window.activeSettings,displayName:cleaned});
+  syncVelocityTestMode();
   const user=window.DailyBackend?window.DailyBackend.getState().user:null;
   renderAuthHeaderName(user);
   updateLeaderboardAuthNote();
