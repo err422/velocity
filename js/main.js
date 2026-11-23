@@ -10,14 +10,18 @@ ghostVisual=GhostSystem.createGhostMesh(THREE,scene);
 CombatSystem.ensureInit(scene);
 ViewmodelSystem.init(renderer);
 ViewmodelSystem.applySettings(window.activeSettings);
-ViewmodelSystem.equipGlove(KnivesSystem.getEquippedGlove(window.activeInventory));
-ViewmodelSystem.equipKnife(KnivesSystem.getEquippedKnife(window.activeInventory),false);
 function syncEquippedWeaponsToViewmodel(){
   for(const wt of ['rifle','awp','deagle']){
-    ViewmodelSystem.equipWeaponSkin(wt,KnivesSystem.getEquippedWeapon(window.activeInventory,wt));
+    ViewmodelSystem.equipWeaponSkin(KnivesSystem.getEquippedWeapon(window.activeInventory,wt));
   }
 }
-syncEquippedWeaponsToViewmodel();
+function syncInventoryCosmeticsToViewmodel(){
+  ViewmodelSystem.equipGlove(KnivesSystem.getEquippedGlove(window.activeInventory));
+  ViewmodelSystem.equipKnife(KnivesSystem.getEquippedKnife(window.activeInventory),false);
+  syncEquippedWeaponsToViewmodel();
+  CombatSystem.switchSlot(CombatSystem.getState().activeSlot,false);
+}
+syncInventoryCosmeticsToViewmodel();
 
 function updateGhostVisual(dt){
   if(!course){
@@ -179,6 +183,7 @@ function activateLoadedLevel(built,displayName,opts){
     if(NetcodeSystem.getState().isArena)NetcodeSystem.leaveSession();
     CombatSystem.switchSlot(id==='sandbox'?'rifle':'knife');
   }
+  syncInventoryCosmeticsToViewmodel();
   resetPlayer();
   ViewmodelSystem.triggerDraw();
   renderArenaHudStatic();
@@ -1150,7 +1155,7 @@ function equipWeaponById(weaponId){
   if(!found)return;
   window.activeInventory[weaponEquipField(found.weaponType)]=found.id;
   persistInventorySummary(true);
-  ViewmodelSystem.equipWeaponSkin(found.weaponType,found);
+  ViewmodelSystem.equipWeaponSkin(found);
   showToast(`EQUIPPED ${KnivesSystem.formatWeaponFullName(found).toUpperCase()}`);
   if(activeArmoryTab==='inventory')renderArmoryInventory();
   if(lastRevealedItem&&lastRevealedItem.id===found.id){
