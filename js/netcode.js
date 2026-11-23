@@ -620,6 +620,10 @@
           v.alive = true;
           v.spawnIdx = Math.floor(Math.random() * Math.max(1, arenaSpawns.length));
           const sp = getSpawnForIndex(v.spawnIdx);
+          v.x = sp.x;
+          v.y = sp.y;
+          v.z = sp.z;
+          v.yaw = sp.yaw || 0;
           broadcastGame({
             t: 'respawn_player',
             uid: victimUid,
@@ -633,9 +637,13 @@
             if (typeof callbacks.onLocalRespawn === 'function') callbacks.onLocalRespawn(sp, false);
           } else if (root.CombatSystem) {
             root.CombatSystem.upsertRemoteAvatar(victimUid, {
-              x: sp.x, y: sp.y, z: sp.z, yaw: sp.yaw || 0, hp: 100, alive: true, snap: true
+              isBot: Boolean(v.isBot),
+              botType: v.botType,
+              x: sp.x, y: sp.y, z: sp.z, yaw: sp.yaw || 0,
+              hp: 100, alive: true, slot: v.slot, snap: true
             });
           }
+          if (v.isBot && root.CombatSystem) root.CombatSystem.syncArenaBots(serializePlayersList());
           emitState();
         }, FFA_RESPAWN_SEC * 1000);
       }

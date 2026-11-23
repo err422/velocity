@@ -1276,22 +1276,28 @@
       const profileIndex = Math.max(0, Number(player.botType) || 0) % WARMUP_BOT_ARCHETYPES.length;
       const profile = WARMUP_BOT_ARCHETYPES[profileIndex];
       const spawn = warmupSpawns[player.spawnIdx] || warmupSpawns[0] || { x: 0, y: 0.05, z: 0, yaw: 0 };
+      const existed = remoteAvatars.has(player.uid);
+      const snap = !existed || Boolean(resetBrains);
       const avatar = upsertRemoteAvatar(player.uid, {
         name: player.name || `BOT · ${profile.role}`,
         isBot: true,
         botType: profileIndex,
-        x: Number.isFinite(player.x) ? player.x : spawn.x,
-        y: Number.isFinite(player.y) ? player.y : spawn.y,
-        z: Number.isFinite(player.z) ? player.z : spawn.z,
-        yaw: Number.isFinite(player.yaw) ? player.yaw : (spawn.yaw || 0),
+        ...(snap ? {
+          x: Number.isFinite(player.x) ? player.x : spawn.x,
+          y: Number.isFinite(player.y) ? player.y : spawn.y,
+          z: Number.isFinite(player.z) ? player.z : spawn.z,
+          yaw: Number.isFinite(player.yaw) ? player.yaw : (spawn.yaw || 0),
+          snap: true
+        } : {}),
         hp: Number.isFinite(player.hp) ? player.hp : 100,
         alive: player.alive !== false,
-        slot: player.slot || profile.weapon,
-        snap: true
+        slot: player.slot || profile.weapon
       });
       if (!avatar) continue;
-      avatar.visual.group.position.copy(avatar.pos);
-      avatar.visual.group.rotation.y = avatar.yaw;
+      if (snap) {
+        avatar.visual.group.position.copy(avatar.pos);
+        avatar.visual.group.rotation.y = avatar.yaw;
+      }
 
       let bot = arenaBotAi.get(player.uid);
       if (!bot) {
@@ -1477,6 +1483,18 @@
       if (typeof info.slot === 'string') {
         entry.activeSlot = info.slot;
         entry.visual.gunBar.visible = info.slot !== 'knife' && info.slot !== 'melee';
+      }
+    }
+    const botBrain = arenaBotAi.get(uid);
+    if (botBrain) {
+      const wasAlive = botBrain.alive;
+      botBrain.hp = entry.hp;
+      botBrain.alive = entry.alive;
+      if (!wasAlive && botBrain.alive && info && info.snap) {
+        botBrain.visual.group.position.copy(entry.pos);
+        botBrain.visual.group.rotation.y = entry.yaw;
+        botBrain.yaw = entry.yaw;
+        resetArenaBotBrain(botBrain);
       }
     }
     return entry;
