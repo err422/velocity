@@ -1640,6 +1640,299 @@
     #pause > button { min-height: 36px; padding: 8px 6px; font-size: 7.5px; }
   }
 
+
+  /* Spatial pause interface — a floating control surface over the live course */
+  body[data-state="paused"] #overlay {
+    display: grid;
+    place-items: center end;
+    padding: 24px clamp(28px, 8vw, 132px) 24px 24px;
+    overflow: hidden;
+    background:
+      linear-gradient(90deg, rgba(3,8,13,.02) 0%, rgba(3,8,13,.08) 52%, rgba(3,8,13,.20) 100%),
+      radial-gradient(ellipse at 82% 50%, rgba(4,10,16,.18), transparent 52%);
+    backdrop-filter: none;
+  }
+  body[data-state="paused"] #overlayCard.card {
+    width: auto;
+    max-width: min(430px, calc(100vw - 28px));
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transition: none;
+  }
+  body[data-state="paused"] #overlayCard.card::before {
+    display: none;
+  }
+  body[data-state="paused"] #pause.spatial-pause {
+    display: block;
+    width: min(368px, calc(100vw - 32px));
+    perspective: 1100px;
+    perspective-origin: 50% 48%;
+  }
+  .spatial-panel {
+    --spatial-cyan: #65e7ff;
+    position: relative;
+    width: 100%;
+    padding: 17px 18px 14px;
+    overflow: visible;
+    color: #eaf7ff;
+    border: 1px solid rgba(115,205,222,.38);
+    border-radius: 7px;
+    background:
+      linear-gradient(112deg, rgba(15,32,45,.96), rgba(7,16,26,.95) 68%, rgba(9,21,31,.97));
+    box-shadow:
+      22px 28px 56px rgba(0,0,0,.48),
+      0 0 36px rgba(60,189,210,.08),
+      0 1px 0 rgba(255,255,255,.08) inset;
+    transform: rotateY(-8deg) rotateX(1.5deg);
+    transform-origin: 60% 50%;
+    transform-style: preserve-3d;
+    animation: spatial-panel-arrive .32s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .spatial-panel::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(101,231,255,.82), rgba(255,155,85,.35), transparent);
+    pointer-events: none;
+  }
+  .spatial-panel::after {
+    content: "";
+    position: absolute;
+    top: 9px;
+    right: -7px;
+    bottom: 9px;
+    width: 7px;
+    border: 1px solid rgba(101,231,255,.18);
+    border-left: 0;
+    border-radius: 0 3px 3px 0;
+    background: linear-gradient(180deg, rgba(30,66,82,.95), rgba(9,23,34,.98));
+    transform: translateZ(-7px);
+    pointer-events: none;
+  }
+  @keyframes spatial-panel-arrive {
+    from { opacity: 0; transform: translate3d(18px, 4px, -55px) rotateY(-13deg) rotateX(2deg); }
+    to { opacity: 1; transform: rotateY(-8deg) rotateX(1.5deg); }
+  }
+  .spatial-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 13px;
+    border-bottom: 1px solid rgba(126,190,213,.16);
+  }
+  .spatial-brand { display:flex; align-items:center; gap:10px; min-width:0; }
+  .spatial-brand-mark {
+    display:grid;
+    place-items:center;
+    flex:0 0 31px;
+    width:31px;
+    height:31px;
+    border:1px solid rgba(101,231,255,.58);
+    border-radius:4px;
+    color:#eafaff;
+    background:rgba(30,83,101,.3);
+    font-size:16px;
+    font-weight:950;
+    box-shadow:0 0 14px rgba(101,231,255,.08), 0 1px 0 rgba(255,255,255,.08) inset;
+  }
+  .spatial-overline {
+    color:#8ba6b6;
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:.15em;
+  }
+  .spatial-overline span { color:#587888; font-weight:650; }
+  .spatial-panel-header h2 {
+    margin:3px 0 0;
+    color:#f0faff;
+    font-size:21px;
+    font-weight:900;
+    line-height:1;
+    letter-spacing:.035em;
+  }
+  .spatial-key {
+    padding:5px 7px;
+    border:1px solid rgba(126,190,213,.19);
+    border-radius:3px;
+    color:#8eaaba;
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:.12em;
+  }
+  .spatial-key i { margin-left:4px; color:var(--cyan); font-style:normal; }
+  .spatial-course { padding:11px 0 10px; }
+  .spatial-course-label {
+    display:block;
+    margin-bottom:4px;
+    color:#6f8c9e;
+    font-size:7px;
+    font-weight:850;
+    letter-spacing:.16em;
+  }
+  #pauseCourseLabel {
+    display:block;
+    max-width:100%;
+    margin:0 !important;
+    color:#c3d8e3;
+    font-size:10px;
+    line-height:1.4;
+    letter-spacing:.04em;
+  }
+  #pause .spatial-loadout {
+    margin:0 0 10px;
+    padding:9px 10px;
+    border:1px solid rgba(126,190,213,.16);
+    border-radius:4px;
+    background:rgba(3,11,18,.48);
+  }
+  #pause .spatial-loadout .ld-quick-head {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    margin-bottom:7px;
+  }
+  #pause .spatial-loadout .ld-quick-label {
+    color:#7f9bab;
+    font-size:7px;
+    letter-spacing:.13em;
+  }
+  #pause .spatial-loadout .ld-quick-summary {
+    overflow:hidden;
+    color:#d2e5ed;
+    font-size:9px;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  #pause .spatial-loadout .ld-quick-strip { display:flex; flex-wrap:wrap; gap:5px; }
+  #pause .spatial-loadout .ld-quick-btn {
+    min-width:0;
+    padding:5px 7px;
+    border-radius:3px;
+    font-size:8px;
+  }
+  #pause .spatial-resume {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    min-height:40px;
+    margin:0 0 9px;
+    padding:10px 12px;
+    border:1px solid rgba(101,231,255,.74);
+    border-radius:4px;
+    background:linear-gradient(100deg, #83eafa, #55cfe3);
+    color:#071820;
+    font-size:10px;
+    font-weight:950;
+    letter-spacing:.15em;
+    box-shadow:0 4px 18px rgba(46,188,211,.12), 0 1px 0 rgba(255,255,255,.35) inset;
+  }
+  #pause .spatial-resume:hover {
+    background:linear-gradient(100deg, #a4f3fc, #75dfed);
+    transform:translateY(-1px);
+    filter:none;
+  }
+  .spatial-button-key {
+    display:grid;
+    place-items:center;
+    width:20px;
+    height:20px;
+    border:1px solid rgba(5,31,40,.32);
+    border-radius:3px;
+    font-size:12px;
+  }
+  .spatial-action-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px;
+  }
+  #pause .spatial-action-grid button {
+    width:100%;
+    min-width:0;
+    min-height:31px;
+    margin:0;
+    padding:7px 8px;
+    border:1px solid rgba(126,190,213,.19);
+    border-radius:3px;
+    background:rgba(9,21,32,.72);
+    color:#c2d6e0;
+    font-size:8px;
+    font-weight:800;
+    line-height:1.2;
+    letter-spacing:.08em;
+    text-align:left;
+    white-space:normal;
+    box-shadow:0 1px 0 rgba(255,255,255,.025) inset;
+  }
+  #pause .spatial-action-grid button:hover {
+    border-color:rgba(101,231,255,.55);
+    background:rgba(21,46,59,.9);
+    color:#f1fbff;
+    transform:none;
+    filter:none;
+  }
+  #pause .spatial-action-grid #pauseLeaveServer {
+    border-color:rgba(255,125,112,.35);
+    color:#ffaaa1;
+  }
+  #pause .spatial-main-menu {
+    display:block;
+    width:100%;
+    margin:11px 0 0;
+    padding:7px 2px 0;
+    border:0;
+    border-top:1px solid rgba(126,190,213,.14);
+    border-radius:0;
+    background:transparent;
+    color:#849eae;
+    font-size:8px;
+    font-weight:800;
+    letter-spacing:.12em;
+    text-align:left;
+  }
+  #pause .spatial-main-menu:hover {
+    color:#d9f3fc;
+    background:transparent;
+    transform:translateX(2px);
+    filter:none;
+  }
+  body[data-state="paused"] #overlay button:focus-visible {
+    outline:2px solid var(--cyan);
+    outline-offset:2px;
+  }
+  @media (max-width: 760px) {
+    body[data-state="paused"] #overlay {
+      place-items:center;
+      padding:16px;
+      background:rgba(2,7,12,.38);
+    }
+    body[data-state="paused"] #overlayCard.card {
+      max-width:calc(100vw - 28px);
+    }
+    body[data-state="paused"] #pause.spatial-pause {
+      width:min(360px, calc(100vw - 32px));
+    }
+    .spatial-panel { transform:none; }
+    .spatial-panel::after { display:none; }
+    @keyframes spatial-panel-arrive {
+      from { opacity:0; transform:translateY(8px); }
+      to { opacity:1; transform:none; }
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spatial-panel { animation:none; }
+  }
+
 </style>
 </head>
 <body>
@@ -2342,26 +2635,49 @@
       </div>
     </div>
 
-    <div id="pause" style="display:none">
-      <div class="eyebrow">PAUSED</div>
-      <div class="sub" id="pauseCourseLabel" style="margin-top:6px">COURSE</div>
-      <div class="ld-pause-box">
-        <div class="ld-quick-head">
-          <span class="ld-quick-label">SWITCH LOADOUT</span>
-          <span class="ld-quick-summary" id="pauseLoadoutSummary">V-47 Rifle · Deagle .50</span>
+    <div id="pause" class="spatial-pause" style="display:none">
+      <section class="spatial-panel" aria-label="Paused game controls">
+        <header class="spatial-panel-header">
+          <div class="spatial-brand">
+            <span class="spatial-brand-mark">V</span>
+            <div>
+              <div class="spatial-overline">VELOCITY <span>/ RUN CONTROL</span></div>
+              <h2>PAUSED</h2>
+            </div>
+          </div>
+          <span class="spatial-key">ESC <i>↵</i></span>
+        </header>
+
+        <div class="spatial-course">
+          <span class="spatial-course-label">CURRENT SESSION</span>
+          <div class="sub" id="pauseCourseLabel">COURSE</div>
         </div>
-        <div class="ld-quick-strip" id="pauseLoadoutStrip"></div>
-      </div>
-      <button type="button" id="resume" style="margin-top:14px">RESUME</button>
-      <button type="button" class="alt" id="restart">RESTART</button>
-      <button type="button" class="alt" id="pauseLoadouts" style="border-color:rgba(101,231,255,.45);color:#e6fbff">LOADOUTS &amp; GUNSMITH</button>
-      <button type="button" class="alt" id="pauseChangeMap" style="display:none">CHANGE MAP</button>
-      <button type="button" class="alt" id="pauseServers">SERVERS &amp; ARENAS</button>
-      <button type="button" class="alt" id="pauseArmory">ARMORY &amp; CASES</button>
-      <button type="button" class="alt" id="pauseSettings">SETTINGS</button>
-      <button type="button" class="alt" id="pauseArchive">DAILY ARCHIVE &amp; LEADERBOARD</button>
-      <button type="button" class="alt arm-btn-danger" id="pauseLeaveServer" style="display:none">LEAVE SERVER</button>
-      <button type="button" class="alt" id="tomenu">MAIN MENU</button>
+
+        <div class="ld-pause-box spatial-loadout">
+          <div class="ld-quick-head">
+            <span class="ld-quick-label">ACTIVE LOADOUT</span>
+            <span class="ld-quick-summary" id="pauseLoadoutSummary">V-47 Rifle · Deagle .50</span>
+          </div>
+          <div class="ld-quick-strip" id="pauseLoadoutStrip"></div>
+        </div>
+
+        <button type="button" id="resume" class="spatial-resume">
+          <span>RESUME RUN</span><span class="spatial-button-key">↵</span>
+        </button>
+
+        <div class="spatial-action-grid" aria-label="Pause menu options">
+          <button type="button" class="alt" id="restart">RESTART RUN</button>
+          <button type="button" class="alt" id="pauseLoadouts">LOADOUTS</button>
+          <button type="button" class="alt" id="pauseChangeMap" style="display:none">CHANGE MAP</button>
+          <button type="button" class="alt" id="pauseServers">ARENAS</button>
+          <button type="button" class="alt" id="pauseArmory">ARMORY</button>
+          <button type="button" class="alt" id="pauseSettings">SETTINGS</button>
+          <button type="button" class="alt" id="pauseArchive">DAILY ARCHIVE</button>
+          <button type="button" class="alt arm-btn-danger" id="pauseLeaveServer" style="display:none">LEAVE SERVER</button>
+        </div>
+
+        <button type="button" class="spatial-main-menu" id="tomenu">← MAIN MENU</button>
+      </section>
     </div>
   </div>
   <div id="sellConfirmModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="sellConfirmTitle">
