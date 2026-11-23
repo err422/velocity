@@ -63,117 +63,90 @@ function buildCourse1(){
   return {id:'course1',spawn:V3(0,0,-10),yaw:Math.PI,course:gates,bound:0,targetMode:'gauntlet',targets:gauntletTargets};
 }
 
-// SURF 01 — "SKYLINE DRIFT": dedicated Counter-Strike linear multi-ramp surf map.
+// SURF 01 — "SKYLINE DRIFT": a dedicated linear surf run built around one-sided banks,
+// long air transfers, sweeping S-curves, and checkpoints that preserve the route's momentum.
 function buildSurfMap1(){
-  // Stage 0: Elevated Skyline Drop-In Start Deck (y = 48)
-  slab(0,48,-14,12,22,concrete);
-  addBox(0,48.12,11.8,22,.24,.4,cyan,false);
-  addBox(-11.4,49.5,-1,0.8,3,26,dark);
-  addBox(11.4,49.5,-1,0.8,3,26,dark);
-
-  // Stage 1: Opening Downhill Speed Wedge -> Twin Symmetrical Spine Transfer Wedges
-  addSurfWedge([0,47.5,14],[0,36,78],{faceWidth:11.5,slopeDeg:50,side:'both',lipEnd:true});
-  addSurfWedge([11,35,88],[11,26,144],{faceWidth:11.5,slopeDeg:50,side:'both',lipEnd:true});
-  addSurfWedge([-11,35,88],[-11,26,144],{faceWidth:11.5,slopeDeg:50,side:'both',lipEnd:true});
-
-  // Transfer Deck A (Checkpoint 1, y = 22)
-  slab(0,22,152,180,28,concrete);
-  addBox(0,22.12,179.8,28,.24,.4,cyan,false);
-
-  // Stage 2: Smooth 60° Curved Banked Left Sweep (+X)
-  const curveLeft=addSurfCurve({
-    start:[0,21,182],
-    yawStart:0,
-    yawDelta:Math.PI/3,
-    radius:72,
-    pitchDrop:-10,
-    segments:12,
-    faceWidth:12,
-    slopeDeg:50,
-    side:'both',
-    lipEnd:true
-  });
-  const midLeftSeg=curveLeft.curve.segments[6];
-  const midLeftPt=midLeftSeg.a;
-  const midLeftNx=Math.sin(midLeftSeg.yawStart);
-  const midLeftNz=Math.cos(midLeftSeg.yawStart);
-
-  // Stage 3: S-Curve Reversal Sweep (60° Right Turn back to +Z)
-  const e1=curveLeft.curve.end;
-  const t1=curveLeft.curve.endTangent;
-  const gap1=12;
-  const curveRightStart=[e1[0]+t1[0]*gap1,e1[1]-1,e1[2]+t1[2]*gap1];
-  const curveRight=addSurfCurve({
-    start:curveRightStart,
-    yawStart:Math.PI/3,
-    yawDelta:-Math.PI/3,
-    radius:72,
-    pitchDrop:-9,
-    segments:12,
-    faceWidth:12,
-    slopeDeg:50,
-    side:'both',
-    lipEnd:true
-  });
-
-  // Transfer Deck B (Checkpoint 2, aligned with curveRight end)
-  const e2=curveRight.curve.end;
-  const deckX=e2[0];
-  const deckZ0=Math.round(e2[2])+7;
-  const deckZ1=deckZ0+28;
-  const deckY=-3;
-  slab(deckX,deckY,deckZ0,deckZ1,28,concrete);
-  addBox(deckX,deckY+.12,deckZ1-.2,28,.24,.4,cyan,false);
-
-  // Stage 4: Steep Downhill Speed Drop -> Uphill Boost Flick Launch
-  const dropZ0=deckZ1+2;
-  const dropZ1=dropZ0+58;
-  addSurfWedge([deckX,-4,dropZ0],[deckX,-15,dropZ1],{faceWidth:12,slopeDeg:50,side:'both'});
-  const launchZ1=dropZ1+48;
-  addSurfWedge([deckX,-15,dropZ1-.5],[deckX,-9,launchZ1],{faceWidth:12,slopeDeg:50,side:'both',lipEnd:true});
-
-  // Stage 5: Final Sweeping Glide Wedge & Finish Deck
-  const glideZ0=launchZ1+18;
-  const glideZ1=glideZ0+62;
-  addSurfWedge([deckX,-8,glideZ0],[deckX,-13,glideZ1],{faceWidth:12.5,slopeDeg:50,side:'both',lipEnd:true});
-  const finZ0=glideZ1+6;
-  const finZ1=finZ0+76;
-  const finY=-15;
-  slab(deckX,finY,finZ0,finZ1,28,concrete);
-  // Subtle skyline finish framing pylons
-  addBox(deckX-13,finY+8,finZ0+36,1.6,16,1.6,orange,false);
-  addBox(deckX+13,finY+8,finZ0+36,1.6,16,1.6,orange,false);
-  addBox(deckX,finY+16,finZ0+36,27.6,1.4,1.6,orange,false);
-
-  const gates=buildGates([
-    [0,51,6,6.5],
-    [0,26,166,9.5],
-    [midLeftPt[0],midLeftPt[1]+2,midLeftPt[2],11, 0,22.05,166, midLeftNx,midLeftNz],
-    [deckX,deckY+4,deckZ0+14,9.5],
-    [deckX,-5,launchZ1+9,11.5, deckX,deckY+.05,deckZ0+14],
-    [deckX,finY+4,finZ0+36,10]
-  ]);
-  gateText('START',0,58,6,'#65e7ff');
-  gateText('FINISH',deckX,finY+11,finZ0+36,'#ff9b55');
-
-  const surfTargets=[
-    {id:'s1_t1',x:-8.5,y:42.5,z:52,yaw:Math.PI,scale:1.35},
-    {id:'s1_t2',x:0,y:26.5,z:168,yaw:Math.PI,scale:1.3},
-    {id:'s1_t3',x:deckX-6,y:deckY+3.2,z:deckZ0+18,yaw:Math.PI,scale:1.3},
-    {id:'s1_t4',x:deckX+6,y:-6.5,z:launchZ1+4,yaw:Math.PI,scale:1.4},
-    {id:'s1_t5',x:deckX,y:finY+4.5,z:finZ0+16,yaw:Math.PI,scale:1.35,patrolAxis:'x',patrolRange:5.5,patrolSpeed:2.0,phase:0.8}
-  ];
-
-  return {
-    id:'surf1',
-    spawn:V3(0,48,-8),
-    yaw:Math.PI,
-    course:gates,
-    bound:0,
-    killY:-42,
-    surfHint:true,
-    targetMode:'gauntlet',
-    targets:surfTargets
+  const slope = 50;
+  const faceWidth = 14.5;
+  const pylon = (x, baseY, z, height=18) => {
+    addBox(x,baseY+height/2,z,1.35,height,1.35,dark,false);
+    addBox(x,baseY+height,z,2.5,.35,2.5,orange,false);
   };
+  const startY = 60;
+  slab(0,startY,-24,16,30,concrete);
+  addBox(0,startY+.12,15,30,.24,.45,cyan,false);
+  addBox(-15,startY+1.5,-4,1,3,32,dark,false);
+  addBox(15,startY+1.5,-4,1,3,32,dark,false);
+  pylon(-20,startY,-10,22);
+  pylon(20,startY,-10,22);
+  addSurfWedge([0,59.5,18],[0,52,120],{faceWidth,slopeDeg:slope,side:'left',lipStart:true,lipEnd:true});
+  const deckAY = 40.5;
+  slab(0,deckAY,126,158,34,concrete);
+  addBox(0,deckAY+.12,157.8,34,.24,.45,cyan,false);
+  pylon(-22,deckAY,142,17);
+  pylon(22,deckAY,142,17);
+  const curveA = addSurfCurve({start:[0,40,160],yawStart:0,yawDelta:Math.PI/3,radius:62,pitchDrop:-4,segments:14,faceWidth,slopeDeg:slope,side:'left',lipStart:true,lipEnd:true});
+  const curveAEnd = curveA.curve.end;
+  const curveAForward = curveA.curve.endTangent;
+  const curveBStart = [curveAEnd[0]+curveAForward[0]*8,curveAEnd[1]-.4,curveAEnd[2]+curveAForward[2]*8];
+  const curveB = addSurfCurve({start:curveBStart,yawStart:Math.PI/3,yawDelta:-Math.PI/3,radius:62,pitchDrop:-4,segments:14,faceWidth,slopeDeg:slope,side:'left',lipStart:true,lipEnd:true});
+  const curveBEnd = curveB.curve.end;
+  const deckBX = curveBEnd[0];
+  const deckBY = curveBEnd[1]-11.6;
+  const deckBZ0 = Math.round(curveBEnd[2])+6;
+  const deckBZ1 = deckBZ0+34;
+  slab(deckBX,deckBY,deckBZ0,deckBZ1,36,concrete);
+  addBox(deckBX,deckBY+.12,deckBZ1-.2,36,.24,.45,cyan,false);
+  pylon(deckBX-24,deckBY,deckBZ0+17,18);
+  pylon(deckBX+24,deckBY,deckBZ0+17,18);
+  const wallBStart = deckBZ1+6;
+  const wallBEnd = wallBStart+100;
+  addSurfWedge([deckBX,deckBY-.5,wallBStart],[deckBX,deckBY-8,wallBEnd],{faceWidth,slopeDeg:slope,side:'right',lipStart:true,lipEnd:true});
+  const deckCY = 1.2;
+  const deckCZ0 = wallBEnd+6;
+  const deckCZ1 = deckCZ0+32;
+  slab(deckBX,deckCY,deckCZ0,deckCZ1,36,concrete);
+  addBox(deckBX,deckCY+.12,deckCZ1-.2,36,.24,.45,cyan,false);
+  pylon(deckBX-24,deckCY,deckCZ0+16,17);
+  pylon(deckBX+24,deckCY,deckCZ0+16,17);
+  const curveC = addSurfCurve({start:[deckBX,deckCY-.4,deckCZ1+2],yawStart:0,yawDelta:-Math.PI/3,radius:54,pitchDrop:-4,segments:14,faceWidth,slopeDeg:slope,side:'right',lipStart:true,lipEnd:true});
+  const curveCEnd = curveC.curve.end;
+  const curveCForward = curveC.curve.endTangent;
+  const curveDStart = [curveCEnd[0]+curveCForward[0]*8,curveCEnd[1]-.4,curveCEnd[2]+curveCForward[2]*8];
+  const curveD = addSurfCurve({start:curveDStart,yawStart:-Math.PI/3,yawDelta:Math.PI/3,radius:54,pitchDrop:-4,segments:14,faceWidth,slopeDeg:slope,side:'right',lipStart:true,lipEnd:true});
+  const curveDEnd = curveD.curve.end;
+  const deckDX = curveDEnd[0];
+  const deckDY = curveDEnd[1]-11.6;
+  const deckDZ0 = Math.round(curveDEnd[2])+6;
+  const deckDZ1 = deckDZ0+34;
+  slab(deckDX,deckDY,deckDZ0,deckDZ1,36,concrete);
+  addBox(deckDX,deckDY+.12,deckDZ1-.2,36,.24,.45,cyan,false);
+  pylon(deckDX-24,deckDY,deckDZ0+17,18);
+  pylon(deckDX+24,deckDY,deckDZ0+17,18);
+  const finalStart = deckDZ1+6;
+  const finalEnd = finalStart+100;
+  addSurfWedge([deckDX,deckDY-.5,finalStart],[deckDX,deckDY-7,finalEnd],{faceWidth,slopeDeg:slope,side:'left',lipStart:true,lipEnd:true});
+  const finishY = deckDY-18.1;
+  const finishZ0 = finalEnd+6;
+  const finishZ1 = finishZ0+60;
+  slab(deckDX,finishY,finishZ0,finishZ1,36,concrete);
+  addBox(deckDX,finishY+.12,finishZ0+.2,36,.24,.45,cyan,false);
+  pylon(deckDX-24,finishY,finishZ0+30,23);
+  pylon(deckDX+24,finishY,finishZ0+30,23);
+  addBox(deckDX,finishY+23,finishZ0+30,46,.7,1.2,orange,false);
+  const gates=buildGates([
+    [0,63,5,7.5],
+    [0,42,142,12,0,deckAY+.05,132],
+    [deckBX,deckBY+2,deckBZ0+17,13,deckBX,deckBY+.05,deckBZ0+7],
+    [deckBX,deckCY+2,deckCZ0+16,13,deckBX,deckCY+.05,deckCZ0+6],
+    [deckDX,deckDY+2,deckDZ0+17,13,deckDX,deckDY+.05,deckDZ0+7],
+    [deckDX,finishY+2,finishZ0+30,12]
+  ]);
+  gateText('START',0,68,5,'#65e7ff');
+  gateText('CHECKPOINT A',0,49,142,'#65e7ff');
+  gateText('CHECKPOINT B',deckBX,deckBY+8,deckBZ0+17,'#65e7ff');
+  gateText('CHECKPOINT C',deckBX,deckCY+8,deckCZ0+16,'#65e7ff');
+  gateText('CHECKPOINT D',deckDX,deckDY+8,deckDZ0+17,'#65e7ff');
+  gateText('FINISH',deckDX,finishY+12,finishZ0+30,'#ff9b55');
+  return {id:'surf1',spawn:V3(0,startY,-8),yaw:Math.PI,course:gates,bound:0,killY:-42,surfHint:true};
 }
-
