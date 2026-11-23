@@ -7,6 +7,29 @@ let lastHudScopeKey='';
 let lastHudHp=-1;
 let lastHudWeaponSig='';
 const _rp=V3(),_right=V3();
+let pauseWorldViewActive=false;
+let pauseViewBlend=0;
+let pauseAvatarVisual=null;
+const pauseStartCameraPosition=V3();
+const pauseStartCameraQuaternion=new THREE.Quaternion();
+const pauseDesiredCameraPosition=V3();
+const pauseCameraTarget=V3();
+const pauseCameraRight=V3();
+const pauseCameraForward=V3();
+const pauseCameraLooker=new THREE.Object3D();
+
+function ensurePauseAvatarVisual(){
+  if(pauseAvatarVisual)return;
+  pauseAvatarVisual=CombatSystem.createPauseAvatar();
+  pauseAvatarVisual.hpFill.visible=false;
+  pauseAvatarVisual.hpBg.visible=false;
+  pauseAvatarVisual.label.visible=false;
+  pauseAvatarVisual.group.visible=false;
+  pauseAvatarVisual.group.traverse(obj=>{
+    if(obj.isMesh)obj.castShadow=true;
+  });
+  scene.add(pauseAvatarVisual.group);
+}
 const surfHintEl=$('surfHint');
 const crosshairEl=$('crosshair');
 window.activeSettings=VelocitySettings.loadLocal();
@@ -77,8 +100,38 @@ function render(dt){
   const isSurfDisplay=p.surfing||p.surfGrace>0.04;
   const rollT=p.wallrun?-C.wallRoll*Math.sign(_right.dot(p.wallN)):(isSurfDisplay?-C.surfRoll*Math.sign(_right.dot(p.surfN)):0);
   p.roll+=(rollT-p.roll)*Math.min(1,dt*8);
-  camera.position.set(_rp.x,_rp.y+p.eye,_rp.z);
-  camera.rotation.set(p.pitch,p.yaw,p.roll);
+  if(pauseWorldViewActive&&inLevel){
+    ensurePauseAvatarVisual();
+    pauseAvatarVisual.group.visible=true;
+    pauseAvatarVisual.group.position.copy(_rp);
+    pauseAvatarVisual.group.rotation.y=p.yaw;
+
+    // Camera moves back and slightly to the side, framing the runner beside
+    // the floating pause panel instead of leaving the player in first person.
+    pauseCameraForward.set(-Math.sin(p.yaw),0,-Math.cos(p.yaw));
+    pauseCameraRight.set(Math.cos(p.yaw),0,-Math.sin(p.yaw));
+    pauseCameraTarget.set(_rp.x,_rp.y+1.08,_rp.z);
+    pauseDesiredCameraPosition.copy(_rp)
+      .addScaledVector(pauseCameraForward,-4.45)
+      .addScaledVector(pauseCameraRight,1.15);
+    pauseDesiredCameraPosition.y+=2.12;
+    pauseCameraLooker.position.copy(pauseDesiredCameraPosition);
+    pauseCameraLooker.lookAt(pauseCameraTarget);
+
+    pauseViewBlend=Math.min(1,pauseViewBlend+dt*4.6);
+    const eased=pauseViewBlend*pauseViewBlend*(3-2*pauseViewBlend);
+    camera.position.lerpVectors(pauseStartCameraPosition,pauseDesiredCameraPosition,eased);
+    camera.quaternion.slerpQuaternions(
+      pauseStartCameraQuaternion,
+      pauseCameraLooker.quaternion,
+      eased
+    );
+  }else{
+    pauseViewBlend=0;
+    if(pauseAvatarVisual)pauseAvatarVisual.group.visible=false;
+    camera.position.set(_rp.x,_rp.y+p.eye,_rp.z);
+    camera.rotation.set(p.pitch,p.yaw,p.roll);
+  }
   const sp=Math.hypot(p.vel.x,p.vel.z);
   // Advance combat first so the world camera and viewmodel consume the same ADS snapshot.
   let combatFrameState=null;
@@ -3731,6 +3784,8 @@ function renderGunsmithSkins(entry){
 }
 
 function showMenu(){
+  pauseWorldViewActive=false;
+  pauseViewBlend=0;
   cancelRebind();
   stopRouletteAnimation();
   closeSellConfirmModal();
@@ -3775,6 +3830,10 @@ function showPause(){
   ArmoryPreview.stop();
   if(typeof CoursePreview3D!=='undefined')CoursePreview3D.stop();
   CombatSystem.clearScope();
+  pauseWorldViewActive=true;
+  pauseViewBlend=0;
+  pauseStartCameraPosition.copy(camera.position);
+  pauseStartCameraQuaternion.copy(camera.quaternion);
   overlay.style.display='grid';
   overlayCard.classList.remove('wide','browser-wide');
   menuEl.style.display='none';
@@ -3792,6 +3851,8 @@ function showPause(){
 }
 
 function enter(){
+  pauseWorldViewActive=false;
+  pauseViewBlend=0;
   cancelRebind();
   stopRouletteAnimation();
   closeSellConfirmModal();

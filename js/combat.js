@@ -2043,6 +2043,7 @@
     setWarmupBotsVisible,
     setOnWarmupKill: (cb) => { onWarmupKillCb = cb; },
     upsertRemoteAvatar,
+    createPauseAvatar: () => createAvatarMesh({ name: 'RUNNER', accentColor: 0x65e7ff, isBot: false }),
     syncArenaBots,
     removeRemoteAvatar,
     clearRemoteAvatars,
