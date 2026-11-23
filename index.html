@@ -578,70 +578,741 @@
     .cb-footer{flex-direction:column;align-items:stretch}
     .cb-play-btn{width:100%}
   }
+
+  /* ================================================================
+     VELOCITY FRONT-END REFRESH
+     ================================================================ */
+  :root {
+    color-scheme: dark;
+    --cyan: #67e8f9;
+    --orange: #ff9a62;
+    --panel: rgba(10, 18, 29, .82);
+    --line: rgba(126, 190, 213, .17);
+    --muted: #8299aa;
+    --ui-bg: #080e17;
+    --ui-panel: #0d1724;
+    --ui-panel-2: #111e2d;
+    --ui-edge: rgba(135, 190, 214, .19);
+  }
+
+  #overlay {
+    padding: clamp(12px, 2vw, 30px);
+    background:
+      radial-gradient(ellipse at 13% 5%, rgba(31, 169, 194, .16), transparent 34%),
+      radial-gradient(ellipse at 87% 84%, rgba(255, 132, 76, .10), transparent 32%),
+      linear-gradient(135deg, rgba(3, 8, 14, .88), rgba(5, 11, 19, .95));
+    backdrop-filter: blur(12px);
+  }
+  #overlay::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: .34;
+    background-image:
+      linear-gradient(rgba(130, 190, 213, .045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(130, 190, 213, .045) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: linear-gradient(180deg, #000 0%, transparent 92%);
+  }
+  #overlayCard.card,
+  #overlayCard.card.wide,
+  #overlayCard.card.browser-wide {
+    position: relative;
+    isolation: isolate;
+    width: min(1120px, calc(100vw - 34px));
+    max-height: calc(100dvh - 36px);
+    overflow: auto;
+    padding: clamp(20px, 2.6vw, 34px);
+    border: 1px solid rgba(126, 190, 213, .20);
+    border-radius: 20px;
+    background:
+      linear-gradient(145deg, rgba(13, 23, 36, .97), rgba(6, 11, 19, .985) 70%),
+      #080e17;
+    box-shadow:
+      0 32px 110px rgba(0, 0, 0, .72),
+      0 0 0 1px rgba(255, 255, 255, .018) inset,
+      0 1px 0 rgba(255, 255, 255, .055) inset;
+    scrollbar-color: rgba(103, 232, 249, .28) transparent;
+  }
+  #overlayCard.card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(103, 232, 249, .62), rgba(255, 154, 98, .42), transparent);
+  }
+  #overlayCard.card.wide { width: min(1160px, calc(100vw - 34px)); }
+  #overlayCard.card.browser-wide { width: min(1360px, calc(100vw - 34px)); }
+  #overlay button {
+    border-radius: 8px;
+    font-family: inherit;
+    transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease, box-shadow .16s ease;
+  }
+  #overlay button:focus-visible,
+  #overlay input:focus-visible,
+  #overlay select:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 3px;
+  }
+  #overlay button:disabled { opacity: .42; cursor: not-allowed; transform: none; }
+  #overlay .btn-inline {
+    border-radius: 7px;
+    padding: 8px 12px;
+    background: rgba(16, 29, 43, .78);
+    border: 1px solid rgba(130, 190, 213, .20);
+    color: #a9c4d2;
+    font-size: 9px;
+    letter-spacing: .13em;
+  }
+  #overlay .btn-inline:hover {
+    color: #f0fbff;
+    border-color: rgba(103, 232, 249, .58);
+    background: rgba(22, 48, 64, .9);
+    transform: translateY(-1px);
+  }
+  #overlay button.alt {
+    background: linear-gradient(135deg, rgba(19, 34, 50, .92), rgba(10, 20, 32, .95));
+    border: 1px solid rgba(126, 190, 213, .20);
+    color: #d9edf5;
+  }
+  #overlay button.alt:hover {
+    border-color: rgba(103, 232, 249, .55);
+    background: linear-gradient(135deg, rgba(23, 48, 65, .96), rgba(12, 26, 41, .98));
+    color: #fff;
+    filter: none;
+    transform: translateY(-2px);
+  }
+  #overlay .eyebrow {
+    color: var(--cyan);
+    font-size: 9px;
+    letter-spacing: .22em;
+    font-weight: 800;
+  }
+  #overlay .hub-head {
+    align-items: flex-end;
+    padding-bottom: 19px;
+    border-bottom: 1px solid var(--ui-edge);
+  }
+  #overlay .hub-title {
+    color: #f1f8fc;
+    font-size: clamp(23px, 3vw, 31px);
+    line-height: 1;
+    letter-spacing: -.045em;
+  }
+  #overlay .section-label {
+    color: #8aa4b5;
+    letter-spacing: .17em;
+    font-size: 9px;
+  }
+  #overlay .set-tabs {
+    gap: 5px;
+    padding-bottom: 0;
+    border-color: var(--ui-edge);
+  }
+  #overlay .set-tab {
+    min-height: 38px;
+    padding: 10px 14px;
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-radius: 7px 7px 0 0;
+    color: #8098a9;
+    font-size: 9px;
+    letter-spacing: .13em;
+  }
+  #overlay .set-tab.active {
+    background: rgba(20, 54, 73, .45);
+    border-color: rgba(103, 232, 249, .14);
+    border-bottom-color: var(--cyan);
+    color: #e6fbff;
+  }
+  #overlay .set-input,
+  #overlay .seed-input,
+  #overlay .cb-search,
+  #overlay .cb-sort {
+    border-radius: 7px;
+    border: 1px solid rgba(126, 190, 213, .22);
+    background: rgba(4, 10, 17, .82);
+    color: #eaf7ff;
+    box-shadow: 0 1px 0 rgba(255,255,255,.025) inset;
+  }
+  #overlay .set-input:focus,
+  #overlay .seed-input:focus,
+  #overlay .cb-search:focus,
+  #overlay .cb-sort:focus { border-color: rgba(103, 232, 249, .72); outline: none; }
+  #overlay .set-help,
+  #overlay .foot { color: #7891a3; }
+  #overlay .set-field { padding: 12px; border: 1px solid rgba(126,190,213,.10); border-radius: 9px; background: rgba(10,20,31,.46); }
+  #overlay .set-label { color: #c5d9e5; font-size: 10px; letter-spacing: .10em; }
+  #overlay .set-range { accent-color: var(--cyan); }
+  #overlay .seg-btn,
+  #overlay .arm-cat-btn,
+  #overlay .arm-mode-btn {
+    border-radius: 7px;
+    border: 1px solid rgba(126,190,213,.18);
+    background: rgba(10,22,34,.82);
+    color: #8faabd;
+  }
+  #overlay .seg-btn.active,
+  #overlay .arm-cat-btn.active,
+  #overlay .arm-mode-btn.active {
+    border-color: rgba(103,232,249,.66);
+    background: rgba(22,58,77,.88);
+    color: #f1fcff;
+    box-shadow: 0 0 0 1px rgba(103,232,249,.08) inset;
+  }
+  #overlay .archive-row,
+  #overlay .lb-row,
+  #overlay .kb-row,
+  #overlay .case-card,
+  #overlay .srv-row,
+  #overlay .ld-tab,
+  #overlay .ld-slot,
+  #overlay .gs-attachment,
+  #overlay .gs-skin-card {
+    border-radius: 8px;
+  }
+  #overlay .archive-row {
+    background: rgba(12,24,37,.74);
+    border-color: rgba(126,190,213,.13);
+  }
+  #overlay .archive-row.selected { background: rgba(16,49,66,.88); border-color: rgba(103,232,249,.65); }
+  #overlay .detail-panel,
+  #overlay .case-detail-bar,
+  #overlay .srv-code-box,
+  #overlay .srv-warmup-box {
+    border-radius: 10px;
+  }
+  #overlay .ch-stage,
+  #overlay .cb-preview-stage,
+  #overlay .arm-stage,
+  #overlay .roulette-viewport {
+    border-radius: 10px;
+    border-color: rgba(126,190,213,.22);
+  }
+  #overlay .cb-head {
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--ui-edge);
+  }
+  #overlay .cb-toolbar { margin-top: 16px; }
+  #overlay .cb-play-btn,
+  #overlay #playSelectedDailyBtn,
+  #overlay #hostDeployBtn {
+    min-height: 48px;
+    border: 1px solid rgba(103,232,249,.32);
+    background: linear-gradient(110deg, #8af3fa, #4ccce2);
+    color: #06141c;
+    box-shadow: 0 8px 24px rgba(44,190,211,.12);
+    font-weight: 900;
+  }
+  #overlay .cb-play-btn:hover,
+  #overlay #playSelectedDailyBtn:hover,
+  #overlay #hostDeployBtn:hover {
+    filter: brightness(1.06);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(44,190,211,.20);
+  }
+  #overlay .arm-coin-bal {
+    border-radius: 7px;
+    background: rgba(59,43,13,.46);
+  }
+  #overlay .case-card {
+    background: linear-gradient(155deg, rgba(18,33,49,.92), rgba(8,16,26,.96));
+    border-color: rgba(126,190,213,.18);
+  }
+  #overlay .case-card.selected {
+    box-shadow: 0 0 0 1px var(--case-accent,var(--cyan)) inset, 0 12px 28px rgba(0,0,0,.22);
+  }
+  #overlay .case-detail-bar {
+    background: linear-gradient(130deg, rgba(17,32,47,.92), rgba(8,16,26,.94));
+  }
+  #overlay .srv-empty,
+  #overlay .lb-empty {
+    border-radius: 9px;
+    background: rgba(10,21,33,.75);
+  }
+
+  /* Home screen */
+  #menu.home-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-width: 0;
+  }
+  .home-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--ui-edge);
+  }
+  .home-brand { display: flex; align-items: center; gap: 12px; min-width: 220px; }
+  .brand-mark {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(103,232,249,.55);
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(34,99,119,.3), rgba(6,19,29,.7));
+    box-shadow: 0 0 28px rgba(70,212,231,.10), 0 1px 0 rgba(255,255,255,.08) inset;
+    overflow: hidden;
+  }
+  .brand-mark::before {
+    content: "";
+    position: absolute;
+    width: 25px;
+    height: 25px;
+    border: 1px solid rgba(103,232,249,.30);
+    border-radius: 50%;
+  }
+  .brand-mark span { z-index: 1; color: #effcff; font-size: 21px; font-weight: 950; letter-spacing: -.12em; transform: translateX(-1px); }
+  .brand-mark i { position: absolute; bottom: 8px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 10px var(--orange); }
+  .brand-word { margin-top: 4px; color: #d9eaf2; font-size: 11px; font-weight: 850; letter-spacing: .12em; }
+  .brand-word span { color: var(--cyan); padding: 0 3px; }
+  .home-ready { display: flex; align-items: center; gap: 8px; color: #7792a4; font-size: 8px; letter-spacing: .15em; white-space: nowrap; }
+  .ready-dot,.loadout-live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #68e5a5; box-shadow: 0 0 10px rgba(104,229,165,.58); }
+  .ready-divider { color: #3e5a6c; }
+  .home-header .auth-bar { display: flex; align-items: center; gap: 7px; }
+  .home-header .auth-name { color: #e7f7fd; font-size: 11px; }
+  #overlay .home-utility { background: rgba(12,24,36,.68); }
+  #overlay .home-signin { color: #e2faff; border-color: rgba(103,232,249,.34); }
+  #overlay .home-signin span { color: var(--cyan); padding-left: 5px; }
+  .home-main { display: flex; flex-direction: column; gap: 18px; }
+  .home-hero {
+    display: grid;
+    grid-template-columns: minmax(0,1.14fr) minmax(300px,.86fr);
+    gap: 18px;
+    min-width: 0;
+  }
+  .home-hero-copy {
+    position: relative;
+    overflow: hidden;
+    min-height: 354px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(22px,3vw,38px);
+    border: 1px solid rgba(126,190,213,.16);
+    border-radius: 13px;
+    background:
+      radial-gradient(ellipse at 78% 45%, rgba(42,163,190,.12), transparent 36%),
+      linear-gradient(145deg, rgba(14,32,46,.96), rgba(7,15,24,.98) 68%);
+  }
+  .home-hero-copy::after {
+    content: "";
+    position: absolute;
+    right: -64px;
+    bottom: -124px;
+    width: 330px;
+    height: 330px;
+    border: 1px solid rgba(103,232,249,.13);
+    border-radius: 50%;
+    box-shadow: 0 0 0 22px rgba(103,232,249,.025), 0 0 0 56px rgba(103,232,249,.018), 0 0 0 100px rgba(103,232,249,.012);
+    pointer-events: none;
+  }
+  .home-kicker { display: flex; align-items: center; gap: 9px; color: #91afbf; font-size: 9px; font-weight: 800; letter-spacing: .2em; }
+  .kicker-line { width: 24px; height: 1px; background: var(--orange); box-shadow: 0 0 9px rgba(255,154,98,.5); }
+  #menu h1 {
+    position: relative;
+    z-index: 1;
+    margin: 17px 0 13px;
+    color: #f3faff;
+    font-size: clamp(56px, 8vw, 98px);
+    font-weight: 950;
+    line-height: .82;
+    letter-spacing: -.095em;
+    text-shadow: 0 10px 36px rgba(0,0,0,.24);
+  }
+  #menu h1 span { color: var(--cyan); text-shadow: 0 0 28px rgba(103,232,249,.32); }
+  .home-lede { position: relative; z-index: 1; max-width: 450px; margin: 0; color: #91a9b8; font-size: 12px; line-height: 1.7; }
+  .home-hero-actions { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 25px; }
+  #overlay .home-mode-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+    min-height: 96px;
+    padding: 13px 15px;
+    text-align: left;
+    border: 1px solid rgba(103,232,249,.28);
+    background: rgba(8,20,31,.78);
+    color: #edfbff;
+  }
+  #overlay .home-mode-card:hover { transform: translateY(-3px); border-color: rgba(103,232,249,.78); box-shadow: 0 12px 25px rgba(0,0,0,.22); }
+  #overlay .home-mode-primary { background: linear-gradient(115deg, rgba(103,232,249,.98), rgba(77,201,222,.95)); color: #07151d; border-color: transparent; }
+  #overlay .home-mode-primary:hover { background: linear-gradient(115deg, #a4f8fb, #62d9e8); }
+  .home-mode-index { color: rgba(6,30,42,.72); font-size: 8px; font-weight: 900; letter-spacing: .16em; }
+  .home-mode-index span { opacity: .78; font-weight: 700; }
+  .home-mode-title { display: flex; width: 100%; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 950; letter-spacing: .04em; }
+  .home-mode-title b { font-size: 16px; }
+  .home-mode-card small { color: rgba(7,35,47,.76); font-size: 8px; letter-spacing: .08em; font-weight: 800; line-height: 1.4; }
+  .home-mode-secondary .home-mode-index { color: var(--orange); }
+  .home-mode-secondary .home-mode-title { color: #f1fbff; }
+  .home-mode-secondary small { color: #8ba6b7; }
+  .home-metrics { position: relative; z-index: 1; display: flex; gap: clamp(13px,2.1vw,25px); margin-top: 22px; }
+  .home-metrics div { display: flex; flex-direction: column; gap: 3px; }
+  .home-metrics strong { color: #d9edf5; font-size: 12px; letter-spacing: .04em; }
+  .home-metrics span { color: #678293; font-size: 7px; font-weight: 800; letter-spacing: .15em; }
+  .home-daily-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 17px;
+    overflow: hidden;
+    border: 1px solid rgba(255,154,98,.23);
+    border-radius: 13px;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(255,150,95,.12), transparent 48%),
+      linear-gradient(155deg, rgba(29,31,38,.98), rgba(13,18,26,.99) 72%);
+  }
+  .daily-panel-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .daily-overline { display: flex; align-items: center; gap: 8px; color: #f2c4a6; font-size: 8px; font-weight: 900; letter-spacing: .17em; }
+  .daily-pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 12px rgba(255,154,98,.8); }
+  .daily-index { color: #786d68; font-size: 8px; letter-spacing: .12em; }
+  .daily-art { position: relative; display: grid; place-items: center; height: 123px; margin: 9px 0 0; overflow: hidden; }
+  .daily-art::before { content: ""; position: absolute; width: 210px; height: 90px; transform: skewX(-32deg) rotate(-15deg); border: 1px solid rgba(255,164,112,.24); box-shadow: 0 0 0 10px rgba(255,164,112,.025), 0 0 0 24px rgba(255,164,112,.018); }
+  .daily-orbit { position: absolute; border: 1px solid rgba(255,178,133,.24); border-radius: 50%; transform: rotate(-26deg); }
+  .daily-orbit-one { width: 190px; height: 74px; }
+  .daily-orbit-two { width: 150px; height: 112px; transform: rotate(34deg); border-color: rgba(103,232,249,.20); }
+  .daily-glyph { position: relative; z-index: 1; color: #f8e4d7; font-size: 68px; line-height: 1; font-weight: 950; letter-spacing: -.15em; text-shadow: 0 0 32px rgba(255,145,91,.22); }
+  .daily-glyph span { color: var(--orange); }
+  .daily-coordinate { position: absolute; z-index: 2; color: #a17e6d; font-size: 7px; letter-spacing: .17em; }
+  .daily-coordinate-a { top: 14px; left: 8px; }
+  .daily-coordinate-b { right: 8px; bottom: 12px; color: #698c98; }
+  .daily-panel-copy .eyebrow { font-size: 7px; color: #bd8c72; letter-spacing: .17em; }
+  .daily-panel-copy h2 { margin: 7px 0 6px; color: #fff5ed; font-size: clamp(22px,2.5vw,29px); line-height: .98; letter-spacing: -.06em; }
+  .daily-panel-copy h2 span { color: var(--orange); }
+  .daily-panel-copy p { margin: 0 0 13px; color: #a38f85; font-size: 10px; line-height: 1.55; }
+  #overlay .home-daily-cta {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 11px 13px;
+    text-align: left;
+    border: 1px solid rgba(255,154,98,.43);
+    background: linear-gradient(105deg, rgba(255,154,98,.16), rgba(60,36,27,.34));
+    color: #fff3eb;
+  }
+  #overlay .home-daily-cta:hover { border-color: var(--orange); background: rgba(255,154,98,.20); transform: translateY(-2px); }
+  .daily-cta-copy { display: flex; flex-direction: column; gap: 3px; }
+  .daily-cta-kicker { color: #c58b6c; font-size: 7px; font-weight: 900; letter-spacing: .16em; }
+  .daily-cta-copy strong { font-size: 12px; letter-spacing: .04em; }
+  .daily-cta-copy small { color: #a98d7f; font-size: 8px; letter-spacing: .08em; }
+  .daily-cta-arrow { display: grid; place-items: center; width: 29px; height: 29px; border: 1px solid rgba(255,154,98,.34); border-radius: 8px; color: var(--orange); font-size: 16px; }
+  .daily-panel-bottom { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: auto; padding-top: 12px; }
+  .daily-panel-bottom > span { color: #716c6b; font-size: 7px; letter-spacing: .08em; line-height: 1.5; }
+  #overlay .daily-panel-bottom button { width: auto; padding: 0; background: transparent; color: #e8b394; font-size: 8px; letter-spacing: .08em; white-space: nowrap; }
+  #overlay .daily-panel-bottom button:hover { color: #fff1e8; transform: translateX(2px); }
+  #overlay .daily-panel-bottom button span { color: var(--orange); padding-left: 4px; }
+
+  .home-tools { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 9px; }
+  #overlay .home-tool-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    min-width: 0;
+    min-height: 105px;
+    padding: 13px 14px;
+    text-align: left;
+    background: linear-gradient(145deg, rgba(17,32,47,.86), rgba(9,17,27,.94));
+    border: 1px solid rgba(126,190,213,.15);
+    color: #e5f4fb;
+  }
+  #overlay .home-tool-card:hover { transform: translateY(-3px); border-color: rgba(103,232,249,.5); background: linear-gradient(145deg, rgba(20,44,61,.95), rgba(9,19,30,.98)); }
+  .tool-topline { display: flex; justify-content: space-between; align-items: center; color: #7794a6; font-size: 7px; letter-spacing: .15em; }
+  .tool-symbol { color: var(--cyan); font-size: 18px; line-height: 1; }
+  .home-tool-card strong { display: flex; justify-content: space-between; align-items: center; gap: 6px; color: #e7f7fc; font-size: 11px; letter-spacing: .07em; }
+  .home-tool-card strong span { color: var(--cyan); }
+  .home-tool-card small { color: #7892a4; font-size: 7px; letter-spacing: .06em; line-height: 1.4; }
+  .home-tool-note {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px dashed rgba(126,190,213,.16);
+    border-radius: 9px;
+    background: rgba(8,16,25,.38);
+  }
+  .tool-note-mark { color: var(--orange); font-size: 20px; font-weight: 950; letter-spacing: -.12em; white-space: nowrap; }
+  .home-tool-note div { display: flex; flex-direction: column; gap: 4px; }
+  .home-tool-note strong { color: #c5d8e2; font-size: 8px; letter-spacing: .1em; }
+  .home-tool-note small { color: #71899a; font-size: 8px; line-height: 1.4; }
+  .home-footer { display: grid; grid-template-columns: minmax(220px,.74fr) minmax(0,1.26fr); gap: 14px; align-items: stretch; padding-top: 2px; }
+  #menu .ld-quick-box {
+    min-width: 0;
+    margin: 0;
+    padding: 13px;
+    border: 1px solid rgba(126,190,213,.16);
+    border-radius: 10px;
+    background: linear-gradient(145deg, rgba(12,24,37,.83), rgba(7,14,22,.92));
+  }
+  #menu .ld-quick-head { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin-bottom: 10px; }
+  #menu .ld-quick-label { display: flex; align-items: center; gap: 8px; color: #7d9bad; font-size: 8px; letter-spacing: .16em; }
+  .loadout-live-dot { width: 5px; height: 5px; background: var(--cyan); box-shadow: 0 0 8px rgba(103,232,249,.7); }
+  #menu .ld-quick-summary { color: #e1f2f8; font-size: 10px; letter-spacing: .02em; }
+  #menu .ld-quick-strip { display: flex; gap: 7px; align-items: center; min-height: 36px; }
+  .home-footer-bottom { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+  .home-control-label { color: #6f8a9b; font-size: 8px; font-weight: 850; letter-spacing: .16em; }
+  #menu .controls {
+    display: grid;
+    grid-template-columns: repeat(5,minmax(0,1fr));
+    gap: 6px 9px;
+    margin: 0;
+    padding: 10px 11px;
+    border: 1px solid rgba(126,190,213,.12);
+    border-radius: 9px;
+    background: rgba(7,14,22,.52);
+    color: #819aaa;
+    font-size: 8px;
+  }
+  #menu .controls b { min-width: 0; margin-right: 4px; color: #c8e4ee; font-size: 8px; letter-spacing: .07em; }
+  #menu .foot { margin: 0; font-size: 8px; line-height: 1.4; }
+
+  /* Remaining menu panels */
+  #courseBrowserPanel,#dailyHub,#settingsPanel,#armoryPanel,#serversPanel,#loadoutsPanel,#pause {
+    min-width: 0;
+  }
+  #overlay .cb-table,
+  #overlay .cb-right,
+  #overlay .detail-panel,
+  #overlay .srv-grid > div,
+  #overlay .arm-spec-box,
+  #overlay .ld-overview-grid > div {
+    min-width: 0;
+  }
+  #overlay .cb-table {
+    overflow: hidden;
+    border: 1px solid rgba(126,190,213,.15);
+    border-radius: 10px;
+    background: rgba(7,15,24,.58);
+  }
+  #overlay .cb-table-head { color: #718b9b; background: rgba(16,30,44,.9); }
+  #overlay .cb-row { border-color: rgba(126,190,213,.10); }
+  #overlay .cb-row.selected { background: rgba(18,48,65,.75); border-color: rgba(103,232,249,.5); }
+  #overlay .cb-specs {
+    padding: 12px 14px;
+    border: 1px solid rgba(126,190,213,.13);
+    border-radius: 9px;
+    background: rgba(8,17,27,.68);
+  }
+  #overlay .cb-ghost-row {
+    padding: 10px 12px;
+    border: 1px solid rgba(126,190,213,.14);
+    border-radius: 8px;
+    background: rgba(9,19,30,.7);
+  }
+  #overlay .lb-row { border-color: rgba(126,190,213,.10); }
+  #overlay .lb-row.me { background: rgba(18,48,65,.78); }
+  #overlay .srv-grid > div,
+  #overlay .set-grid > div {
+    padding: 14px;
+    border: 1px solid rgba(126,190,213,.12);
+    border-radius: 11px;
+    background: rgba(8,17,27,.42);
+  }
+  #overlay .srv-filter-row { flex-wrap: wrap; }
+  #overlay .srv-warmup-box { margin-top: 16px; padding: 13px; border: 1px solid rgba(126,190,213,.12); background: rgba(10,20,31,.56); }
+  #overlay .case-card { transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+  #overlay .case-card:hover { transform: translateY(-2px); }
+  #overlay .ld-bar,
+  #overlay .gs-topbar {
+    border: 1px solid rgba(126,190,213,.14);
+    border-radius: 9px;
+    background: rgba(9,19,30,.72);
+  }
+  #overlay .ld-slot {
+    border: 1px solid rgba(126,190,213,.15);
+    background: rgba(10,20,31,.72);
+  }
+  #overlay .kb-row { background: rgba(10,20,31,.64); }
+  #overlay .ch-stage {
+    background:
+      linear-gradient(180deg, rgba(18,39,55,.98) 0%, rgba(23,51,68,.98) 52%, rgba(20,30,40,.98) 52%, rgba(8,15,23,.98) 100%);
+  }
+
+  @media (max-width: 1040px) {
+    .home-ready { display: none; }
+    .home-footer { grid-template-columns: 1fr; }
+    #menu .ld-quick-strip { flex-wrap: wrap; }
+  }
+  @media (max-width: 760px) {
+    #overlay { padding: 10px; }
+    #overlayCard.card,#overlayCard.card.wide,#overlayCard.card.browser-wide {
+      width: calc(100vw - 20px);
+      max-height: calc(100dvh - 20px);
+      padding: 17px;
+      border-radius: 15px;
+    }
+    .home-hero { grid-template-columns: 1fr; }
+    .home-hero-copy { min-height: auto; }
+    .home-daily-panel { min-height: 400px; }
+    .home-tools { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    #menu .controls { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    #overlay .hub-head { align-items: flex-start; }
+    #overlay .hub-actions { flex-wrap: wrap; justify-content: flex-end; }
+    #overlay .srv-grid > div,
+    #overlay .set-grid > div { padding: 10px; }
+  }
+  @media (max-width: 480px) {
+    .home-header { align-items: flex-start; }
+    .home-header .auth-bar { width: 100%; flex-wrap: wrap; }
+    .home-header .auth-bar .home-utility { flex: 1; }
+    .home-header .auth-bar .home-signin { flex: 1.2; }
+    .home-brand { min-width: 0; }
+    .brand-word { font-size: 9px; }
+    .home-hero-actions { grid-template-columns: 1fr; }
+    .home-metrics { justify-content: space-between; }
+    .home-tools { grid-template-columns: 1fr 1fr; }
+    .home-tool-note { grid-column: 1 / -1; min-height: 75px; }
+    .daily-panel-bottom { align-items: flex-start; flex-direction: column; }
+    #overlay .hub-actions { justify-content: flex-start; }
+    #overlay .hub-head { flex-direction: column; gap: 12px; }
+    #overlay .hub-head .hub-actions { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #overlay button { transition: none !important; }
+    #overlay .home-mode-card:hover,
+    #overlay .home-tool-card:hover { transform: none; }
+  }
+
 </style>
 </head>
 <body>
 <div id="overlay">
   <div class="card" id="overlayCard">
-    <div id="menu">
-      <div class="card-top">
-        <div class="eyebrow">MOVEMENT LAB</div>
+    <div id="menu" class="home-shell">
+      <header class="home-header">
+        <div class="home-brand">
+          <div class="brand-mark"><span>V</span><i></i></div>
+          <div class="brand-lockup">
+            <div class="eyebrow">MOVEMENT LAB / EST. 2026</div>
+            <div class="brand-word">VELOCITY <span> // </span> PERFORMANCE SANDBOX</div>
+          </div>
+        </div>
+        <div class="home-ready"><span class="ready-dot"></span> SYSTEM READY <span class="ready-divider">/</span> BUILD 0.5</div>
         <div class="auth-bar" id="menuAuthBar">
           <span class="auth-name" id="menuAuthName" style="display:none"></span>
-          <button type="button" class="btn-inline" id="menuArmoryBtn">ARMORY · 150C</button>
-          <button type="button" class="btn-inline" id="menuSettingsBtn">SETTINGS</button>
-          <button type="button" class="btn-inline" id="menuAuthBtn">SIGN IN</button>
+          <button type="button" class="btn-inline home-utility" id="menuArmoryBtn">ARMORY · 150C</button>
+          <button type="button" class="btn-inline home-utility" id="menuSettingsBtn">SETTINGS</button>
+          <button type="button" class="btn-inline home-signin" id="menuAuthBtn">SIGN IN <span aria-hidden="true">↗</span></button>
         </div>
-      </div>
-      <h1>VELOCITY<span>.</span></h1>
-      <div class="sub">Counter-Strike surf maps, high-speed movement time trials, daily seeded circuits, and peer-to-peer combat arenas.</div>
-      <div class="lvls">
-        <button type="button" class="featured" id="openSurfBrowserBtn">
-          <span>SURF</span>
-          <small id="menuSurfStat">12 MAPS · T1–T4 · LINEAR &amp; STAGED</small>
-        </button>
-        <button type="button" class="alt" id="openTimeTrialBrowserBtn" style="border-color:rgba(101,231,255,.45);color:#e6f9ff">
-          <span>TIME TRIALS</span>
-          <small id="menuTTStat" style="color:var(--cyan)">4 COURSES · WALLRUN · GRAPPLE · BUNNYHOP</small>
-        </button>
-        <button type="button" class="alt" id="playTodayBtn" data-start="true">
-          <span id="todayBtnTitle">TODAY'S DAILY</span>
-          <small id="todayBtnSub">LOADING SEED...</small>
-        </button>
-        <button type="button" class="alt" id="openArchiveBtn">
-          <span>DAILY ARCHIVE &amp; CUSTOM SEEDS</span>
-          <small>PAST DAYS · LEADERBOARDS</small>
-        </button>
-        <button type="button" class="alt" id="openLoadoutsBtn" style="border-color:rgba(101,231,255,.55);color:#e6fbff">
-          <span>LOADOUTS &amp; 3D GUNSMITH</span>
-          <small id="menuLoadoutStat" style="color:var(--cyan)">5 LOADOUTS · 5-OF-8 ATTACHMENTS · TRUE ADS</small>
-        </button>
-        <button type="button" class="alt" id="openServersBtn" style="border-color:rgba(255,155,85,.55);color:#ffe4ce">
-          <span>SERVERS &amp; ARENAS</span>
-          <small style="color:#ff9b55">1v1 DUEL · FFA · SOLO WARMUP</small>
-        </button>
-        <button type="button" class="alt" data-level="sandbox">
-          <span>SANDBOX</span>
-          <small>FREE-ROAM · SHOOTING RANGE · SURF</small>
-        </button>
-      </div>
-      <div class="ld-quick-box">
-        <div class="ld-quick-head">
-          <span class="ld-quick-label">ACTIVE LOADOUT</span>
-          <span class="ld-quick-summary" id="menuLoadoutSummary">V-47 Rifle · Deagle .50</span>
-        </div>
-        <div class="ld-quick-strip" id="menuLoadoutStrip"></div>
-      </div>
-      <div class="controls" id="menuControls">
-        <div><b>W A S D</b> Move</div><div><b>MOUSE</b> Look</div>
-        <div><b>SPACE</b> Jump / wall jump</div><div><b>L-SHIFT</b> Slide</div>
-        <div><b>E</b> Grapple / release</div><div><b>Q</b> Speed burst</div>
-        <div><b>R</b> Restart run</div><div><b>T</b> Last checkpoint</div>
-        <div><b>F</b> Inspect knife</div><div><b>G</b> Ghost mode</div>
-      </div>
-      <div class="foot">Sign in with Google to publish daily leaderboard times. Local PBs and 3D ghost replays save automatically for every surf map, time trial, and daily seed.</div>
-    </div>
+      </header>
 
+      <main class="home-main">
+        <section class="home-hero">
+          <div class="home-hero-copy">
+            <div class="home-kicker"><span class="kicker-line"></span> MOVEMENT IS THE WEAPON</div>
+            <h1>VELOCITY<span>.</span></h1>
+            <p class="home-lede">A movement-first playground. Surf impossible lines, chase clean runs, tune your kit, and take the fight online.</p>
+            <div class="home-hero-actions">
+              <button type="button" class="home-mode-card home-mode-primary" id="openSurfBrowserBtn">
+                <span class="home-mode-index">01 <span> / CORE DISCIPLINE</span></span>
+                <span class="home-mode-title">SURF <b aria-hidden="true">↗</b></span>
+                <small id="menuSurfStat">12 MAPS · T1–T4 · LINEAR &amp; STAGED</small>
+              </button>
+              <button type="button" class="home-mode-card home-mode-secondary" id="openTimeTrialBrowserBtn">
+                <span class="home-mode-index">02 <span> / AGAINST THE CLOCK</span></span>
+                <span class="home-mode-title">TIME TRIALS <b aria-hidden="true">↗</b></span>
+                <small id="menuTTStat">4 COURSES · WALLRUN · GRAPPLE · BUNNYHOP</small>
+              </button>
+            </div>
+            <div class="home-metrics" aria-label="Game features">
+              <div><strong>01</strong><span>PHYSICS-DRIVEN</span></div>
+              <div><strong>02</strong><span>GHOST REPLAYS</span></div>
+              <div><strong>03</strong><span>LIVE P2P ARENAS</span></div>
+            </div>
+          </div>
+
+          <aside class="home-daily-panel">
+            <div class="daily-panel-top">
+              <span class="daily-overline"><span class="daily-pulse"></span> DAILY ROTATION</span>
+              <span class="daily-index">CHALLENGE / 001</span>
+            </div>
+            <div class="daily-art" aria-hidden="true">
+              <div class="daily-orbit daily-orbit-one"></div>
+              <div class="daily-orbit daily-orbit-two"></div>
+              <div class="daily-glyph">V<span>.</span></div>
+              <div class="daily-coordinate daily-coordinate-a">SEED / LIVE</div>
+              <div class="daily-coordinate daily-coordinate-b">RUN IT BACK</div>
+            </div>
+            <div class="daily-panel-copy">
+              <div class="eyebrow">SAME COURSE. SAME SEED. EVERYONE.</div>
+              <h2>Today's<br><span>challenge.</span></h2>
+              <p>A fresh seeded circuit. Set your time, post your run, and see where you land.</p>
+            </div>
+            <button type="button" class="home-daily-cta" id="playTodayBtn" data-start="true">
+              <span class="daily-cta-copy">
+                <span class="daily-cta-kicker">TODAY'S CIRCUIT</span>
+                <strong id="todayBtnTitle">TODAY'S DAILY</strong>
+                <small id="todayBtnSub">LOADING SEED...</small>
+              </span>
+              <span class="daily-cta-arrow" aria-hidden="true">↗</span>
+            </button>
+            <div class="daily-panel-bottom">
+              <span>YOUR PERSONAL BEST IS SAVED LOCALLY</span>
+              <button type="button" id="openArchiveBtn">ARCHIVE &amp; LEADERBOARDS <span aria-hidden="true">→</span></button>
+            </div>
+          </aside>
+        </section>
+
+        <section class="home-tools" aria-label="More game modes">
+          <button type="button" class="home-tool-card" id="openLoadoutsBtn">
+            <span class="tool-topline"><span>03 / EQUIPMENT</span><span class="tool-symbol" aria-hidden="true">⌁</span></span>
+            <strong>LOADOUTS <span aria-hidden="true">↗</span></strong>
+            <small id="menuLoadoutStat">5 LOADOUTS · 5-OF-8 ATTACHMENTS · TRUE ADS</small>
+          </button>
+          <button type="button" class="home-tool-card" id="openServersBtn">
+            <span class="tool-topline"><span>04 / MULTIPLAYER</span><span class="tool-symbol" aria-hidden="true">◎</span></span>
+            <strong>SERVERS &amp; ARENAS <span aria-hidden="true">↗</span></strong>
+            <small>1V1 DUEL · FFA · SOLO WARMUP</small>
+          </button>
+          <button type="button" class="home-tool-card" data-level="sandbox">
+            <span class="tool-topline"><span>05 / EXPERIMENT</span><span class="tool-symbol" aria-hidden="true">⌘</span></span>
+            <strong>SANDBOX <span aria-hidden="true">↗</span></strong>
+            <small>FREE-ROAM · SHOOTING RANGE · SURF</small>
+          </button>
+          <div class="home-tool-note">
+            <span class="tool-note-mark">V//</span>
+            <div><strong>NO FIXED ROUTE.</strong><small>Find your line. Break your record.</small></div>
+          </div>
+        </section>
+
+        <footer class="home-footer">
+          <div class="ld-quick-box">
+            <div class="ld-quick-head">
+              <span class="ld-quick-label"><span class="loadout-live-dot"></span> ACTIVE LOADOUT</span>
+              <span class="ld-quick-summary" id="menuLoadoutSummary">V-47 Rifle · Deagle .50</span>
+            </div>
+            <div class="ld-quick-strip" id="menuLoadoutStrip"></div>
+          </div>
+          <div class="home-footer-bottom">
+            <div class="home-control-label">QUICK CONTROLS</div>
+            <div class="controls" id="menuControls">
+              <div><b>W A S D</b> Move</div><div><b>MOUSE</b> Look</div>
+              <div><b>SPACE</b> Jump / wall jump</div><div><b>L-SHIFT</b> Slide</div>
+              <div><b>E</b> Grapple / release</div><div><b>Q</b> Speed burst</div>
+              <div><b>R</b> Restart run</div><div><b>T</b> Last checkpoint</div>
+              <div><b>F</b> Inspect knife</div><div><b>G</b> Ghost mode</div>
+            </div>
+            <div class="foot">Sign in with Google to publish daily leaderboard times. Local PBs and 3D ghost replays save automatically for every surf map, time trial, and daily seed.</div>
+          </div>
+        </footer>
+      </main>
+    </div>
     <div id="courseBrowserPanel" style="display:none">
       <div class="cb-head">
         <div class="cb-head-left">
