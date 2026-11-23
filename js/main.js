@@ -16,7 +16,10 @@ const pauseDesiredCameraPosition=V3();
 const pauseCameraTarget=V3();
 const pauseCameraRight=V3();
 const pauseCameraForward=V3();
-const pauseCameraLooker=new THREE.Object3D();
+// A Camera's lookAt points its -Z axis at the target. Object3D.lookAt
+// has the opposite facing convention, which made the pause view point away
+// from the runner.
+const pauseCameraLooker=new THREE.PerspectiveCamera(85,1,0.1,100);
 
 function ensurePauseAvatarVisual(){
   if(pauseAvatarVisual)return;
