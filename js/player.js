@@ -6,7 +6,7 @@ const player={pos:SPAWN.clone(),prev:SPAWN.clone(),vel:V3(),yaw:Math.PI,pitch:0,
   runStarted:false,runTime:0,gate:0,splits:[],cp:null,best:0,eye:CFG.eyeStand,roll:0};
 const contact={ground:false,wall:false,surf:false,gn:V3(),wn:V3(),sn:V3()};
 const keys={},wish=V3();
-let locked=false,last=performance.now(),acc=0,jumpBuffer=0,coyote=0,burstCd=0,padCd=0,toastTimer=0;
+let locked=false,last=performance.now(),acc=0,jumpBuffer=0,coyote=0,burstCd=0,padCd=0,boosterCd=0,teleCd=0,toastTimer=0;
 let ghostRecorder=null,ghostPb=null,ghostLast=null,ghostMode='pb',ghostVisual=null;
 camera.rotation.order='YXZ';
 const $=id=>document.getElementById(id);
@@ -274,6 +274,7 @@ function resetPlayer(){
   p.grapple=null;p.grounded=false;p.low=false;p.wallrun=false;p.wallTimer=0;
   p.surfing=false;p.surfGrace=0;p.surfTime=0;
   p.runStarted=false;p.runTime=0;p.gate=0;p.cp=null;p.splits=[];ghostRecorder=null;
+  boosterCd=0;teleCd=0;
   if(window.CombatSystem){
     window.CombatSystem.resetTargets();
     window.CombatSystem.resetAmmo();
@@ -318,8 +319,12 @@ function passGate(){
   const ref=bestSplits[i],d=ref!=null?p.runTime-ref:null;
   const dtxt=d==null?'':(d<=0?'−':'+')+Math.abs(d).toFixed(2);
   if(i<last){
-    p.cp={pos:(course[i].spawn||p.pos).clone(),i};p.gate=i+1;
-    cpEl.textContent=`GATE ${i}/${last-1}  ${dtxt}`;showToast(`GATE ${i}/${last-1} — ${fmt(p.runTime)}  ${dtxt}`);
+    const g=course[i];
+    const cpYaw=g.spawnYaw!=null?g.spawnYaw:Math.atan2(-g.n.x,-g.n.z);
+    p.cp={pos:(g.spawn||p.pos).clone(),i,yaw:cpYaw};p.gate=i+1;
+    const isStaged=level.format==='staged';
+    const lbl=isStaged?`STAGE ${i+1}/${last}`:`GATE ${i}/${last-1}`;
+    cpEl.textContent=`${lbl}  ${dtxt}`;showToast(`${lbl} — ${fmt(p.runTime)}  ${dtxt}`);
   }else{
     p.runStarted=false;p.gate=0;p.cp=null;
     const rawTime=p.runTime;
@@ -377,18 +382,21 @@ function passGate(){
   refreshGates();
 }
 // Respawn at the last gate passed (timer keeps running); with no run active it restarts instead.
-function toCheckpoint(){
+function toCheckpoint(customLabel){
   const p=player;
   if(!p.runStarted||!p.cp){resetPlayer();return;}
   const g=course[p.cp.i];
-  p.pos.copy(p.cp.pos);p.prev.copy(p.pos);p.vel.set(0,0,0);p.yaw=Math.atan2(-g.n.x,-g.n.z);p.pitch=0;
-  p.grapple=null;p.wallrun=false;p.low=false;p.grounded=false;p.surfing=false;p.surfGrace=0;showToast('CHECKPOINT');
+  p.pos.copy(p.cp.pos);p.prev.copy(p.pos);p.vel.set(0,0,0);
+  p.yaw=p.cp.yaw!=null?p.cp.yaw:Math.atan2(-g.n.x,-g.n.z);p.pitch=0;
+  p.grapple=null;p.wallrun=false;p.low=false;p.grounded=false;p.surfing=false;p.surfGrace=0;
+  showToast(customLabel||(level.format==='staged'?'STAGE RETRY':'CHECKPOINT'));
 }
 
 function step(dt){
   const p=player,v=p.vel,C=CFG;
   p.prev.copy(p.pos);
   jumpBuffer=Math.max(0,jumpBuffer-dt);coyote=Math.max(0,coyote-dt);burstCd=Math.max(0,burstCd-dt);padCd=Math.max(0,padCd-dt);
+  boosterCd=Math.max(0,boosterCd-dt);teleCd=Math.max(0,teleCd-dt);
   p.slideCd=Math.max(0,p.slideCd-dt);p.wallCd=Math.max(0,p.wallCd-dt);p.noGround=Math.max(0,p.noGround-dt);
   p.surfGrace=Math.max(0,p.surfGrace-dt);
 
@@ -475,6 +483,64 @@ function step(dt){
   for(const pad of pads){
     if(padCd<=0&&Math.hypot(p.pos.x-pad.position.x,p.pos.z-pad.position.z)<2.6&&Math.abs(p.pos.y-pad.position.y)<.6&&v.y<8){
       v.y=C.padUp;v.x*=C.padBoost;v.z*=C.padBoost;p.noGround=.1;padCd=.3;showToast('LAUNCH PAD');
+    }
+  }
+  // Directional CS surf boost rings
+  if(boosterCd<=0&&boosters.length){
+    for(const b of boosters){
+      const dx=p.pos.x-b.pos.x,dy=(p.pos.y+1.0)-b.pos.y,dz=p.pos.z-b.pos.z;
+      if(dx*dx+dy*dy+dz*dz<b.radius*b.radius){
+        const curSpd=Math.hypot(v.x,v.z);
+        const targetSpd=Math.max(curSpd+b.speedBoost*0.45,b.minSpeed);
+        v.x=b.dir.x*targetSpd;
+        v.z=b.dir.z*targetSpd;
+        v.y=Math.max(v.y+b.upBoost*0.45,b.dir.y*targetSpd+b.upBoost);
+        p.noGround=.12;p.grounded=false;boosterCd=.45;
+        showToast('BOOST RING');
+        break;
+      }
+    }
+  }
+  // Stage teleporters (authentic CS staged surf portals)
+  if(teleCd<=0&&teleporters.length){
+    for(const tp of teleporters){
+      if(p.pos.x>=tp.min.x&&p.pos.x<=tp.max.x&&p.pos.y+1>=tp.min.y&&p.pos.y<=tp.max.y&&p.pos.z>=tp.min.z&&p.pos.z<=tp.max.z){
+        p.pos.copy(tp.dest);p.prev.copy(tp.dest);
+        p.yaw=tp.destYaw;p.pitch=0;
+        if(tp.preserveSpeed){
+          const spd=Math.hypot(v.x,v.z);
+          const capped=Math.min(spd,tp.maxSpeed);
+          v.set(-Math.sin(tp.destYaw)*capped,0,-Math.cos(tp.destYaw)*capped);
+        }else{
+          v.set(0,0,0);
+        }
+        p.grapple=null;p.grounded=false;p.surfing=false;p.surfGrace=0;
+        teleCd=.55;
+        if(course&&tp.gateIndex!=null&&p.gate===tp.gateIndex){
+          course[tp.gateIndex].spawn=tp.dest.clone();
+          course[tp.gateIndex].spawnYaw=tp.destYaw;
+          passGate();
+          message(tp.label||'NEXT STAGE',{duration:1400});
+        }else{
+          if(tp.label)showToast(tp.label);
+        }
+        return;
+      }
+    }
+  }
+  // Per-stage fail-return floors (instant stage retry without losing run timer)
+  if(failZones.length){
+    for(const fz of failZones){
+      if(p.pos.y<fz.minY&&p.pos.x>=fz.minX&&p.pos.x<=fz.maxX&&p.pos.z>=fz.minZ&&p.pos.z<=fz.maxZ){
+        if(fz.respawn){
+          p.pos.copy(fz.respawn);p.prev.copy(fz.respawn);p.vel.set(0,0,0);
+          p.yaw=fz.respawnYaw;p.pitch=0;p.grapple=null;p.grounded=false;p.surfing=false;p.surfGrace=0;
+          showToast(fz.label||'STAGE RETRY');
+        }else{
+          toCheckpoint(fz.label||'STAGE RETRY');
+        }
+        return;
+      }
     }
   }
   // Bounds, kill plane

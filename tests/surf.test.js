@@ -153,3 +153,145 @@ test('daily generator produces real deterministic CS surf wedges and curved surf
   assert.ok(wedgeCount > 0, 'Expected CS surf wedges across daily seeds');
   assert.ok(curveCount > 0, 'Expected curved CS surf sweeps across daily seeds');
 });
+
+test('computeSpiralSegments generates continuous helical corkscrews with tapered radius', () => {
+  const sp = Surf.computeSpiralSegments({
+    start: [0, 80, 0],
+    yawStart: 0,
+    yawDelta: Math.PI * 3,
+    radiusStart: 56,
+    radiusEnd: 40,
+    pitchDrop: -42,
+    segments: 27,
+    overlap: 0.55
+  });
+  assert.equal(sp.segments.length, 27);
+  assert.ok(Math.abs(sp.end[1] - 38) < 1e-4, `Expected end Y ~38, got ${sp.end[1]}`);
+  assert.ok(Math.abs(sp.endYaw - Math.PI * 3) < 1e-5, `Expected endYaw 3π, got ${sp.endYaw}`);
+  // Adjacent segments must share exact spine endpoints
+  for (let i = 1; i < sp.segments.length; i++) {
+    const prevB = sp.segments[i - 1].b;
+    const curA = sp.segments[i].a;
+    assert.ok(Math.hypot(prevB[0] - curA[0], prevB[1] - curA[1], prevB[2] - curA[2]) < 1e-5);
+  }
+});
+
+test('computeSCurveSegments chains opposing-yaw sweeps cleanly', () => {
+  const sc = Surf.computeSCurveSegments({
+    start: [0, 50, 0],
+    yawStart: 0,
+    yawDelta: Math.PI / 3,
+    radius: 60,
+    pitchDrop: -16,
+    gap: 6,
+    gapDrop: -1.5,
+    segmentsPerArc: 10
+  });
+  assert.equal(sc.first.segments.length, 10);
+  assert.equal(sc.second.segments.length, 10);
+  assert.equal(sc.segments.length, 20);
+  assert.ok(Math.abs(sc.endYaw) < 1e-5, `Opposing equal arcs should exit at yaw ~0, got ${sc.endYaw}`);
+  assert.ok(Math.abs(sc.end[1] - (50 - 16 - 1.5)) < 1e-4, `Expected end Y 32.5, got ${sc.end[1]}`);
+});
+
+test('computeChannelSegments emits opposing twin surf walls and computeFlickSpec emits upward launch ramp', () => {
+  const ch = Surf.computeChannelSegments([0, 30, 0], [0, 20, 70], { halfGap: 8 });
+  assert.equal(ch.leftWall.side, 'right');
+  assert.equal(ch.rightWall.side, 'left');
+  // Opposing spines separated by 2 * halfGap = 16
+  const sep = Math.hypot(ch.rightWall.a[0] - ch.leftWall.a[0], ch.rightWall.a[2] - ch.leftWall.a[2]);
+  assert.ok(Math.abs(sep - 16) < 1e-4, `Expected separation 16, got ${sep}`);
+
+  const flick = Surf.computeFlickSpec({ start: [0, 20, 0], yaw: 0, length: 24, rise: 11, faceWidth: 11 });
+  assert.equal(flick.a[1], 20);
+  assert.equal(flick.b[1], 31);
+  assert.ok(Math.abs(flick.b[2] - 24) < 1e-4);
+});
+
+test('headless 120Hz surf simulation glides smoothly through a 360-degree helical spiral without snagging', () => {
+  const sp = Surf.computeSpiralSegments({
+    start: [0, 70, 0],
+    yawStart: 0,
+    yawDelta: Math.PI * 2,
+    radiusStart: 78,
+    radiusEnd: 78,
+    pitchDrop: -44,
+    segments: 32,
+    overlap: 0.65
+  });
+  const faces = sp.segments.map((seg) =>
+    Surf.computeWedgeFrame(seg.a, seg.b, {
+      faceWidth: 14,
+      slopeDeg: 50,
+      side: 'left',
+      extendStart: seg.extendStart,
+      extendEnd: seg.extendEnd
+    }).faces[0]
+  );
+
+  const f0 = faces[0];
+  const startPos = {
+    x: f0.center.x + f0.normal.x * (f0.thick * 0.5 + 0.55) - f0.zAxis.x * (f0.length * 0.3),
+    y: f0.center.y + f0.normal.y * (f0.thick * 0.5 + 0.55) - f0.zAxis.y * (f0.length * 0.3) - 0.45,
+    z: f0.center.z + f0.normal.z * (f0.thick * 0.5 + 0.55) - f0.zAxis.z * (f0.length * 0.3)
+  };
+  const startVel = { x: 0, y: -2, z: 26 };
+
+  const sim = Surf.simulateSurfOnFaces(
+    faces,
+    startPos,
+    startVel,
+    (_t, pos) => {
+      // Spiral center is at (+78, y, 0); left face normal points inward toward center,
+      // so pressing outward (-dx, -dz) holds the player against the banked spiral face.
+      const dx = 78 - pos.x;
+      const dz = 0 - pos.z;
+      const len = Math.hypot(dx, dz) || 1;
+      return { wish: { x: -dx / len, z: -dz / len } };
+    },
+    220
+  );
+
+  assert.ok(sim.surfTicks > 180, `Expected sustained spiral surf contact, got ${sim.surfTicks}/220 ticks`);
+  assert.ok(sim.minSpeed >= 26.0, `Expected zero spiral seam stall, minSpeed was ${sim.minSpeed.toFixed(2)}`);
+  assert.ok(sim.maxSpeed > 26.5, `Expected spiral speed gain > 26.5 u/s, got ${sim.maxSpeed.toFixed(2)}`);
+  assert.ok(sim.pos.x > 10, `Expected helical spiral to curve player along +X arc, got x=${sim.pos.x.toFixed(2)}`);
+  assert.ok(sim.pos.z > 30, `Expected sustained forward travel across spiral segments, got z=${sim.pos.z.toFixed(2)}`);
+});
+
+test('CourseCatalog defines 12 CS surf maps (T1-T4, Linear & Staged) and 4 Time Trials with valid metadata', () => {
+  const CourseCatalog = require('../js/course.js');
+  const all = CourseCatalog.COURSE_CATALOG;
+  const surfMaps = CourseCatalog.getCoursesByCategory('surf');
+  const timeTrials = CourseCatalog.getCoursesByCategory('timetrial');
+
+  assert.equal(surfMaps.length, 12);
+  assert.equal(timeTrials.length, 4);
+  assert.equal(all.length, 16);
+
+  // Backward compatibility IDs
+  assert.ok(CourseCatalog.getCourseMeta('surf1'), 'surf1 must remain registered');
+  assert.ok(CourseCatalog.getCourseMeta('course1'), 'course1 must remain registered');
+
+  // Every tier 1..4 must be represented in surf maps, and both linear and staged formats
+  for (const tier of [1, 2, 3, 4]) {
+    assert.ok(surfMaps.some((m) => m.tier === tier), `Surf maps must include Tier ${tier}`);
+    assert.ok(CourseCatalog.TIER_INFO[tier].color, `Tier ${tier} must specify a display color`);
+  }
+  assert.ok(surfMaps.filter((m) => m.format === 'linear').length >= 6);
+  assert.ok(surfMaps.filter((m) => m.format === 'staged').length >= 4);
+
+  const ids = new Set();
+  for (const c of all) {
+    assert.ok(!ids.has(c.id), `Duplicate course id ${c.id}`);
+    ids.add(c.id);
+    assert.equal(typeof c.build, 'function', `${c.id} must have a build function`);
+    assert.ok(c.parGold > 0 && c.parSilver > c.parGold, `${c.id} parSilver must exceed parGold`);
+    assert.ok(Array.isArray(c.pieces) && c.pieces.length >= 2, `${c.id} should list signature pieces`);
+    assert.equal(CourseCatalog.getCourseMedal(c, c.parGold - 0.5), 'GOLD');
+    assert.equal(CourseCatalog.getCourseMedal(c, c.parGold + 1.0), 'SILVER');
+    assert.equal(CourseCatalog.getCourseMedal(c, c.parSilver + 5.0), 'BRONZE');
+    assert.equal(CourseCatalog.getCourseMedal(c, 0), null);
+  }
+});
+

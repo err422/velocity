@@ -399,6 +399,192 @@
     };
   }
 
+  /**
+   * Computes smoothly connected segments along a multi-turn helical / corkscrew CS surf spiral.
+   * Supports arbitrary yawDelta (e.g. 270 deg to 540 deg), tapered radiusStart -> radiusEnd, and pitchDrop.
+   */
+  function computeSpiralSegments(opts) {
+    const o = opts || {};
+    const start = o.start || [0, 0, 0];
+    const yawStart = o.yawStart != null ? o.yawStart : 0;
+    const yawDelta = o.yawDelta != null ? o.yawDelta : Math.PI * 2;
+    const radiusStart = Math.max(10, o.radiusStart != null ? o.radiusStart : (o.radius != null ? o.radius : 38));
+    const radiusEnd = Math.max(10, o.radiusEnd != null ? o.radiusEnd : radiusStart);
+    const pitchDrop = o.pitchDrop != null ? o.pitchDrop : -28;
+    const absYaw = Math.abs(yawDelta);
+    const defaultSegs = Math.max(12, Math.ceil((absYaw / (Math.PI / 6)) * 2.5));
+    const segments = Math.max(6, Math.floor(o.segments != null ? o.segments : defaultSegs));
+    const overlap = o.overlap != null ? o.overlap : 0.52;
+
+    const dirSign = yawDelta >= 0 ? 1 : -1;
+    // Spiral center placed perpendicular to start heading at radiusStart
+    const cx = start[0] + dirSign * radiusStart * Math.cos(yawStart);
+    const cz = start[2] - dirSign * radiusStart * Math.sin(yawStart);
+
+    function samplePoint(t) {
+      const yaw = yawStart + t * yawDelta;
+      const r = radiusStart + (radiusEnd - radiusStart) * t;
+      const px = cx - dirSign * r * Math.cos(yaw);
+      const pz = cz + dirSign * r * Math.sin(yaw);
+      const py = start[1] + t * pitchDrop;
+      return { p: [px, py, pz], yaw, r };
+    }
+
+    const out = [];
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
+      const s0 = samplePoint(t0);
+      const s1 = samplePoint(t1);
+      const midYaw = yawStart + ((i + 0.5) / segments) * yawDelta;
+      out.push({
+        index: i,
+        a: s0.p,
+        b: s1.p,
+        yawStart: s0.yaw,
+        yawEnd: s1.yaw,
+        yawMid: midYaw,
+        extendStart: i > 0 ? overlap : 0,
+        extendEnd: i < segments - 1 ? overlap : 0,
+        lipStart: i === 0 && !!o.lipStart,
+        lipEnd: i === segments - 1 && !!o.lipEnd
+      });
+    }
+
+    const endSample = samplePoint(1);
+    return {
+      segments: out,
+      start: [start[0], start[1], start[2]],
+      end: endSample.p,
+      center: [cx, start[1] + pitchDrop * 0.5, cz],
+      endYaw: endSample.yaw,
+      endTangent: [Math.sin(endSample.yaw), 0, Math.cos(endSample.yaw)]
+    };
+  }
+
+  /**
+   * Computes a classic Counter-Strike surf S-curve chicane: two opposing curved sweeps connected
+   * smoothly with an optional short transition gap so surfers switch air-strafe direction cleanly.
+   */
+  function computeSCurveSegments(opts) {
+    const o = opts || {};
+    const start = o.start || [0, 0, 0];
+    const yawStart = o.yawStart != null ? o.yawStart : 0;
+    const yawDelta = o.yawDelta != null ? o.yawDelta : Math.PI / 3;
+    const radius = Math.max(12, o.radius != null ? o.radius : 56);
+    const pitchDrop = o.pitchDrop != null ? o.pitchDrop : -10;
+    const segmentsPerArc = Math.max(4, Math.floor(o.segmentsPerArc != null ? o.segmentsPerArc : 12));
+    const gap = o.gap != null ? o.gap : 4;
+    const gapDrop = o.gapDrop != null ? o.gapDrop : -0.6;
+    const overlap = o.overlap != null ? o.overlap : 0.48;
+
+    const first = computeCurveSegments({
+      start,
+      yawStart,
+      yawDelta,
+      radius,
+      pitchDrop: pitchDrop * 0.5,
+      segments: segmentsPerArc,
+      overlap,
+      lipStart: !!o.lipStart,
+      lipEnd: gap > 0.5
+    });
+
+    const midStart = [
+      first.end[0] + first.endTangent[0] * gap,
+      first.end[1] + gapDrop,
+      first.end[2] + first.endTangent[2] * gap
+    ];
+
+    const second = computeCurveSegments({
+      start: midStart,
+      yawStart: first.endYaw,
+      yawDelta: -yawDelta,
+      radius,
+      pitchDrop: pitchDrop * 0.5,
+      segments: segmentsPerArc,
+      overlap,
+      lipStart: gap > 0.5,
+      lipEnd: !!o.lipEnd
+    });
+
+    return {
+      first,
+      second,
+      segments: first.segments.concat(second.segments),
+      start: [start[0], start[1], start[2]],
+      mid: first.end,
+      end: second.end,
+      endYaw: second.endYaw,
+      endTangent: second.endTangent
+    };
+  }
+
+  /**
+   * Computes twin opposing inward-facing surf walls forming a CS half-pipe / V-channel canyon
+   * running from a=[x,y,z] to b=[x,y,z]. Left wall faces right (+sideR); right wall faces left (-sideR).
+   */
+  function computeChannelSegments(a, b, opts) {
+    const o = opts || {};
+    const A = { x: a[0], y: a[1], z: a[2] };
+    const B = { x: b[0], y: b[1], z: b[2] };
+    const diff = vSub(B, A);
+    const length = vLen(diff);
+    const F = vNorm(diff);
+    let sideR = vCross(F, { x: 0, y: 1, z: 0 });
+    sideR = vLen(sideR) < 1e-6 ? { x: -1, y: 0, z: 0 } : vNorm(sideR);
+
+    const halfGap = Math.max(4, o.halfGap != null ? o.halfGap : 13);
+    const slopeDeg = o.slopeDeg != null ? o.slopeDeg : 52;
+    const faceWidth = o.faceWidth != null ? o.faceWidth : 13;
+
+    // Offset left spine to -sideR * halfGap (using 'right' face so it slopes INWARD toward channel center)
+    // Offset right spine to +sideR * halfGap (using 'left' face so it slopes INWARD toward channel center)
+    const leftA = [A.x - sideR.x * halfGap, A.y, A.z - sideR.z * halfGap];
+    const leftB = [B.x - sideR.x * halfGap, B.y, B.z - sideR.z * halfGap];
+    const rightA = [A.x + sideR.x * halfGap, A.y, A.z + sideR.z * halfGap];
+    const rightB = [B.x + sideR.x * halfGap, B.y, B.z + sideR.z * halfGap];
+
+    return {
+      length,
+      F,
+      sideR,
+      halfGap,
+      slopeDeg,
+      faceWidth,
+      leftWall: { a: leftA, b: leftB, side: 'right', slopeDeg, faceWidth },
+      rightWall: { a: rightA, b: rightB, side: 'left', slopeDeg, faceWidth }
+    };
+  }
+
+  /**
+   * Computes a sharp CS surf launch flick ramp from start along heading yaw with upward kick.
+   */
+  function computeFlickSpec(opts) {
+    const o = opts || {};
+    const start = o.start || [0, 0, 0];
+    const yaw = o.yaw != null ? o.yaw : 0;
+    const length = Math.max(10, o.length != null ? o.length : 30);
+    const rise = o.rise != null ? o.rise : 8.5;
+    const fwd = [Math.sin(yaw), 0, Math.cos(yaw)];
+    const end = [
+      start[0] + fwd[0] * length,
+      start[1] + rise,
+      start[2] + fwd[2] * length
+    ];
+    return {
+      a: [start[0], start[1], start[2]],
+      b: end,
+      yaw,
+      forward: fwd,
+      length,
+      rise,
+      slopeDeg: o.slopeDeg != null ? o.slopeDeg : 52,
+      faceWidth: o.faceWidth != null ? o.faceWidth : 10.5,
+      side: o.side || 'both'
+    };
+  }
+
   return {
     DEFAULT_CFG,
     classifySurfaceNormal,
@@ -406,6 +592,10 @@
     computeAirStrafeDelta,
     computeWedgeFrame,
     computeCurveSegments,
+    computeSpiralSegments,
+    computeSCurveSegments,
+    computeChannelSegments,
+    computeFlickSpec,
     simulateSurfOnFaces
   };
 });

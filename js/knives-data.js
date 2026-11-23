@@ -1584,6 +1584,12 @@
 
     add(ECONOMY.REWARDS.courseFinish, 'Course Finish');
 
+    const tierNum = info && Number.isFinite(info.courseTier) ? Math.floor(info.courseTier) : 1;
+    const tierBonus = tierNum >= 4 ? 35 : tierNum === 3 ? 20 : tierNum === 2 ? 10 : 0;
+    if (tierBonus > 0) {
+      add(tierBonus, `Tier ${tierNum} Bonus`);
+    }
+
     if (info && info.cleanGauntlet) {
       add(ECONOMY.REWARDS.cleanGauntlet, 'Clean Gauntlet');
     }

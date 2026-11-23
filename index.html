@@ -349,18 +349,102 @@
   .sb-row.me{border-left:3px solid var(--cyan)}
   .sb-actions{display:flex;gap:8px;margin-top:14px}
 
+  /* SurfD-Inspired Master-Detail Course Browser */
+  .card.browser-wide{width:min(1140px,calc(100vw - 32px));padding:22px 24px}
+  .cb-head{display:flex;justify-content:space-between;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+  .cb-head-left{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .cb-cat-switch{display:flex;gap:4px}
+  .cb-cat-btn{width:auto;padding:7px 13px;font-size:10px;letter-spacing:.16em;background:rgba(10,23,36,.72);color:#93b3c7;border:1px solid rgba(111,210,238,.2);font-weight:800}
+  .cb-cat-btn:hover{border-color:rgba(101,231,255,.55);color:#eaf7ff;filter:none;transform:none}
+  .cb-cat-btn.active{background:rgba(28,76,102,.88);border-color:var(--cyan);color:#f3fbff}
+
+  .cb-toolbar{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+  .cb-search-wrap{position:relative;flex:1;min-width:220px;max-width:440px}
+  .cb-search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#6b8da3;font-size:13px;pointer-events:none}
+  .cb-search{width:100%;background:rgba(5,12,20,.92);border:1px solid rgba(111,210,238,.24);color:#eaf7ff;padding:9px 12px 9px 32px;font-size:12px;font-family:inherit}
+  .cb-search::placeholder{color:#5d7c91}
+  .cb-search:focus{outline:none;border-color:var(--cyan)}
+  .cb-sort-wrap{display:flex;align-items:center;gap:8px;font-size:11px;color:#8aa7ba}
+  .cb-sort{background:rgba(5,12,20,.92);border:1px solid rgba(111,210,238,.24);color:#eaf7ff;padding:8px 10px;font-size:12px;font-family:inherit;cursor:pointer}
+  .cb-sort:focus{outline:none;border-color:var(--cyan)}
+
+  .cb-filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .cb-filter-btn{width:auto;padding:6px 11px;font-size:11px;letter-spacing:.03em;font-weight:600;background:rgba(9,21,33,.78);color:#a5c2d4;border:1px solid rgba(111,210,238,.2);display:inline-flex;align-items:center;gap:6px;text-transform:none}
+  .cb-filter-btn:hover{border-color:rgba(101,231,255,.55);color:#effaff;filter:none;transform:none}
+  .cb-filter-btn.active{background:rgba(30,80,108,.85);border-color:var(--cyan);color:#f3fbff}
+  .cb-filter-count{font-size:10px;color:#779ab0;font-variant-numeric:tabular-nums}
+  .cb-filter-btn.active .cb-filter-count{color:#aeefff}
+  .cb-filter-sep{width:1px;height:20px;background:rgba(111,210,238,.16);align-self:center;margin:0 2px}
+
+  .cb-grid{display:grid;grid-template-columns:1.18fr 1fr;gap:22px;margin-top:14px;align-items:start}
+  .cb-table{border:1px solid rgba(111,210,238,.18);background:rgba(5,13,22,.82)}
+  .cb-table-head{display:grid;grid-template-columns:minmax(180px,1fr) 78px 44px 86px 56px;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(111,210,238,.16);font-size:10px;letter-spacing:.12em;color:#7d9db2;text-transform:uppercase;background:rgba(9,22,34,.92)}
+  .cb-table-head span:nth-child(4),.cb-table-head span:nth-child(5){text-align:right}
+  .cb-list{max-height:424px;overflow-y:auto}
+  .cb-row{display:grid;grid-template-columns:minmax(180px,1fr) 78px 44px 86px 56px;gap:8px;align-items:center;padding:8px 12px;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid rgba(111,210,238,.09);color:#dff4ff;font-weight:500;letter-spacing:0;cursor:pointer;transition:background .1s ease}
+  .cb-row:last-child{border-bottom:0}
+  .cb-row:hover{background:rgba(20,50,72,.52);filter:none;transform:none}
+  .cb-row.selected{background:rgba(26,68,94,.82);box-shadow:inset 2px 0 0 var(--cyan)}
+  .cb-map-cell{display:flex;align-items:center;gap:11px;min-width:0}
+  .cb-thumb{width:64px;height:36px;object-fit:cover;flex-shrink:0;border:1px solid rgba(111,210,238,.25);background:#07131e;display:block}
+  .cb-map-meta{min-width:0}
+  .cb-map-name{font-size:13px;font-weight:700;color:#effaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cb-map-sub{font-size:11px;color:#82a2b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .cb-type-cell{font-size:11px;color:#cde4f2;line-height:1.25}
+  .cb-type-sub{display:block;font-size:10px;color:#7899ae;margin-top:1px}
+  .cb-tier-cell{font-size:11px;font-weight:800;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  .cb-pb-cell{font-size:11px;font-variant-numeric:tabular-nums;color:#dff4ff;text-align:right;font-weight:600}
+  .cb-pb-cell.none{color:#5e7d91;font-weight:400}
+  .cb-medal-cell{font-size:10px;font-weight:800;letter-spacing:.08em;text-align:right;color:#527084}
+  .cb-empty{padding:28px 18px;text-align:center;color:#8aa7ba;font-size:12px;line-height:1.5}
+  .cb-empty button{width:auto;margin-top:12px;padding:8px 14px;font-size:10px}
+
+  .cb-right{display:flex;flex-direction:column}
+  .cb-preview-stage{position:relative;width:100%;aspect-ratio:16/9;background:#050c14;border:1px solid rgba(111,210,238,.26);overflow:hidden}
+  #coursePreviewCanvas{display:block;width:100%;height:100%;cursor:grab}
+  #coursePreviewCanvas:active{cursor:grabbing}
+  .cb-preview-controls{position:absolute;top:8px;right:8px;display:flex;gap:4px;z-index:2}
+  .cb-mode-btn{width:auto;padding:5px 9px;font-size:9px;letter-spacing:.14em;font-weight:800;background:rgba(6,16,26,.88);color:#9fc0d4;border:1px solid rgba(111,210,238,.28)}
+  .cb-mode-btn:hover{border-color:var(--cyan);color:#ffffff;filter:none;transform:none}
+  .cb-mode-btn.active{background:rgba(28,82,110,.95);border-color:var(--cyan);color:#f3fbff}
+  .cb-preview-caption{position:absolute;left:0;right:0;bottom:0;padding:20px 12px 8px;background:linear-gradient(180deg,transparent,rgba(4,10,18,.9));font-size:10px;letter-spacing:.12em;color:#b7d6e8;display:flex;justify-content:space-between;align-items:center;pointer-events:none}
+  .cb-preview-hint{color:#7da3ba;letter-spacing:.08em}
+
+  .cb-detail-title{font-size:24px;font-weight:800;letter-spacing:-.03em;color:#f3fbff;margin:14px 0 2px;text-wrap:balance}
+  .cb-detail-sub{font-size:11px;color:#7fa1b8;letter-spacing:.03em}
+  .cb-detail-desc{font-size:12px;color:#b7d1e2;line-height:1.5;margin:10px 0 12px}
+  .cb-specs{border-top:1px solid rgba(111,210,238,.16);border-bottom:1px solid rgba(111,210,238,.16);margin-bottom:12px}
+  .cb-spec-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:7px 2px;font-size:12px;border-bottom:1px solid rgba(111,210,238,.08)}
+  .cb-spec-row:last-child{border-bottom:0}
+  .cb-spec-k{color:#7e9fb3;flex-shrink:0}
+  .cb-spec-v{color:#eaf7ff;font-variant-numeric:tabular-nums;text-align:right;font-weight:600}
+  .cb-ghost-row{display:flex;align-items:center;gap:9px;font-size:12px;color:#b8d3e3;cursor:pointer;user-select:none}
+  .cb-ghost-row input{accent-color:var(--cyan);width:14px;height:14px;cursor:pointer}
+
+  .cb-footer{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(111,210,238,.14)}
+  .cb-count-note{font-size:11px;color:#7d9db2;font-variant-numeric:tabular-nums}
+  .cb-play-btn{width:auto;min-width:176px;padding:12px 22px;font-size:12px;letter-spacing:.1em;text-transform:none}
+
+  @media(max-width:920px){
+    .cb-grid{grid-template-columns:1fr}
+    .cb-list{max-height:280px}
+  }
   @media(max-width:760px){
     .hub-grid,.set-grid,.kb-grid,.arm-case-grid,.arm-reveal-grid,.arm-inv-grid,.case-detail-bar,.srv-grid{grid-template-columns:1fr}
     .archive-list{max-height:200px}
     .lb-list{max-height:180px}
+    .cb-table-head,.cb-row{grid-template-columns:minmax(140px,1fr) 68px 36px 72px}
+    .cb-table-head span:nth-child(5),.cb-medal-cell{display:none}
   }
   @media(max-width:600px){
     .stats{gap:14px;left:14px;bottom:16px}.speed{font-size:40px}
     .rightstats{right:14px;top:14px}.topline{left:14px;top:14px}
     .status{right:14px;bottom:16px;font-size:8px}.controls{grid-template-columns:1fr}
-    .card,.card.wide{padding:20px 18px}
+    .card,.card.wide,.card.browser-wide{padding:18px 16px}
     .lvls button{flex-direction:column;align-items:flex-start;gap:4px}
     #weaponHud{right:14px;bottom:48px}
+    .cb-footer{flex-direction:column;align-items:stretch}
+    .cb-play-btn{width:100%}
   }
 </style>
 </head>
@@ -378,27 +462,27 @@
         </div>
       </div>
       <h1>VELOCITY<span>.</span></h1>
-      <div class="sub">An open movement sandbox and daily time-trial circuit. Build momentum, chain jumps, carve ramps, wall-run, grapple, and race today's seeded track.</div>
+      <div class="sub">Counter-Strike surf maps, high-speed movement time trials, daily seeded circuits, and peer-to-peer combat arenas.</div>
       <div class="lvls">
-        <button type="button" class="featured" id="playTodayBtn" data-start="true">
+        <button type="button" class="featured" id="openSurfBrowserBtn">
+          <span>SURF</span>
+          <small id="menuSurfStat">12 MAPS · T1–T4 · LINEAR &amp; STAGED</small>
+        </button>
+        <button type="button" class="alt" id="openTimeTrialBrowserBtn" style="border-color:rgba(101,231,255,.45);color:#e6f9ff">
+          <span>TIME TRIALS</span>
+          <small id="menuTTStat" style="color:var(--cyan)">4 COURSES · WALLRUN · GRAPPLE · BUNNYHOP</small>
+        </button>
+        <button type="button" class="alt" id="playTodayBtn" data-start="true">
           <span id="todayBtnTitle">TODAY'S DAILY</span>
           <small id="todayBtnSub">LOADING SEED...</small>
-        </button>
-        <button type="button" class="alt" id="openServersBtn" style="border-color:rgba(255,155,85,.55);color:#ffe4ce">
-          <span>SERVERS &amp; ARENAS</span>
-          <small style="color:#ff9b55">1v1 DUEL · FFA · SOLO WARMUP</small>
         </button>
         <button type="button" class="alt" id="openArchiveBtn">
           <span>DAILY ARCHIVE &amp; CUSTOM SEEDS</span>
           <small>PAST DAYS · LEADERBOARDS</small>
         </button>
-        <button type="button" class="alt" data-level="surf1">
-          <span>SURF 01 — SKYLINE DRIFT</span>
-          <small id="pb-surf1">CS SURF + GAUNTLET TARGETS</small>
-        </button>
-        <button type="button" class="alt" data-level="course1">
-          <span>COURSE 01 — THE ASCENT</span>
-          <small id="pb-course1">TIME TRIAL + GAUNTLET TARGETS</small>
+        <button type="button" class="alt" id="openServersBtn" style="border-color:rgba(255,155,85,.55);color:#ffe4ce">
+          <span>SERVERS &amp; ARENAS</span>
+          <small style="color:#ff9b55">1v1 DUEL · FFA · SOLO WARMUP</small>
         </button>
         <button type="button" class="alt" data-level="sandbox">
           <span>SANDBOX</span>
@@ -412,7 +496,95 @@
         <div><b>R</b> Restart run</div><div><b>T</b> Last checkpoint</div>
         <div><b>F</b> Inspect knife</div><div><b>G</b> Ghost mode</div>
       </div>
-      <div class="foot">Sign in with Google to publish daily leaderboard times. Local PBs and 3D ghost replays save automatically for every daily date and custom seed.</div>
+      <div class="foot">Sign in with Google to publish daily leaderboard times. Local PBs and 3D ghost replays save automatically for every surf map, time trial, and daily seed.</div>
+    </div>
+
+    <div id="courseBrowserPanel" style="display:none">
+      <div class="cb-head">
+        <div class="cb-head-left">
+          <div>
+            <div class="eyebrow" id="cbEyebrow">CS SURF CIRCUIT</div>
+            <h2 class="hub-title" id="cbTitle">Surf Maps</h2>
+          </div>
+          <div class="cb-cat-switch" role="tablist" aria-label="Course category">
+            <button type="button" class="cb-cat-btn active" data-cb-cat="surf">SURF</button>
+            <button type="button" class="cb-cat-btn" data-cb-cat="timetrial">TIME TRIALS</button>
+          </div>
+        </div>
+        <div class="hub-actions">
+          <button type="button" class="btn-inline" id="cbBackBtn">MENU</button>
+        </div>
+      </div>
+
+      <div class="cb-toolbar">
+        <div class="cb-search-wrap">
+          <span class="cb-search-icon" aria-hidden="true">&#8981;</span>
+          <input id="cbSearch" class="cb-search" type="text" maxlength="48" placeholder="Map, piece, or theme..." autocomplete="off">
+        </div>
+        <div class="cb-sort-wrap">
+          <label for="cbSort">Sort</label>
+          <select id="cbSort" class="cb-sort">
+            <option value="recommended">Recommended</option>
+            <option value="tier_asc">Tier: Easy to Hard</option>
+            <option value="tier_desc">Tier: Hard to Easy</option>
+            <option value="name_asc">Name A–Z</option>
+            <option value="pb_asc">Personal Best</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="cb-filters" id="cbFilterRow"></div>
+
+      <div class="cb-grid">
+        <div class="cb-left">
+          <div class="cb-table">
+            <div class="cb-table-head">
+              <span>Map</span>
+              <span>Type</span>
+              <span>Tier</span>
+              <span>Your best</span>
+              <span>Medal</span>
+            </div>
+            <div class="cb-list" id="cbMapList" role="listbox" aria-label="Courses list"></div>
+          </div>
+        </div>
+
+        <div class="cb-right">
+          <div class="cb-preview-stage" id="cbPreviewStage">
+            <canvas id="coursePreviewCanvas" aria-label="Live 3D course flythrough preview"></canvas>
+            <div class="cb-preview-controls">
+              <button type="button" class="cb-mode-btn active" id="cbModeFly">FLYTHROUGH</button>
+              <button type="button" class="cb-mode-btn" id="cbModeOrbit">ORBIT</button>
+            </div>
+            <div class="cb-preview-caption">
+              <span id="cbPreviewLabel">LIVE 3D PREVIEW</span>
+              <span class="cb-preview-hint" id="cbPreviewHint">DRAG TO ORBIT · SCROLL TO ZOOM</span>
+            </div>
+          </div>
+
+          <h3 class="cb-detail-title" id="cbDetailTitle">—</h3>
+          <div class="cb-detail-sub" id="cbDetailSub">—</div>
+          <div class="cb-detail-desc" id="cbDetailDesc">—</div>
+
+          <div class="cb-specs">
+            <div class="cb-spec-row"><span class="cb-spec-k">Course</span><span class="cb-spec-v" id="cbSpecCourse">—</span></div>
+            <div class="cb-spec-row"><span class="cb-spec-k">Difficulty</span><span class="cb-spec-v" id="cbSpecTier">—</span></div>
+            <div class="cb-spec-row"><span class="cb-spec-k">Gold / Silver Par</span><span class="cb-spec-v" id="cbSpecPar">—</span></div>
+            <div class="cb-spec-row"><span class="cb-spec-k">Your best</span><span class="cb-spec-v" id="cbSpecBest">Not finished yet</span></div>
+            <div class="cb-spec-row"><span class="cb-spec-k">Signature pieces</span><span class="cb-spec-v" id="cbSpecPieces">—</span></div>
+          </div>
+
+          <label class="cb-ghost-row" for="cbGhostCheck">
+            <input type="checkbox" id="cbGhostCheck" checked>
+            <span id="cbGhostLabel">Race your <b>PB Ghost</b> on this course</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="cb-footer">
+        <div class="cb-count-note" id="cbCountNote">12 maps · double-click to play</div>
+        <button type="button" class="cb-play-btn" id="cbPlayBtn">Play Map</button>
+      </div>
     </div>
 
     <div id="dailyHub" style="display:none">
@@ -857,6 +1029,7 @@
       <div class="sub" id="pauseCourseLabel" style="margin-top:6px">COURSE</div>
       <button type="button" id="resume" style="margin-top:20px">RESUME</button>
       <button type="button" class="alt" id="restart">RESTART</button>
+      <button type="button" class="alt" id="pauseChangeMap" style="display:none">CHANGE MAP</button>
       <button type="button" class="alt" id="pauseServers">SERVERS &amp; ARENAS</button>
       <button type="button" class="alt" id="pauseArmory">ARMORY &amp; CASES</button>
       <button type="button" class="alt" id="pauseSettings">SETTINGS</button>
@@ -952,7 +1125,7 @@ import(new URL('js/firebase-daily.js', document.baseURI).href).catch((err) => {
 });
 
 try {
-  for (const f of ['core', 'settings', 'knives-data', 'viewmodel', 'combat', 'surf', 'world', 'sandbox', 'course', 'arenas', 'daily', 'ghost', 'netcode', 'player', 'main']) {
+  for (const f of ['core', 'settings', 'knives-data', 'viewmodel', 'combat', 'surf', 'world', 'sandbox', 'course', 'course-preview', 'arenas', 'daily', 'ghost', 'netcode', 'player', 'main']) {
     await new Promise((ok, fail) => {
       const s = document.createElement('script');
       s.src = new URL('js/' + f + '.js', document.baseURI).href;
