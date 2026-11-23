@@ -6174,7 +6174,8 @@
       const boltArc = (wt === 'awp' || wt === 'shotgun') && weaponAnim.boltT < 1 ? Math.sin(weaponAnim.boltT * Math.PI) : 0;
 
       const adsEase = smoothstep(0, 1, adsProgress);
-      const motionDamp = 1 - adsEase * 0.84;
+      // Fully stabilize the weapon at full ADS; do not retain surf bank or idle sway.
+      const motionDamp = 1 - adsEase;
 
       const isPistol = wt === 'deagle' || wt === 'pistol';
       const hipRx = isPistol ? 0.138 : wt === 'awp' ? 0.168 : wt === 'smg' ? 0.148 : 0.162;

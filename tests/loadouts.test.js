@@ -32,6 +32,16 @@ test('expanded 6-weapon roster separates Primary (4) and Secondary (2) cleanly',
   }
 });
 
+test('weapon level progress exposes the fields used by the Gunsmith XP display', () => {
+  const levelOne = LoadoutsSystem.getWeaponLevelInfo(0);
+  assert.equal(levelOne.level, 1);
+  assert.equal(levelOne.xp, 0);
+  assert.equal(levelOne.xpIntoLevel, 0);
+  assert.equal(levelOne.nextThreshold - levelOne.currentFloor, levelOne.xpForNextLevel);
+  assert.ok(levelOne.xpForNextLevel > 0);
+  assert.equal(levelOne.nextLevelXp, undefined);
+});
+
 test('resolved attachment entries expose their display name directly for loadout overview cards', () => {
   const build = LoadoutsSystem.resolveWeaponBuild('rifle', { optic: 'reflex_dot' });
   assert.equal(build.equippedList.length, 1);

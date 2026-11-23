@@ -80,11 +80,18 @@ function render(dt){
   camera.position.set(_rp.x,_rp.y+p.eye,_rp.z);
   camera.rotation.set(p.pitch,p.yaw,p.roll);
   const sp=Math.hypot(p.vel.x,p.vel.z);
+  // Advance combat first so the world camera and viewmodel consume the same ADS snapshot.
+  let combatFrameState=null;
+  if(inLevel){
+    CombatSystem.update(dt,_rp);
+    combatFrameState=CombatSystem.getState();
+  }
   const baseFov=(window.activeSettings&&window.activeSettings.baseFov)||C.fovBase;
   const scopeMul=CombatSystem.getScopeFovMultiplier();
   const speedFov=Math.min(sp*C.fovPerSpeed,C.fovMax);
   const targetFov=(baseFov+speedFov)*scopeMul;
-  camera.fov+=(targetFov-camera.fov)*Math.min(1,dt*(scopeMul<1?18:5));camera.updateProjectionMatrix();
+  const fovRate=5+13*(combatFrameState?combatFrameState.adsProgress:0);
+  camera.fov+=(targetFov-camera.fov)*Math.min(1,dt*fovRate);camera.updateProjectionMatrix();
   speedEl.textContent=Math.round(sp);
   if(p.runStarted)timerEl.textContent=fmt(p.runTime);
   const stateLabel=!inLevel?'READY':p.wallrun?'WALLRUN':p.grapple?'TETHER':isSurfDisplay?'SURFING':p.low&&p.grounded?'SLIDE':p.grounded?'GROUNDED':'AIRBORNE';
@@ -105,9 +112,8 @@ function render(dt){
   }else if(p.grappleLine){scene.remove(p.grappleLine);p.grappleLine=null;}
   updateGhostVisual(dt);
   if(inLevel){
-    CombatSystem.update(dt,_rp);
-    NetcodeSystem.update(dt,{x:_rp.x,y:_rp.y,z:_rp.z,yaw:p.yaw,slot:CombatSystem.getState().activeSlot});
-    ViewmodelSystem.update(dt,p,CombatSystem.getState().adsProgress);
+    NetcodeSystem.update(dt,{x:_rp.x,y:_rp.y,z:_rp.z,yaw:p.yaw,slot:combatFrameState.activeSlot});
+    ViewmodelSystem.update(dt,p,combatFrameState.adsProgress);
     updateCombatHud();
   }
   document.body.dataset.runStarted=p.runStarted?'1':'0';
@@ -3502,7 +3508,12 @@ function renderGunsmith(){
   if(gsWeaponTitleEl)gsWeaponTitleEl.textContent=spec.name;
   if(gsWeaponLevelLabelEl)gsWeaponLevelLabelEl.textContent=lvlInfo.isMax?`LV. ${lvlInfo.level} MAX`:`LV. ${lvlInfo.level}`;
   if(gsWeaponXpFillEl)gsWeaponXpFillEl.style.width=`${Math.round(lvlInfo.progress*100)}%`;
-  if(gsWeaponXpTextEl)gsWeaponXpTextEl.textContent=lvlInfo.isMax?`${lvlInfo.xp} XP · MAXED`:`${lvlInfo.xp} / ${lvlInfo.nextLevelXp} XP`;
+  if(gsWeaponXpTextEl){
+    const xpNeededThisLevel=Math.max(0,lvlInfo.nextThreshold-lvlInfo.currentFloor);
+    gsWeaponXpTextEl.textContent=lvlInfo.isMax
+      ?`${lvlInfo.xp} XP · MAXED`
+      :`${lvlInfo.xpIntoLevel} / ${xpNeededThisLevel} XP`;
+  }
   if(gsBudgetBadgeEl){
     gsBudgetBadgeEl.textContent=`ATTACHMENTS ${currentBuild.attachmentCount} / ${LoadoutsSystem.MAX_ATTACHMENTS}`;
     gsBudgetBadgeEl.classList.toggle('full',currentBuild.attachmentCount>=LoadoutsSystem.MAX_ATTACHMENTS);
