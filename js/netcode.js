@@ -337,6 +337,10 @@
   function hostFillLobbyWithBots() {
     if (state.role !== 'host' || !state.lobby || state.phase !== 'warmup') return false;
     if (countHumanPlayers() !== 1) return false;
+    // Do not fill seats while a real player is already completing a WebRTC join.
+    for (const peer of hostPeers.values()) {
+      if (!peer.joined) return false;
+    }
 
     const capacity = Math.max(2, Math.min(4, state.lobby.maxPlayers || 2));
     const openSlots = Math.max(0, capacity - state.players.size);
@@ -854,6 +858,9 @@
     try { msg = JSON.parse(raw); } catch (_) { return; }
     if (!msg || typeof msg.x !== 'number') return;
     const rec = state.players.get(peerUid);
+    // Pose channels can open just before the reliable game channel; wait for
+    // the authoritative player record instead of creating an untyped avatar.
+    if (!rec) return;
     if (rec) {
       if (msg.slot) rec.slot = msg.slot;
       rec.x = msg.x;
@@ -985,6 +992,7 @@
     try { msg = JSON.parse(raw); } catch (_) { return; }
     if (!msg || !msg.uid || msg.uid === state.localUid || typeof msg.x !== 'number') return;
     const rec = state.players.get(msg.uid);
+    if (!rec) return;
     if (root.CombatSystem) {
       root.CombatSystem.upsertRemoteAvatar(msg.uid, {
         name: rec ? rec.name : 'Player',
@@ -1032,6 +1040,16 @@
         } else if (ch.label === 'game') {
           entry.gameCh = ch;
           ch.onopen = () => {
+            // Re-check seats at the moment the data channel opens. A pending
+            // join can overlap the 60-second bot timer or another join.
+            if (!entry.replacingBotUid && state.players.size >= (state.lobby.maxPlayers || 2)) {
+              entry.replacingBotUid = findUnreservedBotUid();
+            }
+            if (state.players.size >= (state.lobby.maxPlayers || 2) && !entry.replacingBotUid) {
+              hostRemovePeer(peerUid);
+              return;
+            }
+
             let replacementSpawnIdx = null;
             if (entry.replacingBotUid) {
               replacementSpawnIdx = hostRemoveBotForReplacement(entry.replacingBotUid);
