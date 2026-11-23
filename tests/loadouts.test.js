@@ -183,6 +183,13 @@ test('tactical ammo types and shotgun shells alter ballistics, pellets, falloff,
   assert.ok(sgFlechette.armorPen > sgStock.armorPen);
 });
 
+test('bot XP rewards stay deliberately below human arena kill rewards', () => {
+  assert.equal(LoadoutsSystem.XP_REWARDS.botKill, 8);
+  assert.equal(LoadoutsSystem.XP_REWARDS.botHeadshot, 12);
+  assert.ok(LoadoutsSystem.XP_REWARDS.botKill < LoadoutsSystem.XP_REWARDS.arenaKill / 5);
+  assert.ok(LoadoutsSystem.XP_REWARDS.botHeadshot < LoadoutsSystem.XP_REWARDS.arenaHeadshot / 5);
+});
+
 test('localStorage persistence self-heals from backup and cloud merge preserves higher weapon XP', () => {
   const store = createMockStorage();
   let state = LoadoutsSystem.createDefaultLoadoutState();

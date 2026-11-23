@@ -14,6 +14,7 @@
   const FFA_WIN_KILLS = 15;
   const FFA_RESPAWN_SEC = 2.5;
   const WARMUP_RESPAWN_SEC = 2.4;
+  const LOBBY_BOT_FILL_DELAY_MS = 60000;
   const DUEL_FREEZE_SEC = 2.2;
   const DUEL_POST_ROUND_SEC = 2.4;
 
@@ -49,6 +50,7 @@
   let unsubMyPeer = null;
   let heartbeatTimer = null;
   let roundTimeout = null;
+  let botFillTimer = null;
   let poseAccum = 0;
   let feedSeq = 1;
   let arenaSpawns = [];
@@ -137,6 +139,10 @@
       clearTimeout(roundTimeout);
       roundTimeout = null;
     }
+    if (botFillTimer) {
+      clearTimeout(botFillTimer);
+      botFillTimer = null;
+    }
     if (unsubPeers) {
       try { unsubPeers(); } catch (_) {}
       unsubPeers = null;
@@ -189,7 +195,13 @@
         kills: 0,
         deaths: 0,
         spawnIdx: typeof spawnIdx === 'number' ? spawnIdx : state.players.size,
-        slot: 'rifle'
+        slot: 'rifle',
+        isBot: false,
+        botType: null,
+        x: 0,
+        y: 0,
+        z: 0,
+        yaw: 0
       };
       state.players.set(uid, rec);
     } else if (name) {
@@ -210,7 +222,13 @@
         kills: p.kills,
         deaths: p.deaths,
         spawnIdx: p.spawnIdx,
-        slot: p.slot
+        slot: p.slot,
+        isBot: Boolean(p.isBot),
+        botType: Number.isFinite(p.botType) ? p.botType : null,
+        x: Number.isFinite(p.x) ? p.x : 0,
+        y: Number.isFinite(p.y) ? p.y : 0,
+        z: Number.isFinite(p.z) ? p.z : 0,
+        yaw: Number.isFinite(p.yaw) ? p.yaw : 0
       });
     }
     return arr;
@@ -254,7 +272,10 @@
 
   function syncLobbyMetaNow() {
     if (state.role !== 'host' || !state.lobby || !root.DailyBackend) return;
-    const count = Math.max(1, Math.min(state.lobby.maxPlayers || 4, state.players.size));
+    // AI opponents occupy match slots but should not make the public lobby
+    // appear full. A real player must still be able to join and replace one.
+    const humanCount = Array.from(state.players.values()).filter((p) => !p.isBot).length;
+    const count = Math.max(1, Math.min(state.lobby.maxPlayers || 4, humanCount));
     const status = state.phase === 'live' || state.phase === 'countdown' ? 'in_progress' : 'open';
     root.DailyBackend.updateLobby(state.lobby.lobbyId, { playerCount: count, status }).catch(() => {});
   }
@@ -272,6 +293,85 @@
       matchWinnerName: state.matchWinnerName,
       players: serializePlayersList()
     });
+  }
+
+  function countHumanPlayers() {
+    let total = 0;
+    for (const player of state.players.values()) {
+      if (!player.isBot) total += 1;
+    }
+    return total;
+  }
+
+  function findUnreservedBotUid() {
+    const reserved = new Set();
+    for (const peer of hostPeers.values()) {
+      if (peer.replacingBotUid) reserved.add(peer.replacingBotUid);
+    }
+    for (const [uid, player] of state.players) {
+      if (player.isBot && !reserved.has(uid)) return uid;
+    }
+    return null;
+  }
+
+  function findAvailableSpawnIndex() {
+    const used = new Set();
+    for (const player of state.players.values()) {
+      if (Number.isFinite(player.spawnIdx)) used.add(player.spawnIdx);
+    }
+    for (let i = 0; i < Math.max(2, arenaSpawns.length); i++) {
+      if (!used.has(i)) return i;
+    }
+    return 0;
+  }
+
+  function hostRemoveBotForReplacement(uid) {
+    const bot = state.players.get(uid);
+    if (!bot || !bot.isBot) return null;
+    const spawnIdx = bot.spawnIdx;
+    state.players.delete(uid);
+    if (root.CombatSystem) root.CombatSystem.removeRemoteAvatar(uid);
+    return spawnIdx;
+  }
+
+  function hostFillLobbyWithBots() {
+    if (state.role !== 'host' || !state.lobby || state.phase !== 'warmup') return false;
+    if (countHumanPlayers() !== 1) return false;
+    // Do not fill seats while a real player is already completing a WebRTC join.
+    for (const peer of hostPeers.values()) {
+      if (!peer.joined) return false;
+    }
+
+    const capacity = Math.max(2, Math.min(4, state.lobby.maxPlayers || 2));
+    const openSlots = Math.max(0, capacity - state.players.size);
+    if (openSlots <= 0) return false;
+
+    const names = ['BOT · RUSHER', 'BOT · RIFLE', 'BOT · SKIRMISHER'];
+    const added = [];
+    for (let i = 0; i < openSlots; i++) {
+      const botType = i % 3;
+      const uid = `ai_${state.lobby.lobbyId}_${i}`;
+      const bot = ensurePlayerRecord(uid, names[botType], i + 1);
+      bot.isBot = true;
+      bot.botType = botType;
+      bot.hp = 100;
+      bot.alive = true;
+      bot.slot = ['smg', 'rifle', 'deagle'][botType];
+      bot.spawnIdx = i + 1;
+      const spawn = getSpawnForIndex(bot.spawnIdx);
+      bot.x = spawn.x;
+      bot.y = spawn.y;
+      bot.z = spawn.z;
+      bot.yaw = spawn.yaw || 0;
+      added.push(bot);
+    }
+
+    if (!added.length) return false;
+    if (root.CombatSystem) root.CombatSystem.setWarmupBotsVisible(false);
+    state.statusText = `AI OPPONENTS JOINED · ${added.length} BOT${added.length === 1 ? '' : 'S'}`;
+    hostStartRoundOrMatch(true);
+    showBanner('AI OPPONENTS JOINED', `${added.length} BOT${added.length === 1 ? '' : 'S'} ENTERED THE ARENA`, 2200);
+    return true;
   }
 
   // ---------- Host-Authoritative Match Loop ----------
@@ -318,20 +418,28 @@
       p.spawnIdx = (idx + (state.round - 1)) % Math.max(2, arenaSpawns.length);
       spawnAssignments[uid] = p.spawnIdx;
       idx++;
+      const sp = getSpawnForIndex(p.spawnIdx);
+      p.x = sp.x;
+      p.y = sp.y;
+      p.z = sp.z;
+      p.yaw = sp.yaw || 0;
       if (uid !== state.localUid && root.CombatSystem) {
-        const sp = getSpawnForIndex(p.spawnIdx);
         root.CombatSystem.upsertRemoteAvatar(uid, {
           name: p.name,
+          isBot: Boolean(p.isBot),
+          botType: p.botType,
           x: sp.x,
           y: sp.y,
           z: sp.z,
-          yaw: sp.yaw || 0,
+          yaw: p.yaw,
           hp: 100,
           alive: true,
+          slot: p.slot,
           snap: true
         });
       }
     }
+    if (root.CombatSystem) root.CombatSystem.syncArenaBots(serializePlayersList(), true);
 
     const myRec = state.players.get(state.localUid);
     state.localHp = 100;
@@ -442,6 +550,8 @@
       killed,
       slot: slot || 'rifle',
       headshot: Boolean(isHeadshot),
+      attackerIsBot: Boolean(attacker.isBot),
+      victimIsBot: Boolean(victim.isBot),
       players: serializePlayersList()
     };
     broadcastGame(dmgPacket);
@@ -514,6 +624,10 @@
           v.alive = true;
           v.spawnIdx = Math.floor(Math.random() * Math.max(1, arenaSpawns.length));
           const sp = getSpawnForIndex(v.spawnIdx);
+          v.x = sp.x;
+          v.y = sp.y;
+          v.z = sp.z;
+          v.yaw = sp.yaw || 0;
           broadcastGame({
             t: 'respawn_player',
             uid: victimUid,
@@ -527,9 +641,13 @@
             if (typeof callbacks.onLocalRespawn === 'function') callbacks.onLocalRespawn(sp, false);
           } else if (root.CombatSystem) {
             root.CombatSystem.upsertRemoteAvatar(victimUid, {
-              x: sp.x, y: sp.y, z: sp.z, yaw: sp.yaw || 0, hp: 100, alive: true, snap: true
+              isBot: Boolean(v.isBot),
+              botType: v.botType,
+              x: sp.x, y: sp.y, z: sp.z, yaw: sp.yaw || 0,
+              hp: 100, alive: true, slot: v.slot, snap: true
             });
           }
+          if (v.isBot && root.CombatSystem) root.CombatSystem.syncArenaBots(serializePlayersList());
           emitState();
         }, FFA_RESPAWN_SEC * 1000);
       }
@@ -566,6 +684,7 @@
           weaponId: pkt.slot,
           headshot: Boolean(pkt.headshot),
           isHeadshot: Boolean(pkt.headshot),
+          victimIsBot: Boolean(pkt.victimIsBot),
           mode: state.mode
         });
       }
@@ -612,12 +731,24 @@
       rec.deaths = item.deaths;
       rec.spawnIdx = item.spawnIdx;
       rec.slot = item.slot || 'rifle';
+      rec.isBot = Boolean(item.isBot);
+      rec.botType = Number.isFinite(item.botType) ? item.botType : null;
+      if (Number.isFinite(item.x)) rec.x = item.x;
+      if (Number.isFinite(item.y)) rec.y = item.y;
+      if (Number.isFinite(item.z)) rec.z = item.z;
+      if (Number.isFinite(item.yaw)) rec.yaw = item.yaw;
       if (item.uid === state.localUid) {
         state.localHp = item.hp;
         state.localAlive = item.alive;
       } else if (root.CombatSystem) {
         root.CombatSystem.upsertRemoteAvatar(item.uid, {
           name: item.name,
+          isBot: Boolean(item.isBot),
+          botType: item.botType,
+          x: item.x,
+          y: item.y,
+          z: item.z,
+          yaw: item.yaw,
           hp: item.hp,
           alive: item.alive,
           slot: item.slot
@@ -630,6 +761,7 @@
         if (root.CombatSystem) root.CombatSystem.removeRemoteAvatar(uid);
       }
     }
+    if (root.CombatSystem) root.CombatSystem.syncArenaBots(list);
   }
 
   // ---------- Host Handling of Incoming Peer Messages ----------
@@ -639,11 +771,60 @@
     if (!msg || !msg.t) return;
 
     if (msg.t === 'hello') {
-      ensurePlayerRecord(peerUid, msg.name || 'Runner');
-      if (state.players.size >= 2 && state.phase === 'warmup') {
+      const peerEntry = hostPeers.get(peerUid);
+      if (peerEntry && peerEntry.joined) {
+        broadcastFullSnapshot();
+        return;
+      }
+      let replacementSpawnIdx = null;
+      if (peerEntry && peerEntry.replacingBotUid) {
+        replacementSpawnIdx = hostRemoveBotForReplacement(peerEntry.replacingBotUid);
+        peerEntry.replacingBotUid = null;
+      }
+      if (botFillTimer) {
+        clearTimeout(botFillTimer);
+        botFillTimer = null;
+      }
+      const rec = ensurePlayerRecord(peerUid, msg.name || 'Runner');
+      if (replacementSpawnIdx != null) rec.spawnIdx = replacementSpawnIdx;
+      else rec.spawnIdx = findAvailableSpawnIndex();
+      rec.hp = 100;
+      rec.alive = true;
+      const spawn = getSpawnForIndex(rec.spawnIdx);
+      rec.x = spawn.x;
+      rec.y = spawn.y;
+      rec.z = spawn.z;
+      rec.yaw = spawn.yaw || 0;
+
+      if (state.phase === 'warmup' && state.players.size >= 2) {
         hostStartRoundOrMatch(true);
       } else {
-        broadcastFullSnapshot();
+        if (root.CombatSystem) {
+          root.CombatSystem.upsertRemoteAvatar(peerUid, {
+            name: rec.name,
+            x: spawn.x,
+            y: spawn.y,
+            z: spawn.z,
+            yaw: rec.yaw,
+            hp: 100,
+            alive: true,
+            snap: true
+          });
+        }
+        if (state.phase === 'live' || state.phase === 'countdown') {
+          broadcastGame({
+            t: 'player_joined',
+            uid: peerUid,
+            name: rec.name,
+            spawnIdx: rec.spawnIdx,
+            phase: state.phase,
+            round: state.round,
+            freezeTimer: state.freezeTimer,
+            players: serializePlayersList()
+          });
+        } else {
+          broadcastFullSnapshot();
+        }
         syncLobbyMetaNow();
         emitState();
       }
@@ -677,10 +858,21 @@
     try { msg = JSON.parse(raw); } catch (_) { return; }
     if (!msg || typeof msg.x !== 'number') return;
     const rec = state.players.get(peerUid);
-    if (rec && msg.slot) rec.slot = msg.slot;
+    // Pose channels can open just before the reliable game channel; wait for
+    // the authoritative player record instead of creating an untyped avatar.
+    if (!rec) return;
+    if (rec) {
+      if (msg.slot) rec.slot = msg.slot;
+      rec.x = msg.x;
+      rec.y = msg.y;
+      rec.z = msg.z;
+      rec.yaw = msg.yaw || 0;
+    }
     if (root.CombatSystem) {
       root.CombatSystem.upsertRemoteAvatar(peerUid, {
         name: rec ? rec.name : 'Player',
+        isBot: Boolean(rec && rec.isBot),
+        botType: rec ? rec.botType : null,
         x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw || 0, slot: msg.slot || 'rifle'
       });
     }
@@ -736,6 +928,23 @@
       return;
     }
 
+    if (msg.t === 'player_joined') {
+      state.phase = msg.phase || state.phase;
+      state.round = msg.round || state.round;
+      state.freezeTimer = Number(msg.freezeTimer) || 0;
+      if (Array.isArray(msg.players)) applyPlayersSnapshot(msg.players);
+      if (msg.uid === state.localUid) {
+        state.localHp = 100;
+        state.localAlive = true;
+        state.respawnTimer = 0;
+        const spawn = getSpawnForIndex(msg.spawnIdx || 0);
+        if (typeof callbacks.onLocalRespawn === 'function') callbacks.onLocalRespawn(spawn, true);
+        showBanner('JOINED THE MATCH', 'A HUMAN PLAYER REPLACED AN AI OPPONENT', 1800);
+      }
+      emitState();
+      return;
+    }
+
     if (msg.t === 'damage_event') {
       applyDamageEventLocally(msg);
       return;
@@ -783,9 +992,12 @@
     try { msg = JSON.parse(raw); } catch (_) { return; }
     if (!msg || !msg.uid || msg.uid === state.localUid || typeof msg.x !== 'number') return;
     const rec = state.players.get(msg.uid);
+    if (!rec) return;
     if (root.CombatSystem) {
       root.CombatSystem.upsertRemoteAvatar(msg.uid, {
         name: rec ? rec.name : 'Player',
+        isBot: Boolean(rec && rec.isBot),
+        botType: rec ? rec.botType : null,
         x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw || 0, slot: msg.slot || 'rifle'
       });
     }
@@ -799,8 +1011,12 @@
 
     let entry = hostPeers.get(peerUid);
     if (!entry) {
-      // Respect maxPlayers cap
-      if (state.players.size >= (state.lobby.maxPlayers || 2)) return;
+      let replacingBotUid = null;
+      const capacity = state.lobby.maxPlayers || 2;
+      if (!state.players.has(peerUid) && state.players.size >= capacity) {
+        replacingBotUid = findUnreservedBotUid();
+        if (!replacingBotUid) return;
+      }
 
       const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
       entry = {
@@ -808,6 +1024,8 @@
         poseCh: null,
         gameCh: null,
         displayName: peerDoc.displayName || 'Player',
+        replacingBotUid,
+        joined: false,
         offerApplied: false,
         candSet: new Set(),
         answerCandidates: []
@@ -822,11 +1040,61 @@
         } else if (ch.label === 'game') {
           entry.gameCh = ch;
           ch.onopen = () => {
-            ensurePlayerRecord(peerUid, entry.displayName);
-            if (state.players.size >= 2 && state.phase === 'warmup') {
+            // Re-check seats at the moment the data channel opens. A pending
+            // join can overlap the 60-second bot timer or another join.
+            if (!entry.replacingBotUid && state.players.size >= (state.lobby.maxPlayers || 2)) {
+              entry.replacingBotUid = findUnreservedBotUid();
+            }
+            if (state.players.size >= (state.lobby.maxPlayers || 2) && !entry.replacingBotUid) {
+              hostRemovePeer(peerUid);
+              return;
+            }
+
+            let replacementSpawnIdx = null;
+            if (entry.replacingBotUid) {
+              replacementSpawnIdx = hostRemoveBotForReplacement(entry.replacingBotUid);
+              entry.replacingBotUid = null;
+            }
+            if (botFillTimer) {
+              clearTimeout(botFillTimer);
+              botFillTimer = null;
+            }
+            const rec = ensurePlayerRecord(peerUid, entry.displayName);
+            if (replacementSpawnIdx != null) rec.spawnIdx = replacementSpawnIdx;
+            else rec.spawnIdx = findAvailableSpawnIndex();
+            rec.hp = 100;
+            rec.alive = true;
+            const spawn = getSpawnForIndex(rec.spawnIdx);
+            rec.x = spawn.x;
+            rec.y = spawn.y;
+            rec.z = spawn.z;
+            rec.yaw = spawn.yaw || 0;
+            entry.joined = true;
+
+            if (state.phase === 'warmup' && state.players.size >= 2) {
               hostStartRoundOrMatch(true);
             } else {
-              broadcastFullSnapshot();
+              if (root.CombatSystem) {
+                root.CombatSystem.upsertRemoteAvatar(peerUid, {
+                  name: rec.name,
+                  x: spawn.x, y: spawn.y, z: spawn.z, yaw: rec.yaw,
+                  hp: 100, alive: true, snap: true
+                });
+              }
+              if (state.phase === 'live' || state.phase === 'countdown') {
+                broadcastGame({
+                  t: 'player_joined',
+                  uid: peerUid,
+                  name: rec.name,
+                  spawnIdx: rec.spawnIdx,
+                  phase: state.phase,
+                  round: state.round,
+                  freezeTimer: state.freezeTimer,
+                  players: serializePlayersList()
+                });
+              } else {
+                broadcastFullSnapshot();
+              }
               syncLobbyMetaNow();
               emitState();
             }
@@ -910,6 +1178,11 @@
     }
     if (state.players.size < 2 && state.role === 'host') {
       hostStartRoundOrMatch(false);
+      if (botFillTimer) clearTimeout(botFillTimer);
+      botFillTimer = setTimeout(() => {
+        botFillTimer = null;
+        hostFillLobbyWithBots();
+      }, LOBBY_BOT_FILL_DELAY_MS);
     } else {
       broadcastFullSnapshot();
       syncLobbyMetaNow();
@@ -962,6 +1235,11 @@
     heartbeatTimer = setInterval(() => {
       syncLobbyMetaNow();
     }, HEARTBEAT_INTERVAL_MS);
+
+    botFillTimer = setTimeout(() => {
+      botFillTimer = null;
+      hostFillLobbyWithBots();
+    }, LOBBY_BOT_FILL_DELAY_MS);
 
     emitState();
     return lobby;
@@ -1112,6 +1390,50 @@
   }
 
   // ---------- Gameplay Hooks Called From Player/Main ----------
+  function applyBotDamage(botUid, victimUid, damage, weapon, isHeadshot) {
+    if (state.role !== 'host' || state.phase !== 'live') return false;
+    const attacker = state.players.get(botUid);
+    const victim = state.players.get(victimUid);
+    if (!attacker || !attacker.isBot || !victim || victim.isBot || !victim.alive) return false;
+    hostResolveDamage(botUid, victimUid, damage, weapon, isHeadshot);
+    return true;
+  }
+
+  function reportBotPose(uid, pose) {
+    if (state.role !== 'host' || !pose) return;
+    const rec = state.players.get(uid);
+    if (!rec || !rec.isBot) return;
+    rec.x = Number(pose.x) || 0;
+    rec.y = Number(pose.y) || 0;
+    rec.z = Number(pose.z) || 0;
+    rec.yaw = Number(pose.yaw) || 0;
+    rec.slot = pose.slot || rec.slot || 'rifle';
+    broadcastPose({
+      t: 'p',
+      uid,
+      x: Number(rec.x.toFixed(2)),
+      y: Number(rec.y.toFixed(2)),
+      z: Number(rec.z.toFixed(2)),
+      yaw: Number(rec.yaw.toFixed(3)),
+      slot: rec.slot
+    });
+  }
+
+  function reportBotShot(uid, origin, endPoint, weapon) {
+    if (state.role !== 'host' || !origin || !endPoint) return;
+    broadcastGame({
+      t: 'remote_tracer',
+      fromUid: uid,
+      sx: Number(origin.x.toFixed(2)),
+      sy: Number(origin.y.toFixed(2)),
+      sz: Number(origin.z.toFixed(2)),
+      ex: Number(endPoint.x.toFixed(2)),
+      ey: Number(endPoint.y.toFixed(2)),
+      ez: Number(endPoint.z.toFixed(2)),
+      slot: weapon || 'rifle'
+    });
+  }
+
   function reportShot(shotResult) {
     if (!shotResult || !shotResult.fired) return;
     if (state.role !== 'host' && state.role !== 'client') return;
@@ -1196,6 +1518,16 @@
       }
     }
 
+    if (state.role === 'host' && playerPose) {
+      const local = state.players.get(state.localUid);
+      if (local) {
+        local.x = playerPose.x;
+        local.y = playerPose.y;
+        local.z = playerPose.z;
+        local.yaw = playerPose.yaw || 0;
+      }
+    }
+
     if (state.role === 'host' || state.role === 'client') {
       poseAccum += dt;
       if (poseAccum >= POSE_SEND_INTERVAL && playerPose) {
@@ -1249,6 +1581,9 @@
     requestRematch,
     reportShot,
     applyWarmupDamage,
+    applyBotDamage,
+    reportBotPose,
+    reportBotShot,
     update,
     pushWarmupKill: (botName, weapon, headshot) => pushKillFeed(state.localName || 'You', botName, weapon, headshot),
     getState: getPublicState

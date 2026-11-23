@@ -44,8 +44,8 @@
   const XP_REWARDS = Object.freeze({
     targetHit: 15,
     bullseyeHit: 25,
-    botKill: 40,
-    botHeadshot: 60,
+    botKill: 8,
+    botHeadshot: 12,
     arenaKill: 75,
     arenaHeadshot: 110
   });
