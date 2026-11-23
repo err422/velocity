@@ -10,6 +10,9 @@
   }
 })(typeof self !== 'undefined' ? self : globalThis, function () {
   const STORAGE_KEY = 'velocity_inventory_v1';
+  const BACKUP_STORAGE_KEY = 'velocity_inventory_backup_v1';
+  const SOLD_IDS_STORAGE_KEY = 'velocity_inventory_sold_v1';
+  const DIRTY_STORAGE_KEY = 'velocity_inventory_dirty_v1';
 
   const KNIFE_TYPES = Object.freeze({
     default: {
@@ -1754,28 +1757,340 @@
     };
   }
 
-  function loadLocal(storage) {
-    const store = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
-    if (!store) return createStarterInventory();
+  function countNonStarterItems(inventory) {
+    if (!inventory || typeof inventory !== 'object') return 0;
+    const isNonStarter = (it) => it && typeof it.id === 'string' && !it.id.startsWith('starter_');
+    const k = Array.isArray(inventory.knives) ? inventory.knives.filter(isNonStarter).length : 0;
+    const g = Array.isArray(inventory.gloves) ? inventory.gloves.filter(isNonStarter).length : 0;
+    const w = Array.isArray(inventory.weapons) ? inventory.weapons.filter(isNonStarter).length : 0;
+    return k + g + w;
+  }
+
+  function resolveStorage(storage) {
+    return storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+  }
+
+  function isLocalDirty(storage) {
+    const store = resolveStorage(storage);
+    if (!store) return false;
     try {
-      const raw = store.getItem(STORAGE_KEY);
-      if (!raw) {
-        const starter = createStarterInventory();
-        store.setItem(STORAGE_KEY, JSON.stringify(starter));
-        return starter;
-      }
-      return sanitizeInventory(JSON.parse(raw));
+      return store.getItem(DIRTY_STORAGE_KEY) === '1';
     } catch (_) {
-      return createStarterInventory();
+      return false;
     }
   }
 
-  function saveLocal(inventory, storage) {
-    const clean = sanitizeInventory(inventory);
-    const store = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
-    if (store) {
+  function setLocalDirty(dirty, storage) {
+    const store = resolveStorage(storage);
+    if (!store) return;
+    try {
+      if (dirty) store.setItem(DIRTY_STORAGE_KEY, '1');
+      else store.removeItem(DIRTY_STORAGE_KEY);
+    } catch (_) {}
+  }
+
+  function loadPendingSoldItems(storage) {
+    const store = resolveStorage(storage);
+    if (!store) return [];
+    try {
+      const raw = store.getItem(SOLD_IDS_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      const seen = new Set();
+      const out = [];
+      for (const entry of parsed) {
+        const id = typeof entry === 'string' ? entry : (entry && typeof entry.id === 'string' ? entry.id : '');
+        if (!id || id.startsWith('starter_') || seen.has(id)) continue;
+        seen.add(id);
+        const kind = entry && (entry.kind === 'weapon' || entry.kind === 'glove' || entry.kind === 'knife')
+          ? entry.kind
+          : (id.startsWith('wpn_') ? 'weapon' : id.startsWith('glv_') ? 'glove' : 'knife');
+        out.push({ id, kind });
+        if (out.length >= 500) break;
+      }
+      return out;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function savePendingSoldItems(items, storage) {
+    const store = resolveStorage(storage);
+    if (!store) return;
+    try {
+      const clean = Array.isArray(items) ? items.slice(-500) : [];
+      if (clean.length === 0) {
+        store.removeItem(SOLD_IDS_STORAGE_KEY);
+      } else {
+        store.setItem(SOLD_IDS_STORAGE_KEY, JSON.stringify(clean));
+      }
+    } catch (_) {}
+  }
+
+  function recordPendingSoldItems(soldItems, storage) {
+    if (!Array.isArray(soldItems) || soldItems.length === 0) return loadPendingSoldItems(storage);
+    const existing = loadPendingSoldItems(storage);
+    const byId = new Map(existing.map((e) => [e.id, e]));
+    for (const item of soldItems) {
+      if (!item || typeof item.id !== 'string' || item.id.startsWith('starter_')) continue;
+      const kind = isWeaponItem(item) ? 'weapon' : isGloveItem(item) ? 'glove' : 'knife';
+      byId.set(item.id, { id: item.id, kind });
+    }
+    const next = Array.from(byId.values()).slice(-500);
+    savePendingSoldItems(next, storage);
+    return next;
+  }
+
+  function clearPendingSoldItem(itemId, storage) {
+    if (!itemId) return;
+    const existing = loadPendingSoldItems(storage);
+    const next = existing.filter((e) => e.id !== itemId);
+    if (next.length !== existing.length) {
+      savePendingSoldItems(next, storage);
+    }
+  }
+
+  function mergeInventories(localInv, cloudInv, options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const local = sanitizeInventory(localInv);
+    const knivesLoaded = opts.knivesLoaded !== false;
+    const glovesLoaded = opts.glovesLoaded !== false;
+    const weaponsLoaded = opts.weaponsLoaded !== false;
+    const localDirty = Boolean(opts.localDirty);
+    const partialCloudLoad = !(knivesLoaded && glovesLoaded && weaponsLoaded);
+
+    const soldIdSet = new Set();
+    if (opts.pendingSoldIds) {
+      const iter = opts.pendingSoldIds instanceof Set ? opts.pendingSoldIds : (Array.isArray(opts.pendingSoldIds) ? opts.pendingSoldIds : []);
+      for (const entry of iter) {
+        const id = typeof entry === 'string' ? entry : (entry && typeof entry.id === 'string' ? entry.id : '');
+        if (id && !id.startsWith('starter_')) soldIdSet.add(id);
+      }
+    }
+
+    if (!cloudInv || typeof cloudInv !== 'object') {
+      const missingKnives = local.knives.filter((k) => !k.id.startsWith('starter_') && !soldIdSet.has(k.id));
+      const missingGloves = local.gloves.filter((g) => !g.id.startsWith('starter_') && !soldIdSet.has(g.id));
+      const missingWeapons = local.weapons.filter((w) => !w.id.startsWith('starter_') && !soldIdSet.has(w.id));
+      return {
+        inventory: local,
+        missingInCloud: {
+          knives: missingKnives,
+          gloves: missingGloves,
+          weapons: missingWeapons
+        },
+        staleInCloud: { knives: [], gloves: [], weapons: [] },
+        needsSummarySync: true,
+        partialCloudLoad: false
+      };
+    }
+
+    const cloud = sanitizeInventory(cloudInv);
+
+    const mergeCategory = (localList, cloudList, loaded) => {
+      const merged = [];
+      const seen = new Set();
+      const missingInCloud = [];
+      const staleInCloud = [];
+
+      for (const item of localList) {
+        if (!item.id.startsWith('starter_') && soldIdSet.has(item.id)) continue;
+        if (!seen.has(item.id)) {
+          seen.add(item.id);
+          merged.push(item);
+        }
+      }
+
+      if (loaded) {
+        const cloudIds = new Set();
+        for (const item of cloudList) {
+          cloudIds.add(item.id);
+          if (!item.id.startsWith('starter_') && soldIdSet.has(item.id)) {
+            staleInCloud.push(item.id);
+            continue;
+          }
+          if (!seen.has(item.id)) {
+            seen.add(item.id);
+            merged.push(item);
+          }
+        }
+        for (const item of merged) {
+          if (!item.id.startsWith('starter_') && !cloudIds.has(item.id)) {
+            missingInCloud.push(item);
+          }
+        }
+      }
+
+      return { merged, missingInCloud, staleInCloud };
+    };
+
+    const kMerge = mergeCategory(local.knives, cloud.knives, knivesLoaded);
+    const gMerge = mergeCategory(local.gloves, cloud.gloves, glovesLoaded);
+    const wMerge = mergeCategory(local.weapons, cloud.weapons, weaponsLoaded);
+
+    const hasMissingInCloud =
+      kMerge.missingInCloud.length > 0 ||
+      gMerge.missingInCloud.length > 0 ||
+      wMerge.missingInCloud.length > 0;
+
+    const pickEquipped = (localId, cloudId, list, extraCheck) => {
+      const isValid = (id) => typeof id === 'string' && list.some((it) => it.id === id && (!extraCheck || extraCheck(it)));
+      const localValid = isValid(localId);
+      const cloudValid = isValid(cloudId);
+      const localCustom = localValid && !localId.startsWith('starter_');
+      const cloudCustom = cloudValid && !cloudId.startsWith('starter_');
+
+      if (localDirty) {
+        if (localValid) return localId;
+        if (cloudValid) return cloudId;
+        return list[0] ? list[0].id : localId;
+      }
+      if (cloudCustom) return cloudId;
+      if (localCustom) return localId;
+      if (cloudValid) return cloudId;
+      if (localValid) return localId;
+      return list[0] ? list[0].id : localId;
+    };
+
+    const equippedKnifeId = pickEquipped(local.equippedKnifeId, cloud.equippedKnifeId, kMerge.merged);
+    const equippedGloveId = pickEquipped(local.equippedGloveId, cloud.equippedGloveId, gMerge.merged);
+    const equippedRifleId = pickEquipped(local.equippedRifleId, cloud.equippedRifleId, wMerge.merged, (w) => w.weaponType === 'rifle');
+    const equippedAwpId = pickEquipped(local.equippedAwpId, cloud.equippedAwpId, wMerge.merged, (w) => w.weaponType === 'awp');
+    const equippedDeagleId = pickEquipped(local.equippedDeagleId, cloud.equippedDeagleId, wMerge.merged, (w) => w.weaponType === 'deagle');
+
+    const totalOpened = Math.max(local.totalOpened, cloud.totalOpened);
+    const lastDailyDropDate = local.lastDailyDropDate >= cloud.lastDailyDropDate
+      ? local.lastDailyDropDate
+      : cloud.lastDailyDropDate;
+
+    const preferLocalBalances =
+      localDirty ||
+      local.totalOpened > cloud.totalOpened ||
+      hasMissingInCloud ||
+      soldIdSet.size > 0;
+
+    const coins = preferLocalBalances ? local.coins : cloud.coins;
+    const caseCounts = preferLocalBalances
+      ? {
+          velocity: local.caseCounts.velocity,
+          chroma: local.caseCounts.chroma,
+          spectrum: local.caseCounts.spectrum
+        }
+      : {
+          velocity: cloud.caseCounts.velocity,
+          chroma: cloud.caseCounts.chroma,
+          spectrum: cloud.caseCounts.spectrum
+        };
+
+    const inventory = sanitizeInventory({
+      coins,
+      equippedKnifeId,
+      equippedGloveId,
+      equippedRifleId,
+      equippedAwpId,
+      equippedDeagleId,
+      caseCounts,
+      totalOpened,
+      lastDailyDropDate,
+      knives: kMerge.merged,
+      gloves: gMerge.merged,
+      weapons: wMerge.merged
+    });
+
+    const summaryDiffersFromCloud =
+      inventory.coins !== cloud.coins ||
+      inventory.totalOpened !== cloud.totalOpened ||
+      inventory.lastDailyDropDate !== cloud.lastDailyDropDate ||
+      inventory.equippedKnifeId !== cloud.equippedKnifeId ||
+      inventory.equippedGloveId !== cloud.equippedGloveId ||
+      inventory.equippedRifleId !== cloud.equippedRifleId ||
+      inventory.equippedAwpId !== cloud.equippedAwpId ||
+      inventory.equippedDeagleId !== cloud.equippedDeagleId ||
+      inventory.caseCounts.velocity !== cloud.caseCounts.velocity ||
+      inventory.caseCounts.chroma !== cloud.caseCounts.chroma ||
+      inventory.caseCounts.spectrum !== cloud.caseCounts.spectrum;
+
+    return {
+      inventory,
+      missingInCloud: {
+        knives: kMerge.missingInCloud,
+        gloves: gMerge.missingInCloud,
+        weapons: wMerge.missingInCloud
+      },
+      staleInCloud: {
+        knives: kMerge.staleInCloud,
+        gloves: gMerge.staleInCloud,
+        weapons: wMerge.staleInCloud
+      },
+      needsSummarySync: summaryDiffersFromCloud || hasMissingInCloud || localDirty,
+      partialCloudLoad
+    };
+  }
+
+  function tryReadInventoryKey(store, key) {
+    try {
+      const raw = store.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      return sanitizeInventory(parsed);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function loadLocal(storage) {
+    const store = resolveStorage(storage);
+    if (!store) return createStarterInventory();
+    const primary = tryReadInventoryKey(store, STORAGE_KEY);
+    const backup = tryReadInventoryKey(store, BACKUP_STORAGE_KEY);
+
+    if (primary) {
+      // Self-heal if primary was somehow blanked to a zero-progress starter while a populated backup exists
+      if (
+        backup &&
+        countNonStarterItems(primary) === 0 &&
+        primary.totalOpened === 0 &&
+        countNonStarterItems(backup) > 0
+      ) {
+        try {
+          store.setItem(STORAGE_KEY, JSON.stringify(backup));
+        } catch (_) {}
+        return backup;
+      }
+      return primary;
+    }
+
+    if (backup) {
       try {
-        store.setItem(STORAGE_KEY, JSON.stringify(clean));
+        store.setItem(STORAGE_KEY, JSON.stringify(backup));
+      } catch (_) {}
+      return backup;
+    }
+
+    const starter = createStarterInventory();
+    try {
+      store.setItem(STORAGE_KEY, JSON.stringify(starter));
+    } catch (_) {}
+    return starter;
+  }
+
+  function saveLocal(inventory, storage, options) {
+    const clean = sanitizeInventory(inventory);
+    const store = resolveStorage(storage);
+    if (store) {
+      const serialized = JSON.stringify(clean);
+      try {
+        store.setItem(STORAGE_KEY, serialized);
+      } catch (_) {}
+      try {
+        const allowBackupReset = Boolean(options && options.allowBackupReset);
+        const hasProgress = countNonStarterItems(clean) > 0 || clean.totalOpened > 0;
+        const existingBackup = tryReadInventoryKey(store, BACKUP_STORAGE_KEY);
+        if (hasProgress || allowBackupReset || !existingBackup) {
+          store.setItem(BACKUP_STORAGE_KEY, serialized);
+        }
       } catch (_) {}
     }
     return clean;
@@ -1783,6 +2098,9 @@
 
   return {
     STORAGE_KEY,
+    BACKUP_STORAGE_KEY,
+    SOLD_IDS_STORAGE_KEY,
+    DIRTY_STORAGE_KEY,
     ECONOMY,
     KNIFE_TYPES,
     KNIFE_TYPE_IDS,
@@ -1843,6 +2161,7 @@
     getEquippedGlove,
     getEquippedWeapon,
     totalCaseCount,
+    countNonStarterItems,
     grantRunRewards,
     grantArenaKillCoins,
     grantArenaReward,
@@ -1855,6 +2174,12 @@
     toCloudKnifePayload,
     toCloudGlovePayload,
     toCloudWeaponPayload,
+    isLocalDirty,
+    setLocalDirty,
+    loadPendingSoldItems,
+    recordPendingSoldItems,
+    clearPendingSoldItem,
+    mergeInventories,
     loadLocal,
     saveLocal
   };

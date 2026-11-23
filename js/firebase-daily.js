@@ -40,6 +40,8 @@ let auth = null;
 let currentUser = null;
 let isOnline = false;
 let initError = null;
+let inventorySummaryChain = Promise.resolve();
+let knownParentInventoryUid = null;
 const authListeners = new Set();
 
 function handleFirestoreError(error, operationType, path) {
@@ -118,6 +120,9 @@ async function initFirebase() {
     auth = getAuth(app);
 
     onAuthStateChanged(auth, (user) => {
+      if (!user || user.uid !== knownParentInventoryUid) {
+        knownParentInventoryUid = null;
+      }
       currentUser = user || null;
       authListeners.forEach((cb) => {
         try {
@@ -444,7 +449,15 @@ async function syncDisplayNameToRun(dateKey, customDisplayName) {
 async function loadUserInventory() {
   await ready;
   if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
-    return { inventory: null, exists: false, cloudSynced: false };
+    return {
+      inventory: null,
+      exists: false,
+      cloudSynced: false,
+      knivesLoaded: false,
+      glovesLoaded: false,
+      weaponsLoaded: false,
+      partial: false
+    };
   }
   const uid = currentUser.uid;
   const invPath = `userInventory/${uid}`;
@@ -456,34 +469,46 @@ async function loadUserInventory() {
     handleFirestoreError(error, OperationType.GET, invPath);
   }
   if (!snap || !snap.exists()) {
-    return { inventory: null, exists: false, cloudSynced: true };
+    return {
+      inventory: null,
+      exists: false,
+      cloudSynced: true,
+      knivesLoaded: true,
+      glovesLoaded: true,
+      weaponsLoaded: true,
+      partial: false
+    };
   }
+  knownParentInventoryUid = uid;
 
-  const knivesPath = `userInventory/${uid}/knives`;
-  let knivesSnap;
+  let knivesSnap = null;
+  let knivesLoaded = false;
   try {
-    const q = query(collection(db, 'userInventory', uid, 'knives'), where('uid', '==', uid), limit(200));
+    const q = query(collection(db, 'userInventory', uid, 'knives'), where('uid', '==', uid), limit(500));
     knivesSnap = await getDocs(q);
+    knivesLoaded = true;
   } catch (error) {
-    console.warn('Cloud knives inventory could not be loaded; continuing with other categories:', error);
+    console.warn('Cloud knives inventory could not be loaded; preserving local knives:', error);
   }
 
-  const glovesPath = `userInventory/${uid}/gloves`;
-  let glovesSnap;
+  let glovesSnap = null;
+  let glovesLoaded = false;
   try {
-    const gq = query(collection(db, 'userInventory', uid, 'gloves'), where('uid', '==', uid), limit(200));
+    const gq = query(collection(db, 'userInventory', uid, 'gloves'), where('uid', '==', uid), limit(500));
     glovesSnap = await getDocs(gq);
+    glovesLoaded = true;
   } catch (error) {
-    console.warn('Cloud gloves inventory could not be loaded; continuing with other categories:', error);
+    console.warn('Cloud gloves inventory could not be loaded; preserving local gloves:', error);
   }
 
-  const weaponsPath = `userInventory/${uid}/weapons`;
-  let weaponsSnap;
+  let weaponsSnap = null;
+  let weaponsLoaded = false;
   try {
-    const wq = query(collection(db, 'userInventory', uid, 'weapons'), where('uid', '==', uid), limit(250));
+    const wq = query(collection(db, 'userInventory', uid, 'weapons'), where('uid', '==', uid), limit(500));
     weaponsSnap = await getDocs(wq);
+    weaponsLoaded = true;
   } catch (error) {
-    console.warn('Cloud weapons inventory could not be loaded; continuing with other categories:', error);
+    console.warn('Cloud weapons inventory could not be loaded; preserving local weapons:', error);
   }
 
   const knives = [];
@@ -519,10 +544,18 @@ async function loadUserInventory() {
     gloves,
     weapons
   });
-  return { inventory: clean, exists: true, cloudSynced: true };
+  return {
+    inventory: clean,
+    exists: true,
+    cloudSynced: true,
+    knivesLoaded,
+    glovesLoaded,
+    weaponsLoaded,
+    partial: !(knivesLoaded && glovesLoaded && weaponsLoaded)
+  };
 }
 
-async function saveUserInventorySummary(inventory) {
+async function writeUserInventorySummaryLocked(inventory) {
   await ready;
   if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
     return { saved: false, reason: !currentUser ? 'signed-out' : 'offline' };
@@ -553,6 +586,7 @@ async function saveUserInventorySummary(inventory) {
         lastDailyDropDate: payload.lastDailyDropDate,
         updatedAt: serverTimestamp()
       });
+      knownParentInventoryUid = uid;
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, invPath);
     }
@@ -563,6 +597,7 @@ async function saveUserInventorySummary(inventory) {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      knownParentInventoryUid = uid;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, invPath);
     }
@@ -570,43 +605,88 @@ async function saveUserInventorySummary(inventory) {
   return { saved: true };
 }
 
+function saveUserInventorySummary(inventory) {
+  const run = inventorySummaryChain.then(
+    () => writeUserInventorySummaryLocked(inventory),
+    () => writeUserInventorySummaryLocked(inventory)
+  );
+  inventorySummaryChain = run.catch(() => {});
+  return run;
+}
+
+async function ensureParentInventoryDoc(fullInventory) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+    return false;
+  }
+  if (knownParentInventoryUid === currentUser.uid) {
+    return true;
+  }
+  const res = await saveUserInventorySummary(fullInventory);
+  return Boolean(res && res.saved);
+}
+
+async function saveCloudSubcollectionItem(subcollection, itemPayload, fullInventory) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+    return { saved: false };
+  }
+  const parentReady = await ensureParentInventoryDoc(fullInventory);
+  if (!parentReady) return { saved: false };
+
+  const uid = currentUser.uid;
+  const itemPath = `userInventory/${uid}/${subcollection}/${itemPayload.id}`;
+  const itemRef = doc(db, 'userInventory', uid, subcollection, itemPayload.id);
+
+  try {
+    const existingSnap = await getDoc(itemRef);
+    if (existingSnap.exists()) return { saved: true };
+  } catch (_) {
+    // Proceed directly to create; allow update:false protects existing immutable docs.
+  }
+
+  try {
+    await setDoc(itemRef, {
+      ...itemPayload,
+      createdAt: serverTimestamp()
+    });
+    return { saved: true };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, itemPath);
+  }
+}
+
+async function deleteCloudSubcollectionItem(subcollection, itemId) {
+  await ready;
+  if (!db || !currentUser || !currentUser.emailVerified) return { deleted: false };
+  const uid = currentUser.uid;
+  const itemPath = `userInventory/${uid}/${subcollection}/${itemId}`;
+  const itemRef = doc(db, 'userInventory', uid, subcollection, itemId);
+  try {
+    const existingSnap = await getDoc(itemRef);
+    if (!existingSnap.exists()) return { deleted: true };
+  } catch (_) {
+    // Continue to deleteDoc attempt
+  }
+  try {
+    await deleteDoc(itemRef);
+    return { deleted: true };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, itemPath);
+  }
+}
+
 async function saveCloudKnife(knifeItem, fullInventory) {
   await ready;
   if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
     return { saved: false };
   }
-  // Ensure parent userInventory/{uid} exists first (Master Gate)
-  await saveUserInventorySummary(fullInventory);
-  const uid = currentUser.uid;
-  const payload = window.KnivesSystem.toCloudKnifePayload(knifeItem, uid);
-  const knifePath = `userInventory/${uid}/knives/${payload.id}`;
-  const knifeRef = doc(db, 'userInventory', uid, 'knives', payload.id);
-
-  try {
-    const existingSnap = await getDoc(knifeRef);
-    if (existingSnap.exists()) return { saved: true };
-    await setDoc(knifeRef, {
-      ...payload,
-      createdAt: serverTimestamp()
-    });
-    return { saved: true };
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, knifePath);
-  }
+  const payload = window.KnivesSystem.toCloudKnifePayload(knifeItem, currentUser.uid);
+  return saveCloudSubcollectionItem('knives', payload, fullInventory);
 }
 
 async function deleteCloudKnife(knifeId) {
-  await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) return { deleted: false };
-  const uid = currentUser.uid;
-  const knifePath = `userInventory/${uid}/knives/${knifeId}`;
-  const knifeRef = doc(db, 'userInventory', uid, 'knives', knifeId);
-  try {
-    await deleteDoc(knifeRef);
-    return { deleted: true };
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, knifePath);
-  }
+  return deleteCloudSubcollectionItem('knives', knifeId);
 }
 
 async function saveCloudGlove(gloveItem, fullInventory) {
@@ -614,38 +694,12 @@ async function saveCloudGlove(gloveItem, fullInventory) {
   if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
     return { saved: false };
   }
-  // Ensure parent userInventory/{uid} exists first (Master Gate)
-  await saveUserInventorySummary(fullInventory);
-  const uid = currentUser.uid;
-  const payload = window.KnivesSystem.toCloudGlovePayload(gloveItem, uid);
-  const glovePath = `userInventory/${uid}/gloves/${payload.id}`;
-  const gloveRef = doc(db, 'userInventory', uid, 'gloves', payload.id);
-
-  try {
-    const existingSnap = await getDoc(gloveRef);
-    if (existingSnap.exists()) return { saved: true };
-    await setDoc(gloveRef, {
-      ...payload,
-      createdAt: serverTimestamp()
-    });
-    return { saved: true };
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, glovePath);
-  }
+  const payload = window.KnivesSystem.toCloudGlovePayload(gloveItem, currentUser.uid);
+  return saveCloudSubcollectionItem('gloves', payload, fullInventory);
 }
 
 async function deleteCloudGlove(gloveId) {
-  await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) return { deleted: false };
-  const uid = currentUser.uid;
-  const glovePath = `userInventory/${uid}/gloves/${gloveId}`;
-  const gloveRef = doc(db, 'userInventory', uid, 'gloves', gloveId);
-  try {
-    await deleteDoc(gloveRef);
-    return { deleted: true };
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, glovePath);
-  }
+  return deleteCloudSubcollectionItem('gloves', gloveId);
 }
 
 async function saveCloudWeapon(weaponItem, fullInventory) {
@@ -653,37 +707,12 @@ async function saveCloudWeapon(weaponItem, fullInventory) {
   if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
     return { saved: false };
   }
-  await saveUserInventorySummary(fullInventory);
-  const uid = currentUser.uid;
-  const payload = window.KnivesSystem.toCloudWeaponPayload(weaponItem, uid);
-  const weaponPath = `userInventory/${uid}/weapons/${payload.id}`;
-  const weaponRef = doc(db, 'userInventory', uid, 'weapons', payload.id);
-
-  try {
-    const existingSnap = await getDoc(weaponRef);
-    if (existingSnap.exists()) return { saved: true };
-    await setDoc(weaponRef, {
-      ...payload,
-      createdAt: serverTimestamp()
-    });
-    return { saved: true };
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, weaponPath);
-  }
+  const payload = window.KnivesSystem.toCloudWeaponPayload(weaponItem, currentUser.uid);
+  return saveCloudSubcollectionItem('weapons', payload, fullInventory);
 }
 
 async function deleteCloudWeapon(weaponId) {
-  await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) return { deleted: false };
-  const uid = currentUser.uid;
-  const weaponPath = `userInventory/${uid}/weapons/${weaponId}`;
-  const weaponRef = doc(db, 'userInventory', uid, 'weapons', weaponId);
-  try {
-    await deleteDoc(weaponRef);
-    return { deleted: true };
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, weaponPath);
-  }
+  return deleteCloudSubcollectionItem('weapons', weaponId);
 }
 
 // ---------- Serverless WebRTC Lobby Directory & Signaling ----------

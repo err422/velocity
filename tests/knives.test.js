@@ -389,5 +389,233 @@ test('buyCase, sellItems, starter/equipped protection, duplicate finder, and are
   assert.ok(!sale.inventory.weapons.some((w) => w.id === dupBad.id));
 });
 
+function createMemoryStorage() {
+  const map = new Map();
+  return {
+    getItem(k) {
+      return map.has(k) ? map.get(k) : null;
+    },
+    setItem(k, v) {
+      map.set(k, String(v));
+    },
+    removeItem(k) {
+      map.delete(k);
+    }
+  };
+}
+
+test('mergeInventories never wipes local skins when cloud subcollections are empty or partially fail', () => {
+  const local = KnivesSystem.createStarterInventory();
+  const localKnife = KnivesSystem.sanitizeKnifeItem({
+    id: 'knf_local_bluegem',
+    knifeType: 'karambit',
+    skinId: 'case_hardened',
+    rarity: 'gold',
+    patternSeed: 661,
+    floatValue: 0.015,
+    specialTag: 'BLUE GEM',
+    bluePct: 91,
+    caseId: 'velocity'
+  });
+  const localWeapon = KnivesSystem.sanitizeWeaponItem({
+    id: 'wpn_local_dragon',
+    weaponType: 'awp',
+    skinId: 'dragon_gold',
+    rarity: 'covert',
+    patternSeed: 42,
+    floatValue: 0.03,
+    caseId: 'spectrum'
+  });
+  const localGlove = KnivesSystem.sanitizeGloveItem({
+    id: 'glv_local_vice',
+    gloveType: 'sport',
+    skinId: 'vice',
+    rarity: 'gold',
+    patternSeed: 120,
+    floatValue: 0.07,
+    caseId: 'spectrum'
+  });
+  local.knives.unshift(localKnife);
+  local.weapons.unshift(localWeapon);
+  local.gloves.unshift(localGlove);
+  local.equippedKnifeId = localKnife.id;
+  local.equippedAwpId = localWeapon.id;
+  local.equippedGloveId = localGlove.id;
+  local.coins = 320;
+  local.totalOpened = 3;
+
+  // Simulate cloud doc existing with empty subcollections (exact prior reload-wipe bug)
+  const emptyCloud = KnivesSystem.createStarterInventory();
+  emptyCloud.totalOpened = 3;
+
+  const merged = KnivesSystem.mergeInventories(local, emptyCloud, {
+    knivesLoaded: true,
+    glovesLoaded: true,
+    weaponsLoaded: true,
+    localDirty: false
+  });
+
+  assert.ok(merged.inventory.knives.some((k) => k.id === localKnife.id));
+  assert.ok(merged.inventory.weapons.some((w) => w.id === localWeapon.id));
+  assert.ok(merged.inventory.gloves.some((g) => g.id === localGlove.id));
+  assert.equal(merged.inventory.equippedKnifeId, localKnife.id);
+  assert.equal(merged.inventory.equippedAwpId, localWeapon.id);
+  assert.equal(merged.inventory.equippedGloveId, localGlove.id);
+  assert.equal(merged.inventory.coins, 320);
+  assert.equal(merged.missingInCloud.knives.length, 1);
+  assert.equal(merged.missingInCloud.weapons.length, 1);
+  assert.equal(merged.missingInCloud.gloves.length, 1);
+  assert.equal(merged.needsSummarySync, true);
+  assert.equal(merged.partialCloudLoad, false);
+
+  // Simulate partial cloud read failure (knives subcollection timed out/failed)
+  const partial = KnivesSystem.mergeInventories(local, emptyCloud, {
+    knivesLoaded: false,
+    glovesLoaded: true,
+    weaponsLoaded: true,
+    localDirty: false
+  });
+  assert.ok(partial.inventory.knives.some((k) => k.id === localKnife.id));
+  assert.equal(partial.partialCloudLoad, true);
+  assert.equal(partial.missingInCloud.knives.length, 0); // Don't treat unread category as missing
+});
+
+test('mergeInventories unions multi-device skins while honoring pending sold tombstones', () => {
+  const local = KnivesSystem.createStarterInventory();
+  const localWep = KnivesSystem.sanitizeWeaponItem({
+    id: 'wpn_device_a',
+    weaponType: 'rifle',
+    skinId: 'redline',
+    rarity: 'restricted',
+    patternSeed: 10,
+    floatValue: 0.14,
+    caseId: 'velocity'
+  });
+  local.weapons.push(localWep);
+  local.coins = 400;
+  local.totalOpened = 5;
+
+  const cloud = KnivesSystem.createStarterInventory();
+  const cloudKnife = KnivesSystem.sanitizeKnifeItem({
+    id: 'knf_device_b',
+    knifeType: 'butterfly',
+    skinId: 'doppler',
+    rarity: 'gold',
+    patternSeed: 77,
+    floatValue: 0.01,
+    specialTag: 'RUBY',
+    caseId: 'chroma'
+  });
+  const soldWep = KnivesSystem.sanitizeWeaponItem({
+    id: 'wpn_sold_offline',
+    weaponType: 'deagle',
+    skinId: 'blaze',
+    rarity: 'classified',
+    patternSeed: 99,
+    floatValue: 0.02,
+    caseId: 'velocity'
+  });
+  cloud.knives.push(cloudKnife);
+  cloud.weapons.push(soldWep);
+  cloud.totalOpened = 5;
+
+  const merged = KnivesSystem.mergeInventories(local, cloud, {
+    knivesLoaded: true,
+    glovesLoaded: true,
+    weaponsLoaded: true,
+    pendingSoldIds: [{ id: soldWep.id, kind: 'weapon' }],
+    localDirty: true
+  });
+
+  assert.ok(merged.inventory.weapons.some((w) => w.id === localWep.id));
+  assert.ok(merged.inventory.knives.some((k) => k.id === cloudKnife.id));
+  assert.ok(!merged.inventory.weapons.some((w) => w.id === soldWep.id));
+  assert.deepEqual(merged.staleInCloud.weapons, [soldWep.id]);
+  assert.equal(merged.missingInCloud.weapons.length, 1);
+  assert.equal(merged.missingInCloud.weapons[0].id, localWep.id);
+});
+
+test('loadLocal recovers from backup snapshot if primary storage is corrupted or wiped to starter', () => {
+  const storage = createMemoryStorage();
+  const inv = KnivesSystem.createStarterInventory();
+  const knife = KnivesSystem.sanitizeKnifeItem({
+    id: 'knf_backup_test',
+    knifeType: 'm9',
+    skinId: 'fade',
+    rarity: 'gold',
+    patternSeed: 763,
+    floatValue: 0.01,
+    specialTag: 'FULL FADE',
+    bluePct: 100,
+    caseId: 'spectrum'
+  });
+  inv.knives.unshift(knife);
+  inv.totalOpened = 1;
+  KnivesSystem.saveLocal(inv, storage);
+
+  // Corrupt primary storage
+  storage.setItem(KnivesSystem.STORAGE_KEY, '{corrupt json');
+  const recoveredCorrupt = KnivesSystem.loadLocal(storage);
+  assert.ok(recoveredCorrupt.knives.some((k) => k.id === knife.id));
+
+  // Accidentally overwrite primary with empty starter without allowBackupReset
+  KnivesSystem.saveLocal(KnivesSystem.createStarterInventory(), storage);
+  const recoveredBlank = KnivesSystem.loadLocal(storage);
+  assert.ok(recoveredBlank.knives.some((k) => k.id === knife.id));
+
+  // Legitimately resetting backup (e.g. after selling last item) updates backup
+  const emptyAfterSale = KnivesSystem.createStarterInventory();
+  emptyAfterSale.coins = 750;
+  KnivesSystem.saveLocal(emptyAfterSale, storage, { allowBackupReset: true });
+  const reloadedAfterSale = KnivesSystem.loadLocal(storage);
+  assert.equal(KnivesSystem.countNonStarterItems(reloadedAfterSale), 0);
+  assert.equal(reloadedAfterSale.coins, 750);
+});
+
+test('pending sold item queue and local dirty flag persist cleanly in storage', () => {
+  const storage = createMemoryStorage();
+  assert.equal(KnivesSystem.isLocalDirty(storage), false);
+  KnivesSystem.setLocalDirty(true, storage);
+  assert.equal(KnivesSystem.isLocalDirty(storage), true);
+  KnivesSystem.setLocalDirty(false, storage);
+  assert.equal(KnivesSystem.isLocalDirty(storage), false);
+
+  const w = KnivesSystem.sanitizeWeaponItem({ id: 'wpn_q1', weaponType: 'rifle', skinId: 'redline', rarity: 'restricted', floatValue: 0.2, patternSeed: 5 });
+  const k = KnivesSystem.sanitizeKnifeItem({ id: 'knf_q2', knifeType: 'karambit', skinId: 'fade', rarity: 'gold', floatValue: 0.02, patternSeed: 12 });
+  KnivesSystem.recordPendingSoldItems([w, k, KnivesSystem.createStarterKnife()], storage);
+  const pending = KnivesSystem.loadPendingSoldItems(storage);
+  assert.equal(pending.length, 2);
+  assert.deepEqual(pending.map((p) => `${p.kind}:${p.id}`).sort(), ['knife:knf_q2', 'weapon:wpn_q1']);
+
+  KnivesSystem.clearPendingSoldItem('wpn_q1', storage);
+  assert.deepEqual(KnivesSystem.loadPendingSoldItems(storage), [{ id: 'knf_q2', kind: 'knife' }]);
+});
+
+test('firestore.rules allows non-existent get checks and matches all catalog skin and type IDs', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const rules = fs.readFileSync(path.join(__dirname, '..', 'firestore.rules'), 'utf8');
+
+  // Verify resource == null guard exists for knives, gloves, and weapons subcollections
+  const nullGuardMatches = rules.match(/resource == null \|\| existing\(\)\.uid == request\.auth\.uid/g) || [];
+  assert.ok(nullGuardMatches.length >= 6, `Expected >=6 null-safe owner checks for get/delete across knives/gloves/weapons, found ${nullGuardMatches.length}`);
+
+  // Verify every skinId, weaponType, knifeType, gloveType, rarity, specialTag, caseId appears in rules
+  for (const id of [
+    ...KnivesSystem.KNIFE_TYPE_IDS,
+    ...KnivesSystem.SKIN_IDS,
+    ...KnivesSystem.GLOVE_TYPE_IDS,
+    ...KnivesSystem.GLOVE_SKIN_IDS,
+    ...KnivesSystem.WEAPON_TYPE_IDS,
+    ...KnivesSystem.WEAPON_SKIN_IDS,
+    ...KnivesSystem.RARITY_IDS,
+    ...KnivesSystem.WEAR_CODES,
+    ...KnivesSystem.CASE_IDS
+  ]) {
+    assert.ok(rules.includes(`'${id}'`), `Expected '${id}' to be allowlisted in firestore.rules`);
+  }
+});
+
+
 
 

@@ -859,18 +859,34 @@ function updateArmorySyncLabel(override){
   armorySyncNote.textContent=(st.user&&st.user.emailVerified)?'CLOUD SYNCED':'LOCAL ONLY';
 }
 
-function persistInventorySummary(syncCloud=true){
-  window.activeInventory=KnivesSystem.saveLocal(window.activeInventory);
+function persistInventorySummary(syncCloud=true,options){
+  window.activeInventory=KnivesSystem.saveLocal(window.activeInventory,undefined,options);
+  KnivesSystem.setLocalDirty(true);
   updateArmoryBadges();
   if(syncCloud&&window.DailyBackend){
     const st=window.DailyBackend.getState();
     if(st.user&&st.user.emailVerified){
       updateArmorySyncLabel('SAVING...');
-      window.DailyBackend.saveUserInventorySummary(window.activeInventory)
-        .then(r=>updateArmorySyncLabel(r&&r.saved?'CLOUD SYNCED':'LOCAL ONLY'))
-        .catch(()=>updateArmorySyncLabel('LOCAL FALLBACK'));
+      return window.DailyBackend.saveUserInventorySummary(window.activeInventory)
+        .then(r=>{
+          if(r&&r.saved){
+            if(KnivesSystem.loadPendingSoldItems().length===0){
+              KnivesSystem.setLocalDirty(false);
+            }
+            updateArmorySyncLabel('CLOUD SYNCED');
+          }else{
+            updateArmorySyncLabel('LOCAL ONLY');
+          }
+          return r;
+        })
+        .catch(err=>{
+          console.warn('Cloud inventory summary sync failed; local backup preserved:',err);
+          updateArmorySyncLabel('LOCAL FALLBACK');
+          return {saved:false};
+        });
     }
   }
+  return Promise.resolve({saved:false});
 }
 
 function applySpecialTagBadge(el,tag){
@@ -1212,14 +1228,37 @@ function startCaseUnboxing(caseId){
   }else{
     window.activeInventory.knives.unshift(roll.winner);
   }
-  persistInventorySummary(true);
+  // Save locally first so a force-reload mid-spin can NEVER lose the unboxed skin
+  window.activeInventory=KnivesSystem.saveLocal(window.activeInventory);
+  KnivesSystem.setLocalDirty(true);
+  updateArmoryBadges();
   if(window.DailyBackend){
-    if(isWeaponWin){
-      window.DailyBackend.saveCloudWeapon(roll.winner,window.activeInventory).catch(()=>{});
-    }else if(isGloveWin){
-      window.DailyBackend.saveCloudGlove(roll.winner,window.activeInventory).catch(()=>{});
-    }else{
-      window.DailyBackend.saveCloudKnife(roll.winner,window.activeInventory).catch(()=>{});
+    const st=window.DailyBackend.getState();
+    if(st.user&&st.user.emailVerified){
+      const invSnapshot=window.activeInventory;
+      const wonItem=roll.winner;
+      updateArmorySyncLabel('SAVING...');
+      window.DailyBackend.saveUserInventorySummary(invSnapshot)
+        .then(sumRes=>{
+          if(!sumRes||!sumRes.saved)return {saved:false};
+          if(isWeaponWin)return window.DailyBackend.saveCloudWeapon(wonItem,invSnapshot);
+          if(isGloveWin)return window.DailyBackend.saveCloudGlove(wonItem,invSnapshot);
+          return window.DailyBackend.saveCloudKnife(wonItem,invSnapshot);
+        })
+        .then(itemRes=>{
+          if(itemRes&&itemRes.saved){
+            if(KnivesSystem.loadPendingSoldItems().length===0){
+              KnivesSystem.setLocalDirty(false);
+            }
+            updateArmorySyncLabel('CLOUD SYNCED');
+          }else{
+            updateArmorySyncLabel('LOCAL FALLBACK');
+          }
+        })
+        .catch(err=>{
+          console.warn('Cloud skin save failed; preserved locally for automatic backfill:',err);
+          updateArmorySyncLabel('LOCAL FALLBACK');
+        });
     }
   }
 
@@ -1476,14 +1515,28 @@ function executeConfirmedSale(){
   for(const sold of res.soldItems){
     bulkSelectedIds.delete(sold.id);
   }
-  persistInventorySummary(true);
+  KnivesSystem.recordPendingSoldItems(res.soldItems);
+  persistInventorySummary(true,{allowBackupReset:true});
 
   if(window.DailyBackend){
     Promise.allSettled(res.soldItems.map(sold=>{
-      if(KnivesSystem.isWeaponItem(sold))return window.DailyBackend.deleteCloudWeapon(sold.id);
-      if(KnivesSystem.isGloveItem(sold))return window.DailyBackend.deleteCloudGlove(sold.id);
-      return window.DailyBackend.deleteCloudKnife(sold.id);
-    })).catch(()=>{});
+      const delPromise=KnivesSystem.isWeaponItem(sold)
+        ?window.DailyBackend.deleteCloudWeapon(sold.id)
+        :KnivesSystem.isGloveItem(sold)
+          ?window.DailyBackend.deleteCloudGlove(sold.id)
+          :window.DailyBackend.deleteCloudKnife(sold.id);
+      return delPromise.then(delRes=>{
+        if(delRes&&delRes.deleted){
+          KnivesSystem.clearPendingSoldItem(sold.id);
+        }
+      });
+    })).then(()=>{
+      if(KnivesSystem.loadPendingSoldItems().length===0){
+        KnivesSystem.setLocalDirty(false);
+      }
+    }).catch(err=>{
+      console.warn('Cloud item deletion failed; queued for next sync:',err);
+    });
   }
 
   CaseAudio.coinChime('sell');
@@ -2062,37 +2115,116 @@ async function hydrateCloudInventoryForUser(user){
   lastInvSyncedUid=user.uid;
   try{
     const res=await window.DailyBackend.loadUserInventory();
-    if(res&&res.exists&&res.inventory){
-      window.activeInventory=KnivesSystem.saveLocal(res.inventory);
-      ViewmodelSystem.equipGlove(KnivesSystem.getEquippedGlove(window.activeInventory));
-      ViewmodelSystem.equipKnife(KnivesSystem.getEquippedKnife(window.activeInventory),false);
-      syncEquippedWeaponsToViewmodel();
-      updateArmoryBadges();
-      updateArmorySyncLabel('CLOUD SYNCED');
-      if(armoryPanelEl.style.display!=='none'){
-        if(activeArmoryTab==='cases')renderArmoryCases();
-        else renderArmoryInventory();
-      }
-    }else if(res&&res.cloudSynced){
-      await window.DailyBackend.saveUserInventorySummary(window.activeInventory);
-      for(const k of window.activeInventory.knives){
-        if(!k.id.startsWith('starter_')){
-          await window.DailyBackend.saveCloudKnife(k,window.activeInventory).catch(()=>{});
-        }
-      }
-      for(const g of window.activeInventory.gloves){
-        if(!g.id.startsWith('starter_')){
-          await window.DailyBackend.saveCloudGlove(g,window.activeInventory).catch(()=>{});
-        }
-      }
-      for(const w of (window.activeInventory.weapons||[])){
-        if(!w.id.startsWith('starter_')){
-          await window.DailyBackend.saveCloudWeapon(w,window.activeInventory).catch(()=>{});
-        }
-      }
-      updateArmorySyncLabel('CLOUD SYNCED');
+    if(!res||!res.cloudSynced){
+      updateArmorySyncLabel('LOCAL FALLBACK');
+      return;
     }
-  }catch(_){
+
+    const pendingSold=KnivesSystem.loadPendingSoldItems();
+    const merged=KnivesSystem.mergeInventories(
+      window.activeInventory,
+      res.exists?res.inventory:null,
+      {
+        knivesLoaded:res.knivesLoaded!==false,
+        glovesLoaded:res.glovesLoaded!==false,
+        weaponsLoaded:res.weaponsLoaded!==false,
+        pendingSoldIds:pendingSold,
+        localDirty:KnivesSystem.isLocalDirty()
+      }
+    );
+
+    window.activeInventory=KnivesSystem.saveLocal(merged.inventory);
+    ViewmodelSystem.equipGlove(KnivesSystem.getEquippedGlove(window.activeInventory));
+    ViewmodelSystem.equipKnife(KnivesSystem.getEquippedKnife(window.activeInventory),false);
+    syncEquippedWeaponsToViewmodel();
+    updateArmoryBadges();
+    if(armoryPanelEl.style.display!=='none'){
+      if(activeArmoryTab==='cases')renderArmoryCases();
+      else renderArmoryInventory();
+    }
+
+    let allCloudOpsOk=!merged.partialCloudLoad;
+    if(!res.exists||merged.needsSummarySync){
+      try{
+        const sumRes=await window.DailyBackend.saveUserInventorySummary(window.activeInventory);
+        if(!sumRes||!sumRes.saved)allCloudOpsOk=false;
+      }catch(err){
+        allCloudOpsOk=false;
+        console.warn('Cloud inventory summary backfill failed:',err);
+      }
+    }
+
+    for(const k of merged.missingInCloud.knives){
+      try{
+        const r=await window.DailyBackend.saveCloudKnife(k,window.activeInventory);
+        if(!r||!r.saved)allCloudOpsOk=false;
+      }catch(err){
+        allCloudOpsOk=false;
+        console.warn('Cloud knife backfill failed:',k.id,err);
+      }
+    }
+    for(const g of merged.missingInCloud.gloves){
+      try{
+        const r=await window.DailyBackend.saveCloudGlove(g,window.activeInventory);
+        if(!r||!r.saved)allCloudOpsOk=false;
+      }catch(err){
+        allCloudOpsOk=false;
+        console.warn('Cloud glove backfill failed:',g.id,err);
+      }
+    }
+    for(const w of merged.missingInCloud.weapons){
+      try{
+        const r=await window.DailyBackend.saveCloudWeapon(w,window.activeInventory);
+        if(!r||!r.saved)allCloudOpsOk=false;
+      }catch(err){
+        allCloudOpsOk=false;
+        console.warn('Cloud weapon backfill failed:',w.id,err);
+      }
+    }
+
+    // Reconcile any locally-sold items whose cloud delete was interrupted by a reload
+    const deleteTasks=[];
+    const queuedDeleteIds=new Set();
+    for(const entry of pendingSold){
+      queuedDeleteIds.add(entry.id);
+      deleteTasks.push(entry);
+    }
+    for(const id of merged.staleInCloud.knives){
+      if(!queuedDeleteIds.has(id)){queuedDeleteIds.add(id);deleteTasks.push({id,kind:'knife'});}
+    }
+    for(const id of merged.staleInCloud.gloves){
+      if(!queuedDeleteIds.has(id)){queuedDeleteIds.add(id);deleteTasks.push({id,kind:'glove'});}
+    }
+    for(const id of merged.staleInCloud.weapons){
+      if(!queuedDeleteIds.has(id)){queuedDeleteIds.add(id);deleteTasks.push({id,kind:'weapon'});}
+    }
+
+    for(const task of deleteTasks){
+      try{
+        const delRes=task.kind==='weapon'
+          ?await window.DailyBackend.deleteCloudWeapon(task.id)
+          :task.kind==='glove'
+            ?await window.DailyBackend.deleteCloudGlove(task.id)
+            :await window.DailyBackend.deleteCloudKnife(task.id);
+        if(delRes&&delRes.deleted){
+          KnivesSystem.clearPendingSoldItem(task.id);
+        }else{
+          allCloudOpsOk=false;
+        }
+      }catch(err){
+        allCloudOpsOk=false;
+        console.warn('Cloud stale sold-item cleanup failed:',task.id,err);
+      }
+    }
+
+    if(allCloudOpsOk&&KnivesSystem.loadPendingSoldItems().length===0){
+      KnivesSystem.setLocalDirty(false);
+      updateArmorySyncLabel('CLOUD SYNCED');
+    }else{
+      updateArmorySyncLabel('LOCAL FALLBACK');
+    }
+  }catch(err){
+    console.warn('Cloud inventory hydration failed; keeping local inventory intact:',err);
     updateArmorySyncLabel('LOCAL FALLBACK');
   }
 }
