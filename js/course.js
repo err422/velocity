@@ -1015,6 +1015,164 @@
     };
   }
 
+
+  // ===================================================================
+  // SURF 14 — TETHERLINE (T2 · Linear · Slate Industrial)
+  // A full-length movement surf route built around VELOCITY's grapple + burst.
+  // ===================================================================
+  function buildSurfTetherline(bOpts) {
+    const b = makeBuilder('slate', bOpts);
+    const slope = 50, fw = 14;
+    const advance = (p, yaw, d, drop) => [
+      p[0] + Math.sin(yaw) * d,
+      p[1] - drop,
+      p[2] + Math.cos(yaw) * d
+    ];
+    const dir = yaw => [Math.sin(yaw), 0.12, Math.cos(yaw)];
+
+    // START — elevated launch deck and first long bank.
+    buildSurfDeck(b, 0, 104, -26, 18, 34, 'end');
+    b.addPylon(-25, 104, -4, 27); b.addPylon(25, 104, -4, 27);
+    b.gateText('TETHERLINE', 0, 116, 5, '#65e7ff');
+    b.addSurfWedge([0, 103.5, 20], [0, 89, 142], {
+      faceWidth: fw, slopeDeg: slope, side: 'both', lipStart: true, lipEnd: true
+    });
+    b.addBoostRing([0, 88.5, 155], [0, 0.12, 1], {
+      radius: 7.2, minSpeed: 44, speedBoost: 26, upBoost: 7
+    });
+
+    // SECTION 1 — broad S-curve. Hold the bank, then carry the exit speed.
+    const c1 = b.addSurfCurve({
+      start: [0, 87, 170], yawStart: 0, yawDelta: Math.PI / 2.65,
+      radius: 66, pitchDrop: -12, segments: 18,
+      faceWidth: fw, slopeDeg: slope, side: 'both', lipStart: true, lipEnd: true
+    });
+    const c1e = c1.curve.end, c1t = c1.curve.endTangent;
+    const deck1 = [c1e[0] + c1t[0] * 18, c1e[1] - 5, c1e[2] + c1t[2] * 18];
+    b.addDeck(deck1[0], deck1[1], deck1[2], 34, 34);
+    b.addPylon(deck1[0] + 29, deck1[1] - 12, deck1[2] + 5, 22);
+    b.addPylon(deck1[0] - 29, deck1[1] - 12, deck1[2] + 5, 22);
+
+    // SECTION 2 — long diagonal bank, then a counter-sweep back toward the core.
+    const ramp1End = advance(deck1, c1.curve.endYaw, 124, 13);
+    b.addSurfWedge(
+      [deck1[0] + c1t[0] * 4, deck1[1] - 0.8, deck1[2] + c1t[2] * 4],
+      ramp1End,
+      { faceWidth: fw, slopeDeg: 51, side: 'both', lipStart: true, lipEnd: true }
+    );
+    b.addBoostRing(advance(ramp1End, c1.curve.endYaw, 12, 0), dir(c1.curve.endYaw), {
+      radius: 7, minSpeed: 46, speedBoost: 28, upBoost: 8
+    });
+    const c2 = b.addSurfCurve({
+      start: advance(ramp1End, c1.curve.endYaw, 22, 1),
+      yawStart: c1.curve.endYaw, yawDelta: -c1.curve.endYaw,
+      radius: 72, pitchDrop: -14, segments: 18,
+      faceWidth: fw, slopeDeg: 51, side: 'both', lipStart: true, lipEnd: true
+    });
+    const c2e = c2.curve.end, c2t = c2.curve.endTangent;
+    const deck2 = [c2e[0] + c2t[0] * 18, c2e[1] - 6, c2e[2] + c2t[2] * 18];
+    buildSurfDeck(b, deck2[0], deck2[1], deck2[2] - 15, deck2[2] + 20, 36, 'end');
+
+    // SECTION 3 — first tether transfer. The overhead blocks are real solid
+    // surfaces, so the normal grapple raycast can latch onto them.
+    const tether1Start = [deck2[0], deck2[1] - 0.5, deck2[2] + 23];
+    const tether1End = advance(tether1Start, 0, 108, 15);
+    b.addSurfWedge(tether1Start, tether1End, {
+      faceWidth: 13.5, slopeDeg: 51, side: 'both', lipStart: true, lipEnd: true
+    });
+    b.addBox(deck2[0] + 17, deck2[1] + 31, deck2[2] + 91, 7, 6, 7, b.mats.accent);
+    b.addBox(deck2[0] - 19, deck2[1] + 38, deck2[2] + 126, 7, 6, 7, b.mats.accent);
+    b.addBox(deck2[0] + 43, deck2[1] + 20, deck2[2] + 116, 3, 34, 3, b.mats.dark, false);
+    const deck3 = [deck2[0], deck2[1] - 17, deck2[2] + 154];
+    buildSurfDeck(b, deck3[0], deck3[1], deck3[2] - 14, deck3[2] + 30, 34, 'start');
+    b.addBoostRing([deck3[0], deck3[1] + 1, deck3[2] + 38], [0, 0.16, 1], {
+      radius: 7.4, minSpeed: 45, speedBoost: 30, upBoost: 9
+    });
+
+    // SECTION 4 — steep drop into a wide 180-degree return. The curve's exit
+    // points the player back across the facility rather than down a hallway.
+    const ramp2Start = [deck3[0], deck3[1] - 0.5, deck3[2] + 52];
+    const ramp2End = [deck3[0], deck3[1] - 14, deck3[2] + 166];
+    b.addSurfWedge(ramp2Start, ramp2End, {
+      faceWidth: fw, slopeDeg: 52, side: 'both', lipStart: true, lipEnd: true
+    });
+    const c3 = b.addSurfCurve({
+      start: [ramp2End[0], ramp2End[1] - 1, ramp2End[2] + 12],
+      yawStart: 0, yawDelta: -Math.PI / 1.85,
+      radius: 78, pitchDrop: -15, segments: 20,
+      faceWidth: fw, slopeDeg: 51, side: 'both', lipStart: true, lipEnd: true
+    });
+    const c3e = c3.curve.end, c3t = c3.curve.endTangent;
+    const deck4 = [c3e[0] + c3t[0] * 20, c3e[1] - 6, c3e[2] + c3t[2] * 20];
+    b.addDeck(deck4[0], deck4[1], deck4[2], 38, 38);
+    b.addPylon(deck4[0] - 30, deck4[1] - 12, deck4[2], 24);
+    b.addPylon(deck4[0] + 30, deck4[1] - 12, deck4[2], 24);
+
+    // SECTION 5 — second tether transfer, now across the return lane.
+    const yaw4 = c3.curve.endYaw;
+    const tether2Start = [deck4[0] + c3t[0] * 18, deck4[1] - 0.5, deck4[2] + c3t[2] * 18];
+    const tether2End = advance(tether2Start, yaw4, 112, 14);
+    b.addSurfWedge(tether2Start, tether2End, {
+      faceWidth: 13.5, slopeDeg: 51, side: 'both', lipStart: true, lipEnd: true
+    });
+    const a2 = advance(tether2Start, yaw4, 64, -31);
+    const a3 = advance(tether2Start, yaw4, 104, -40);
+    b.addBox(a2[0] + 16, a2[1], a2[2], 7, 6, 7, b.mats.accent);
+    b.addBox(a3[0] - 18, a3[1] + 7, a3[2], 7, 6, 7, b.mats.accent);
+    const deck5 = advance(tether2End, yaw4, 46, 2);
+    buildSurfDeck(b, deck5[0], deck5[1], deck5[2] - 15, deck5[2] + 25, 36, 'end');
+    b.addBoostRing(advance(deck5, yaw4, 20, 0), dir(yaw4), {
+      radius: 7.1, minSpeed: 48, speedBoost: 32, upBoost: 9
+    });
+
+    // FINAL SECTION — a fast bank-to-bank transfer, then a long clean finish.
+    const finalYaw = yaw4;
+    const finalStart = advance(deck5, finalYaw, 38, 0.5);
+    const finalEnd = advance(deck5, finalYaw, 152, 13);
+    b.addSurfWedge(finalStart, finalEnd, {
+      faceWidth: 14, slopeDeg: 51, side: 'both', lipStart: true, lipEnd: true
+    });
+    const c4 = b.addSurfCurve({
+      start: advance(finalEnd, finalYaw, 12, 1),
+      yawStart: finalYaw, yawDelta: -finalYaw * 0.72,
+      radius: 66, pitchDrop: -10, segments: 18,
+      faceWidth: 14, slopeDeg: 50, side: 'both', lipStart: true, lipEnd: true
+    });
+    const c4e = c4.curve.end, c4t = c4.curve.endTangent;
+    const finishDeck = [c4e[0] + c4t[0] * 20, c4e[1] - 5, c4e[2] + c4t[2] * 20];
+    buildSurfDeck(b, finishDeck[0], finishDeck[1], finishDeck[2] - 18, finishDeck[2] + 58, 42, 'start');
+    b.addPylon(finishDeck[0] - 33, finishDeck[1], finishDeck[2] + 18, 26);
+    b.addPylon(finishDeck[0] + 33, finishDeck[1], finishDeck[2] + 18, 26);
+    b.addBox(finishDeck[0], finishDeck[1] + 25, finishDeck[2] + 18, 64, 1.2, 2.2, b.mats.accent, false);
+
+    // Industrial silhouettes and overhead trusses frame the route without
+    // adding collision clutter around the playable surf faces.
+    for (let i = 0; i < 7; i++) {
+      const z = 52 + i * 112;
+      b.addBox(-92, 20, z, 4, 150, 4, b.mats.dark, false);
+      b.addBox(92, 20, z, 4, 150, 4, b.mats.dark, false);
+      b.addBox(0, 91 - i * 8, z, 184, 2, 2, b.mats.dark, false);
+    }
+
+    const gates = b.buildGates([
+      [0, 108, 5, 9],
+      [finishDeck[0], finishDeck[1] + 3, finishDeck[2] + 19, 12]
+    ]);
+    b.gateText('FINISH', finishDeck[0], finishDeck[1] + 15, finishDeck[2] + 19, '#ffad60');
+
+    return {
+      id: 'surf_tetherline', theme: 'slate', format: 'linear', tier: 2,
+      spawn: V3(0, 104, -9), yaw: Math.PI, course: gates, bound: 0,
+      killY: -38, surfHint: true,
+      previewWaypoints: [
+        [-24, 120, 12], [16, 94, 152], [deck1[0] + 18, deck1[1] + 20, deck1[2] + 55],
+        [deck2[0] + 24, deck2[1] + 35, deck2[2] + 100],
+        [deck4[0] - 20, deck4[1] + 24, deck4[2] + 42],
+        [finishDeck[0] + 20, finishDeck[1] + 28, finishDeck[2] + 35]
+      ]
+    };
+  }
+
   // ===================================================================
   // TIME TRIAL 01 — THE ASCENT (T1 · Linear · Slate) [Preserves id='course1']
   // ===================================================================
@@ -1333,6 +1491,15 @@
       pieces: ['450° Spiral', 'V-Tunnel', 'Double-Spine Flicks'],
       description: 'Endurance Tier 4 showcase uniting 450° helical drops, V-tunnels, flick chains, and sky vaults.',
       build: buildSurfOmnific
+    },
+
+    {
+      id: 'surf_tetherline', category: 'surf', name: 'Tetherline', code: 'surf_tetherline',
+      author: 'Velocity Core', tier: 2, format: 'linear', cpCount: 0,
+      parGold: 68.0, parSilver: 92.0, theme: 'slate',
+      pieces: ['Long S-Curves', 'Grapple Transfers', 'Kinetic Boost Chains'],
+      description: 'A full-length industrial surf route built around sustained speed, deliberate grapple swings, and clean kinetic-burst transfers.',
+      build: buildSurfTetherline
     },
 
     // --- TIME TRIALS (4) ---
