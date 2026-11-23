@@ -109,13 +109,13 @@ function render(dt){
     pauseAvatarVisual.group.position.copy(_rp);
     pauseAvatarVisual.group.rotation.y=p.yaw;
 
-    // Camera moves back and slightly to the side, framing the runner beside
-    // the floating pause panel instead of leaving the player in first person.
+    // Camera moves in front of the runner and slightly to one side, looking
+    // back toward their face so the character reads clearly beside the panel.
     pauseCameraForward.set(-Math.sin(p.yaw),0,-Math.cos(p.yaw));
     pauseCameraRight.set(Math.cos(p.yaw),0,-Math.sin(p.yaw));
     pauseCameraTarget.set(_rp.x,_rp.y+1.08,_rp.z);
     pauseDesiredCameraPosition.copy(_rp)
-      .addScaledVector(pauseCameraForward,-4.45)
+      .addScaledVector(pauseCameraForward,4.45)
       .addScaledVector(pauseCameraRight,1.15);
     pauseDesiredCameraPosition.y+=2.12;
     pauseCameraLooker.position.copy(pauseDesiredCameraPosition);
@@ -208,7 +208,7 @@ function frame(now){
   else{acc=0;}
   render(dt);
   renderer.render(scene,camera);
-  if(inLevel)ViewmodelSystem.render(renderer);
+  if(inLevel&&!pauseWorldViewActive)ViewmodelSystem.render(renderer);
   if(isSoftwareGl)afterDraw(frame);
   else frameId=requestAnimationFrame(frame);
 }
@@ -3873,7 +3873,7 @@ function enter(){
   if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();
   render(0.016);
   renderer.render(scene,camera);
-  if(inLevel)ViewmodelSystem.render(renderer);
+  if(inLevel&&!pauseWorldViewActive)ViewmodelSystem.render(renderer);
   try{
     const res=renderer.domElement.requestPointerLock?.();
     if(res&&typeof res.catch==='function')res.catch(()=>{});
