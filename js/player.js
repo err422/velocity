@@ -176,27 +176,22 @@ document.addEventListener('keyup',e=>{
   keys[e.code]=false;
   if(e.code===getSettings().keybinds.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
 });
-// Pointer events provide one consistent press/release lifecycle for mouse buttons
-// while pointer lock is active. Keep ADS latched until the matching pointerup.
-document.addEventListener('pointerdown',e=>{
-  if(e.pointerType!=='mouse'||window.isRebindingInput||!isActivePlay())return;
+// Mouse events report each button independently, including when multiple
+// buttons are held together (e.g. RMB aim + LMB fire).
+document.addEventListener('mousedown',e=>{
+  if(window.isRebindingInput||!isActivePlay())return;
   const tok=window.VelocitySettings?VelocitySettings.mouseButtonToToken(e.button):('Mouse'+e.button);
   if(!tok)return;
   keys[tok]=true;
   if(e.button===1||e.button===2||e.button===3||e.button===4)e.preventDefault();
   triggerBoundToken(tok,false);
 });
-document.addEventListener('pointerup',e=>{
-  if(e.pointerType!=='mouse')return;
+document.addEventListener('mouseup',e=>{
   const tok=window.VelocitySettings?VelocitySettings.mouseButtonToToken(e.button):('Mouse'+e.button);
   if(tok){
     keys[tok]=false;
     if(tok===getSettings().keybinds.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
   }
-});
-document.addEventListener('pointercancel',e=>{
-  if(e.pointerType!=='mouse')return;
-  clearHeldInputs();
 });
 document.addEventListener('wheel',e=>{
   if(window.isRebindingInput||!isActivePlay()||!window.CombatSystem)return;

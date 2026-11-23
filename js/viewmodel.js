@@ -6182,13 +6182,12 @@
       const hipRy = isPistol ? -0.152 : wt === 'awp' ? -0.172 : wt === 'smg' ? -0.158 : -0.166;
       const hipRz = isPistol ? -0.320 : wt === 'awp' ? -0.252 : wt === 'smg' ? -0.285 : -0.268;
 
-      // Exact center-screen eye alignment for iron sights, reflex dot, and holo sight!
-      // Because mesh is placed at rightPocket - rot(gripCenter) inside rightHandPivot,
-      // centering weapon's optic (0, opticEyeY) at camera eye (0, 0) requires solving rightHandPivot position:
+      // Center the optic's actual eye point on the viewmodel camera axis.
+      // The grip-center and optic-eye offsets cancel in the hand-pivot position.
       const spec = WEAPON_GRIP_SPECS[wt] || WEAPON_GRIP_SPECS.rifle;
       const eyeY = Number.isFinite(mesh.userData.opticEyeY) ? mesh.userData.opticEyeY : 0.060;
       const adsRx = -spec.gripCenter[0] - (vmOffset.offsetX * 0.022);
-      const adsRy = spec.gripCenter[1] - eyeY - 0.024 - (vmOffset.offsetY * 0.022);
+      const adsRy = spec.gripCenter[1] - eyeY - (vmOffset.offsetY * 0.022);
       const adsRz = isPistol ? -0.245 : wt === 'smg' ? -0.205 : -0.190;
 
       let rx = THREE.MathUtils.lerp(hipRx, adsRx, adsEase) + (bobX * 0.85 + swayX) * motionDamp + _weaponOut.rx * (1 - adsEase);
