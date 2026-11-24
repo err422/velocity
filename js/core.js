@@ -280,7 +280,7 @@ const CFG={
   tickRate:120,                      // fixed physics steps per second (deterministic, tunnel-resistant)
   radius:.45, skin:.02,              // capsule radius; contact tolerance used for "touching"
   eyeStand:1.7, eyeLow:.9,           // camera height standing / sliding
-  groundSpeed:22, groundAccel:12,    // run speed cap and Quake-style accel factor
+  groundSpeed:18, groundAccel:8,     // softer ground start; surf momentum remains skill-driven
   friction:6, stopSpeed:4,           // ground friction; speed floor used by friction (snappy stops)
   airWishCap:2.75, airAccel:15,      // air-strafe: max speed gained along wish dir per tick; accel factor
   surfMinY:.32,                      // surf slope band: surfMinY <= normal.y < walkableY (~46°..71°)
