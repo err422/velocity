@@ -7,7 +7,7 @@ const player={pos:SPAWN.clone(),prev:SPAWN.clone(),vel:V3(),yaw:Math.PI,pitch:0,
 const contact={ground:false,wall:false,surf:false,gn:V3(),wn:V3(),sn:V3()};
 const keys={},wish=V3();
 let locked=false,last=performance.now(),acc=0,jumpBuffer=0,coyote=0,burstCd=0,padCd=0,boosterCd=0,teleCd=0,toastTimer=0;
-let revolverChargeTimer=0; // -1 means this press has already fired; release is required before another shot.
+let revolverChargeTimer=-2; // -2 idle, >=0 charging, -1 fired; a fresh press is required.
 let ghostRecorder=null,ghostPb=null,ghostLast=null,ghostMode='pb',ghostVisual=null;
 camera.rotation.order='YXZ';
 const $=id=>document.getElementById(id);
@@ -65,7 +65,7 @@ function clearHeldInputs(){
   for(const k in keys)keys[k]=false;
   window.isScoreboardHeld=false;
   if(window.CombatSystem)window.CombatSystem.setAdsHeld(false);
-  revolverChargeTimer=0;
+  revolverChargeTimer=-2;
 }
 function isArenaBlocked(){
   if(!window.NetcodeSystem)return false;
