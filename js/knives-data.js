@@ -177,6 +177,28 @@
       inspectName: 'Bolt Sweep & Optic Check',
       description: 'High-caliber bolt-action rifle with 2-stage RMB optic zoom and 1-shot eliminations.'
     },
+    revolver: {
+      id: 'revolver',
+      name: 'R-88 Magnum',
+      shortName: 'R-88',
+      slot: 1,
+      magSize: 6,
+      rpm: 86,
+      fireInterval: 0.70,
+      damageBody: 105,
+      damageHead: 260,
+      reloadTime: 2.88,
+      auto: false,
+      scoped: false,
+      range: 420,
+      spreadBase: 0.0012,
+      spreadHip: 0.0012,
+      spreadMove: 0.0068,
+      recoilPitch: 0.056,
+      recoilYaw: 0.011,
+      inspectName: 'Cylinder Pop & Trigger Spin',
+      description: 'Heavy .500 magnum revolver with 0.20s charged 1-shot hitscan power, RMB fan-the-hammer, and CS-style spins.'
+    },
     deagle: {
       id: 'deagle',
       name: 'Deagle .50',
@@ -261,6 +283,7 @@
       smg: 1.08,
       shotgun: 1.1,
       rifle: 1.15,
+      revolver: 1.22,
       awp: 1.25
     }),
     SELL_GLOVE_TYPE_MUL: Object.freeze({
@@ -788,7 +811,8 @@
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'ultraviolet' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'ultraviolet' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'ultraviolet' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'damascus' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'damascus' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'ultraviolet' }
         ],
         restricted: [
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'redline' },
@@ -797,7 +821,8 @@
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'damascus' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'redline' },
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'damascus' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'crimson_web' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'crimson_web' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'crimson_web' }
         ],
         classified: [
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'vulcan' },
@@ -805,13 +830,15 @@
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'blaze' },
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'redline' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'blaze' },
-          { itemKind: 'weapon', weaponType: 'awp', skinId: 'crimson_web' }
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'crimson_web' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'blaze' }
         ],
         covert: [
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'asiimov' },
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'case_hardened' },
           { itemKind: 'weapon', weaponType: 'smg', skinId: 'asiimov' },
-          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'asiimov' }
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'asiimov' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'case_hardened' }
         ],
         gold: [
           { knifeType: 'karambit', skinId: 'case_hardened', forceBlueGem: true },
@@ -845,7 +872,8 @@
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'ultraviolet' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'damascus' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'ultraviolet' },
-          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'ultraviolet' }
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'ultraviolet' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'damascus' }
         ],
         restricted: [
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'vulcan' },
@@ -854,7 +882,8 @@
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'vulcan' },
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'crimson_web' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'vulcan' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'redline' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'redline' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'redline' }
         ],
         classified: [
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'neon_rider' },
@@ -862,13 +891,15 @@
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'hyper_chroma' },
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'hyper_chroma' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'hyper_chroma' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'hyper_chroma' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'hyper_chroma' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'neon_rider' }
         ],
         covert: [
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'printstream' },
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'printstream' },
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'printstream' },
-          { itemKind: 'weapon', weaponType: 'awp', skinId: 'neon_rider' }
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'neon_rider' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'printstream' }
         ],
         gold: [
           { knifeType: 'karambit', skinId: 'doppler', forceGem: true },
@@ -919,14 +950,16 @@
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'case_hardened' },
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'fade' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'fade' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'case_hardened' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'case_hardened' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'fade' }
         ],
         covert: [
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'dragon_gold' },
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'dragon_gold' },
           { itemKind: 'weapon', weaponType: 'smg', skinId: 'printstream' },
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'dragon_gold' },
-          { itemKind: 'weapon', weaponType: 'awp', skinId: 'printstream' }
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'printstream' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'dragon_gold' }
         ],
         gold: [
           { knifeType: 'butterfly', skinId: 'doppler', forceGem: true },
@@ -975,13 +1008,15 @@
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'solarflare' },
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'solarflare' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'hazard_pay' },
-          { itemKind: 'weapon', weaponType: 'smg', skinId: 'coldfront' }
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'coldfront' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'hazard_pay' }
         ],
         covert: [
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'solarflare' },
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'voidglass' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'redshift' },
-          { itemKind: 'weapon', weaponType: 'smg', skinId: 'hazard_pay' }
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'hazard_pay' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'solarflare' }
         ],
         gold: [
           { knifeType: 'm9', skinId: 'emberstrike' },
@@ -1028,13 +1063,15 @@
           { itemKind: 'weapon', weaponType: 'smg', skinId: 'voidglass' },
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'redshift' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'nitro' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'voidglass' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'voidglass' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'nitro' }
         ],
         covert: [
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'voidglass' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'nitro' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'solarflare' },
-          { itemKind: 'weapon', weaponType: 'smg', skinId: 'redshift' }
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'redshift' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'voidglass' }
         ],
         gold: [
           { knifeType: 'butterfly', skinId: 'arctic_veil' },
@@ -1080,14 +1117,16 @@
           { itemKind: 'weapon', weaponType: 'smg', skinId: 'solarflare' },
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'voidglass' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'solarflare' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'nitro' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'nitro' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'solarflare' }
         ],
         covert: [
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'solarflare' },
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'voidglass' },
           { itemKind: 'weapon', weaponType: 'smg', skinId: 'solarflare' },
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'voidglass' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'dragon_gold' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'dragon_gold' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'voidglass' }
         ],
         gold: [
           { knifeType: 'karambit', skinId: 'emberstrike' },
@@ -1531,6 +1570,7 @@
       createStarterWeapon('smg'),
       createStarterWeapon('shotgun'),
       createStarterWeapon('awp'),
+      createStarterWeapon('revolver'),
       createStarterWeapon('deagle'),
       createStarterWeapon('pistol')
     ];
@@ -1548,6 +1588,7 @@
       equippedSmgId: 'starter_smg_slate',
       equippedShotgunId: 'starter_shotgun_slate',
       equippedAwpId: 'starter_awp_slate',
+      equippedRevolverId: 'starter_revolver_slate',
       equippedDeagleId: 'starter_deagle_slate',
       equippedPistolId: 'starter_pistol_slate',
       caseCounts: Object.fromEntries(CASE_IDS.map((id) => [id, 0])),
@@ -1751,6 +1792,7 @@
     const equippedSmgId = findValidWeaponId(raw.equippedSmgId, 'smg');
     const equippedShotgunId = findValidWeaponId(raw.equippedShotgunId, 'shotgun');
     const equippedAwpId = findValidWeaponId(raw.equippedAwpId, 'awp');
+    const equippedRevolverId = findValidWeaponId(raw.equippedRevolverId, 'revolver');
     const equippedDeagleId = findValidWeaponId(raw.equippedDeagleId, 'deagle');
     const equippedPistolId = findValidWeaponId(raw.equippedPistolId, 'pistol');
 
@@ -1762,6 +1804,7 @@
       equippedSmgId,
       equippedShotgunId,
       equippedAwpId,
+      equippedRevolverId,
       equippedDeagleId,
       equippedPistolId,
       caseCounts,
@@ -1791,6 +1834,7 @@
       smg: inv.equippedSmgId,
       shotgun: inv.equippedShotgunId,
       awp: inv.equippedAwpId,
+      revolver: inv.equippedRevolverId,
       deagle: inv.equippedDeagleId,
       pistol: inv.equippedPistolId
     };
@@ -1832,6 +1876,7 @@
       if (item.weaponType === 'smg') return inventory.equippedSmgId === item.id;
       if (item.weaponType === 'shotgun') return inventory.equippedShotgunId === item.id;
       if (item.weaponType === 'awp') return inventory.equippedAwpId === item.id;
+      if (item.weaponType === 'revolver') return inventory.equippedRevolverId === item.id;
       if (item.weaponType === 'deagle') return inventory.equippedDeagleId === item.id;
       if (item.weaponType === 'pistol') return inventory.equippedPistolId === item.id;
       return inventory.equippedRifleId === item.id;
@@ -2445,6 +2490,7 @@
     const equippedSmgId = pickEquipped(local.equippedSmgId, cloud.equippedSmgId, wMerge.merged, (w) => w.weaponType === 'smg');
     const equippedShotgunId = pickEquipped(local.equippedShotgunId, cloud.equippedShotgunId, wMerge.merged, (w) => w.weaponType === 'shotgun');
     const equippedAwpId = pickEquipped(local.equippedAwpId, cloud.equippedAwpId, wMerge.merged, (w) => w.weaponType === 'awp');
+    const equippedRevolverId = pickEquipped(local.equippedRevolverId, cloud.equippedRevolverId, wMerge.merged, (w) => w.weaponType === 'revolver');
     const equippedDeagleId = pickEquipped(local.equippedDeagleId, cloud.equippedDeagleId, wMerge.merged, (w) => w.weaponType === 'deagle');
     const equippedPistolId = pickEquipped(local.equippedPistolId, cloud.equippedPistolId, wMerge.merged, (w) => w.weaponType === 'pistol');
 
@@ -2471,6 +2517,7 @@
       equippedSmgId,
       equippedShotgunId,
       equippedAwpId,
+      equippedRevolverId,
       equippedDeagleId,
       equippedPistolId,
       caseCounts,

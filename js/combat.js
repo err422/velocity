@@ -100,6 +100,94 @@
     return 'advance';
   }
 
+  function advanceTriggerCharge(progress, held, dt, chargeTimeSec) {
+    const cur = Math.max(0, Math.min(1, Number(progress) || 0));
+    const delta = Math.max(0, Number(dt) || 0);
+    const dur = Math.max(0.05, Number(chargeTimeSec) || 0.20);
+    if (held) {
+      const next = Math.min(1, cur + delta / dur);
+      return { progress: next, readyToFire: next >= 1 };
+    }
+    const next = Math.max(0, cur - (delta / dur) * 2.6);
+    return { progress: next, readyToFire: false };
+  }
+
+  function stepShellReload(reloadState, dt, build, ammo) {
+    const delta = Math.max(0, Number(dt) || 0);
+    const magSize = Math.max(1, (build && build.magSize) || 6);
+    const insertTime = Math.max(0.12, (build && build.shellInsertTime) || 0.36);
+    const closeTime = Math.max(0.12, (build && build.shellCloseTime) || 0.32);
+    let phase = (reloadState && reloadState.phase) || 'none';
+    let timer = Math.max(0, Number(reloadState && reloadState.timer) || 0);
+    let duration = Math.max(0.01, Number(reloadState && reloadState.duration) || 0.32);
+    const interruptQueued = Boolean(reloadState && reloadState.interruptQueued);
+    let curAmmo = Math.max(0, Math.min(magSize, Number(ammo) || 0));
+    let shellInserted = false;
+    let done = false;
+    let event = 'none';
+
+    if (phase === 'open') {
+      if (interruptQueued && curAmmo > 0) {
+        phase = 'close';
+        duration = closeTime * 0.65;
+        timer = duration;
+        event = 'close_start';
+      } else {
+        timer -= delta;
+        if (timer <= 0) {
+          if (curAmmo >= magSize || (interruptQueued && curAmmo > 0)) {
+            phase = 'close';
+            duration = closeTime;
+            timer = duration;
+            event = 'close_start';
+          } else {
+            phase = 'insert';
+            duration = insertTime;
+            timer = insertTime;
+            event = 'insert_start';
+          }
+        }
+      }
+    } else if (phase === 'insert') {
+      timer -= delta;
+      if (timer <= 0) {
+        curAmmo = Math.min(magSize, curAmmo + 1);
+        shellInserted = true;
+        if (curAmmo >= magSize || interruptQueued) {
+          phase = 'close';
+          duration = closeTime;
+          timer = closeTime;
+          event = 'close_start';
+        } else {
+          phase = 'insert';
+          duration = insertTime;
+          timer = insertTime;
+          event = 'insert_next';
+        }
+      }
+    } else if (phase === 'close') {
+      timer -= delta;
+      if (timer <= 0) {
+        phase = 'none';
+        timer = 0;
+        duration = 0;
+        done = true;
+        event = 'done';
+      }
+    }
+
+    return {
+      phase,
+      timer: Math.max(0, timer),
+      duration,
+      interruptQueued,
+      ammo: curAmmo,
+      shellInserted,
+      done,
+      event
+    };
+  }
+
   // If running in Node unit tests without THREE, return pure helpers
   if (!root.THREE || typeof document === 'undefined') {
     return {
@@ -109,6 +197,8 @@
       SLOTS,
       advanceAdsProgress,
       advanceChronoState,
+      advanceTriggerCharge,
+      stepShellReload,
       computeGauntletSummary,
       evaluateDuelRoundResult,
       evaluateFfaScoreboard,
@@ -182,7 +272,20 @@
       chronoRampIn: 0.14,
       chronoRampOut: 0.14,
       chronoAirSpreadMul: 1.0,
-      chronoLabel: ''
+      chronoLabel: '',
+      chargeTimeSec: weaponId === 'revolver' ? 0.20 : 0,
+      altFireMode: weaponId === 'revolver' ? 'fan' : 'ads',
+      fanDamageBody: weaponId === 'revolver' ? 68 : 0,
+      fanDamageHead: weaponId === 'revolver' ? 118 : 0,
+      fanFalloffStart: 12,
+      fanFalloffEnd: 38,
+      fanMinFalloffMul: 0.45,
+      fanSpread: weaponId === 'revolver' ? 0.042 : 0,
+      fanFireInterval: weaponId === 'revolver' ? 0.21 : 0.21,
+      reloadMode: weaponId === 'revolver' ? 'shell' : 'mag',
+      shellOpenTime: weaponId === 'revolver' ? 0.40 : 0,
+      shellInsertTime: weaponId === 'revolver' ? 0.36 : 0,
+      shellCloseTime: weaponId === 'revolver' ? 0.32 : 0
     };
   }
 
@@ -199,6 +302,15 @@
     reloading: false,
     reloadTimer: 0,
     reloadDuration: 0,
+    reloadPhase: 'none', // 'none' | 'open' | 'insert' | 'close'
+    reloadPhaseTimer: 0,
+    reloadPhaseDuration: 0,
+    reloadInterruptQueued: false,
+    chargeHeld: false,
+    chargeProgress: 0,
+    chargeReadyToFire: false,
+    chargeRatchetStage: 0,
+    cylinderIndex: 0,
     adsHeld: false,
     adsProgress: 0,
     scopeAltZoom: false,
@@ -367,7 +479,7 @@
     if (slot === 'primary' || slot === 'secondary' || slot === 'melee') return slot;
     if (slot === 'knife') return 'melee';
     if (slot === 'deagle' || slot === 'pistol') return 'secondary';
-    if (slot === 'rifle' || slot === 'smg' || slot === 'shotgun' || slot === 'awp') return 'primary';
+    if (slot === 'rifle' || slot === 'smg' || slot === 'shotgun' || slot === 'awp' || slot === 'revolver') return 'primary';
     return 'melee';
   }
 
@@ -397,8 +509,8 @@
     state.builds.secondary = LS ? LS.resolveWeaponBuild(sWid, sAtts) : makeFallbackBuild(sWid);
     state.ammo.primary = state.builds.primary.magSize;
     state.ammo.secondary = state.builds.secondary.magSize;
-    state.reloading = false;
-    state.reloadTimer = 0;
+    clearReloadState();
+    resetCharge();
     state.fireCooldown = 0;
     clearScope();
 
@@ -421,6 +533,23 @@
       root.ViewmodelSystem.setActiveSlot(getActiveWeaponType(), false);
     }
     return { primary: state.builds.primary, secondary: state.builds.secondary };
+  }
+
+  function resetCharge() {
+    state.chargeHeld = false;
+    state.chargeProgress = 0;
+    state.chargeReadyToFire = false;
+    state.chargeRatchetStage = 0;
+  }
+
+  function clearReloadState() {
+    state.reloading = false;
+    state.reloadTimer = 0;
+    state.reloadDuration = 0;
+    state.reloadPhase = 'none';
+    state.reloadPhaseTimer = 0;
+    state.reloadPhaseDuration = 0;
+    state.reloadInterruptQueued = false;
   }
 
   function clearScope() {
@@ -462,8 +591,8 @@
     }
     state.lastSlot = state.activeSlot;
     state.activeSlot = valid;
-    state.reloading = false;
-    state.reloadTimer = 0;
+    clearReloadState();
+    resetCharge();
     state.fireCooldown = Math.min(state.fireCooldown, 0.16);
     clearScope();
     if (root.ViewmodelSystem) {
@@ -486,19 +615,86 @@
   function resetAmmo() {
     state.ammo.primary = state.builds.primary.magSize;
     state.ammo.secondary = state.builds.secondary.magSize;
-    state.reloading = false;
-    state.reloadTimer = 0;
+    clearReloadState();
+    resetCharge();
+    state.cylinderIndex = 0;
     state.fireCooldown = 0;
     state.spreadBloom = 0;
     clearScope();
   }
 
+  function interruptReload() {
+    if (!state.reloading) return false;
+    const build = getActiveBuild(state.activeSlot);
+    if (!build || build.reloadMode !== 'shell') return false;
+    if (state.reloadPhase === 'close') return true;
+    state.reloadInterruptQueued = true;
+    return true;
+  }
+
+  function setChargeHeld(held) {
+    const build = getActiveBuild(state.activeSlot);
+    if (!build || !(build.chargeTimeSec > 0)) {
+      resetCharge();
+      return false;
+    }
+    const want = Boolean(held);
+    if (!want) {
+      state.chargeHeld = false;
+      state.chargeReadyToFire = false;
+      return false;
+    }
+    if (state.reloading) {
+      if (build.reloadMode === 'shell') {
+        interruptReload();
+        state.chargeHeld = true;
+        return true;
+      }
+      return false;
+    }
+    if ((state.ammo[state.activeSlot] || 0) <= 0) {
+      if (root.WeaponAudio) root.WeaponAudio.dryFire();
+      startReload();
+      return false;
+    }
+    state.chargeHeld = true;
+    return true;
+  }
+
+  function consumeChargedShot() {
+    if (!state.chargeReadyToFire) return false;
+    state.chargeReadyToFire = false;
+    state.chargeProgress = 0;
+    state.chargeRatchetStage = 0;
+    return true;
+  }
+
   function startReload() {
     const build = getActiveBuild(state.activeSlot);
     if (!build || state.reloading) return false;
-    if (state.ammo[state.activeSlot] >= build.magSize) return false;
+    const curAmmo = state.ammo[state.activeSlot] || 0;
+    if (curAmmo >= build.magSize) return false;
     clearScope();
+    resetCharge();
     state.reloading = true;
+    if (build.reloadMode === 'shell') {
+      const openT = build.shellOpenTime || 0.40;
+      const insertT = build.shellInsertTime || 0.36;
+      const closeT = build.shellCloseTime || 0.32;
+      const needed = Math.max(1, build.magSize - curAmmo);
+      state.reloadPhase = 'open';
+      state.reloadPhaseDuration = openT;
+      state.reloadPhaseTimer = openT;
+      state.reloadInterruptQueued = false;
+      state.reloadDuration = openT + needed * insertT + closeT;
+      state.reloadTimer = state.reloadDuration;
+      if (root.WeaponAudio && typeof root.WeaponAudio.revolverCraneOpen === 'function') {
+        root.WeaponAudio.revolverCraneOpen();
+      }
+      if (root.ViewmodelSystem) root.ViewmodelSystem.triggerReload(state.reloadDuration);
+      return true;
+    }
+    state.reloadPhase = 'none';
     state.reloadDuration = build.reloadTime;
     state.reloadTimer = build.reloadTime;
     if (root.ViewmodelSystem) root.ViewmodelSystem.triggerReload(build.reloadTime);
@@ -507,7 +703,7 @@
 
   function setAdsHeld(held) {
     const build = getActiveBuild(state.activeSlot);
-    if (!build || state.reloading) {
+    if (!build || state.reloading || build.altFireMode === 'fan') {
       if (state.adsHeld) clearScope();
       return false;
     }
@@ -1482,12 +1678,20 @@
 
   function tryFire(origin, forwardDir, opts) {
     const o = opts || {};
-    if (state.fireCooldown > 0 || state.reloading) return { fired: false };
-
     const slot = state.activeSlot;
     const isKnife = slot === 'melee';
     const build = getActiveBuild(slot);
     const weaponId = isKnife ? 'knife' : (build ? build.weaponId : 'rifle');
+    const isFan = Boolean(o.fanFire && build && build.altFireMode === 'fan');
+
+    if (state.reloading) {
+      if (build && build.reloadMode === 'shell') {
+        interruptReload();
+        return { fired: false, interruptedReload: true };
+      }
+      return { fired: false };
+    }
+    if (state.fireCooldown > 0) return { fired: false };
 
     if (!isKnife) {
       if (!build) return { fired: false };
@@ -1497,9 +1701,15 @@
         return { fired: false, empty: true };
       }
       state.ammo[slot] -= 1;
-      state.fireCooldown = build.fireInterval;
-      if (root.WeaponAudio) root.WeaponAudio.fireWeapon(weaponId, { suppressed: build.suppressed });
-      if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil(weaponId);
+      state.fireCooldown = isFan ? (build.fanFireInterval || 0.21) : build.fireInterval;
+      if (weaponId === 'revolver') {
+        state.cylinderIndex = (state.cylinderIndex + 1) % Math.max(1, build.magSize || 6);
+        state.chargeProgress = 0;
+        state.chargeReadyToFire = false;
+        state.chargeRatchetStage = 0;
+      }
+      if (root.WeaponAudio) root.WeaponAudio.fireWeapon(weaponId, { suppressed: build.suppressed, fanFire: isFan });
+      if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil(weaponId, { fanFire: isFan });
     } else {
       state.fireCooldown = o.heavy ? 0.65 : 0.42;
       if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil('knife');
@@ -1509,7 +1719,7 @@
     const solidList = o.solidMeshes || (typeof root.solidMeshes !== 'undefined' ? root.solidMeshes : []);
     const pellets = isKnife ? 1 : Math.max(1, build.pellets || 1);
 
-    // Base spread interpolated cleanly between hipfire and True ADS
+    // Base spread interpolated cleanly between hipfire and True ADS (or Fan-the-Hammer cone)
     let baseSpread = 0;
     if (!isKnife) {
       const moveSpeed = Number(o.moveSpeed) || 0;
@@ -1519,11 +1729,24 @@
       const chronoAirMul = chronoW > 0 && build.chronoAirSpreadMul
         ? (1 + (build.chronoAirSpreadMul - 1) * chronoW)
         : 1;
-      baseSpread = build.spreadHip + (build.spreadAds - build.spreadHip) * adsT;
-      if (moveSpeed > 3.5) baseSpread += Math.min(build.spreadMove, (moveSpeed - 3.5) * 0.00075) * (1 - adsT * 0.35) * (1 - chronoW * 0.25);
-      if (airborne) baseSpread += ((weaponId === 'awp' && adsT < 0.6) ? 0.018 : (0.0042 * (1 - adsT * 0.35))) * chronoAirMul;
-      baseSpread += state.spreadBloom;
-      state.spreadBloom = Math.min(0.026, state.spreadBloom + (build.auto ? 0.0028 : 0.0052));
+      if (isFan) {
+        baseSpread = (build.fanSpread || 0.042) + state.spreadBloom * 1.45;
+        if (moveSpeed > 3.5) baseSpread += Math.min(0.016, (moveSpeed - 3.5) * 0.0011);
+        if (airborne) baseSpread += 0.014 * chronoAirMul;
+        state.spreadBloom = Math.min(0.032, state.spreadBloom + 0.0085);
+      } else if (weaponId === 'revolver') {
+        baseSpread = build.spreadAds;
+        if (moveSpeed > 4.5) baseSpread += Math.min(build.spreadMove * 0.5, (moveSpeed - 4.5) * 0.00035) * (1 - chronoW * 0.55);
+        if (airborne) baseSpread += 0.0022 * chronoAirMul;
+        baseSpread += state.spreadBloom * 0.45;
+        state.spreadBloom = Math.min(0.022, state.spreadBloom + 0.0045);
+      } else {
+        baseSpread = build.spreadHip + (build.spreadAds - build.spreadHip) * adsT;
+        if (moveSpeed > 3.5) baseSpread += Math.min(build.spreadMove, (moveSpeed - 3.5) * 0.00075) * (1 - adsT * 0.35) * (1 - chronoW * 0.25);
+        if (airborne) baseSpread += ((weaponId === 'awp' && adsT < 0.6) ? 0.018 : (0.0042 * (1 - adsT * 0.35))) * chronoAirMul;
+        baseSpread += state.spreadBloom;
+        state.spreadBloom = Math.min(0.026, state.spreadBloom + (build.auto ? 0.0028 : 0.0052));
+      }
     }
 
     // Collect shootable meshes once for all pellets
@@ -1542,7 +1765,7 @@
     }
 
     const tracerColors = {
-      standard: weaponId === 'awp' ? 0x7ef2ff : weaponId === 'deagle' ? 0xffcf70 : 0xffe8a6,
+      standard: weaponId === 'awp' ? 0x7ef2ff : weaponId === 'revolver' ? (isFan ? 0xffb85c : 0xffe48a) : weaponId === 'deagle' ? 0xffcf70 : 0xffe8a6,
       brass: 0xffd15c,
       crimson: 0xff5e78,
       cyan: 0x4ef2ff,
@@ -1552,6 +1775,7 @@
 
     const result = {
       fired: true,
+      fanFire: isFan,
       slot: weaponId,
       loadoutSlot: slot,
       weaponId,
@@ -1565,8 +1789,8 @@
       damage: 0,
       killed: false,
       distance: maxRange,
-      recoilPitch: isKnife ? 0 : build.recoilPitch * (1 - state.adsProgress * 0.18),
-      recoilYaw: isKnife ? 0 : (Math.random() - 0.5) * 2 * build.recoilYaw * (1 - state.adsProgress * 0.22)
+      recoilPitch: isKnife ? 0 : (isFan ? build.recoilPitch * 0.72 : build.recoilPitch * (1 - state.adsProgress * 0.18)),
+      recoilYaw: isKnife ? 0 : (Math.random() - 0.5) * 2 * build.recoilYaw * (isFan ? 1.85 : (1 - state.adsProgress * 0.22))
     };
 
     const playerDmgMap = new Map();
@@ -1695,7 +1919,7 @@
           const isHead = ud.hitbox === 'head';
           const dmg = isKnife
             ? (o.heavy ? 100 : 55)
-            : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, true) : (isHead ? build.damageHead : build.damageBody));
+            : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, true, isFan) : (isHead ? build.damageHead : build.damageBody));
           if (root.BotAISystem && typeof root.BotAISystem.alertBotDamage === 'function') {
             root.BotAISystem.alertBotDamage(bot, origin);
           }
@@ -1715,7 +1939,7 @@
           const isHead = ud.hitbox === 'head';
           const dmg = isKnife
             ? (o.heavy ? 100 : 55)
-            : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, false) : (isHead ? build.damageHead : build.damageBody));
+            : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, false, isFan) : (isHead ? build.damageHead : build.damageBody));
           const hostBot = arenaBotAi.get(ud.remoteUid);
           if (hostBot && root.BotAISystem && typeof root.BotAISystem.alertBotDamage === 'function') {
             root.BotAISystem.alertBotDamage(hostBot, origin);
@@ -1802,7 +2026,7 @@
         if (state.activeSlot === slot && state.ammo[slot] === 0 && !state.reloading) {
           startReload();
         }
-      }, weaponId === 'awp' ? 480 : 180);
+      }, weaponId === 'awp' ? 480 : weaponId === 'revolver' ? 280 : 180);
     }
 
     return result;
@@ -1832,13 +2056,59 @@
     // ADS follows only the input/reload state. Viewmodel draw readiness must
     // never reverse the transition while the player is still holding aim.
     const activeBuild = getActiveBuild(state.activeSlot);
-    const adsTarget = Boolean(activeBuild && state.adsHeld && !state.reloading);
+    const adsTarget = Boolean(activeBuild && activeBuild.altFireMode !== 'fan' && state.adsHeld && !state.reloading);
     const adsDur = activeBuild ? activeBuild.adsTimeSec : 0.18;
     state.adsProgress = advanceAdsProgress(state.adsProgress, adsTarget, dt, adsDur);
 
-    // Apex Chrono Hangtime personal temporal dilation (meter-free, activates on ADS when equipped)
+    // CS R8-style double-action trigger charge (0.20s hold to fire; release to decock)
+    if (activeBuild && activeBuild.chargeTimeSec > 0) {
+      const canCharge = Boolean(
+        state.chargeHeld &&
+        !state.reloading &&
+        state.fireCooldown <= 0 &&
+        (state.ammo[state.activeSlot] || 0) > 0
+      );
+      const prevProg = state.chargeProgress;
+      const chRes = advanceTriggerCharge(state.chargeProgress, canCharge, dt, activeBuild.chargeTimeSec);
+      state.chargeProgress = chRes.progress;
+      if (canCharge) {
+        if (state.chargeRatchetStage < 1 && state.chargeProgress >= 0.22 && prevProg < 0.22) {
+          state.chargeRatchetStage = 1;
+          if (root.WeaponAudio && typeof root.WeaponAudio.revolverRatchet === 'function') {
+            root.WeaponAudio.revolverRatchet(1);
+          }
+        } else if (state.chargeRatchetStage < 2 && state.chargeProgress >= 0.62 && prevProg < 0.62) {
+          state.chargeRatchetStage = 2;
+          if (root.WeaponAudio && typeof root.WeaponAudio.revolverRatchet === 'function') {
+            root.WeaponAudio.revolverRatchet(2);
+          }
+        }
+        if (chRes.readyToFire) {
+          state.chargeReadyToFire = true;
+        }
+      } else {
+        state.chargeReadyToFire = false;
+        if (state.chargeProgress < 0.08) state.chargeRatchetStage = 0;
+      }
+    } else if (state.chargeProgress > 0 || state.chargeHeld || state.chargeReadyToFire) {
+      resetCharge();
+    }
+
+    // Apex Chrono Hangtime personal temporal dilation (ADS, or 0.20s Revolver trigger charge)
     const wasChronoActive = state.chronoActive;
-    const chronoTarget = Boolean(activeBuild && activeBuild.hasChronoKit && adsTarget && state.adsProgress >= 0.18);
+    const revolverChronoTarget = Boolean(
+      activeBuild &&
+      activeBuild.hasChronoKit &&
+      activeBuild.altFireMode === 'fan' &&
+      state.chargeHeld &&
+      state.chargeProgress > 0.03 &&
+      !state.reloading
+    );
+    const chronoTarget = Boolean(
+      activeBuild &&
+      activeBuild.hasChronoKit &&
+      ((adsTarget && state.adsProgress >= 0.18) || revolverChronoTarget)
+    );
     const rampIn = activeBuild && activeBuild.chronoRampIn ? activeBuild.chronoRampIn : 0.14;
     const rampOut = activeBuild && activeBuild.chronoRampOut ? activeBuild.chronoRampOut : 0.14;
     state.chronoWeight = advanceChronoState(state.chronoWeight, chronoTarget, dt, rampIn, rampOut);
@@ -1854,13 +2124,59 @@
     }
 
     if (state.reloading) {
-      state.reloadTimer -= dt;
-      if (state.reloadTimer <= 0) {
-        state.reloading = false;
-        const build = getActiveBuild(state.activeSlot);
-        if (build) state.ammo[state.activeSlot] = build.magSize;
-        if (root.WeaponAudio) root.WeaponAudio.reloadFinish();
+      if (activeBuild && activeBuild.reloadMode === 'shell') {
+        const curAmmo = state.ammo[state.activeSlot] || 0;
+        const step = stepShellReload(
+          {
+            phase: state.reloadPhase,
+            timer: state.reloadPhaseTimer,
+            duration: state.reloadPhaseDuration,
+            interruptQueued: state.reloadInterruptQueued
+          },
+          dt,
+          activeBuild,
+          curAmmo
+        );
+        state.reloadPhase = step.phase;
+        state.reloadPhaseTimer = step.timer;
+        state.reloadPhaseDuration = step.duration;
+        state.ammo[state.activeSlot] = step.ammo;
+        state.reloadTimer = Math.max(0, state.reloadTimer - dt);
+        if (step.shellInserted && root.WeaponAudio && typeof root.WeaponAudio.revolverShellInsert === 'function') {
+          root.WeaponAudio.revolverShellInsert();
+        }
+        if (step.event === 'close_start' && root.WeaponAudio && typeof root.WeaponAudio.revolverCraneClose === 'function') {
+          root.WeaponAudio.revolverCraneClose();
+        }
+        if (step.done) {
+          clearReloadState();
+        }
+      } else {
+        state.reloadTimer -= dt;
+        if (state.reloadTimer <= 0) {
+          clearReloadState();
+          if (activeBuild) state.ammo[state.activeSlot] = activeBuild.magSize;
+          if (root.WeaponAudio) root.WeaponAudio.reloadFinish();
+        }
       }
+    }
+
+    // Sync live Revolver mechanical state (hammer, cylinder, crane, 6 brass cartridges) to Viewmodel
+    if (root.ViewmodelSystem && typeof root.ViewmodelSystem.setRevolverState === 'function') {
+      const isRev = Boolean(activeBuild && activeBuild.weaponId === 'revolver');
+      const phaseProg = state.reloadPhaseDuration > 0
+        ? Math.max(0, Math.min(1, 1 - state.reloadPhaseTimer / state.reloadPhaseDuration))
+        : 0;
+      root.ViewmodelSystem.setRevolverState({
+        active: isRev,
+        ammo: isRev ? (state.ammo[state.activeSlot] || 0) : 6,
+        magSize: isRev ? (activeBuild.magSize || 6) : 6,
+        chargeProgress: isRev ? state.chargeProgress : 0,
+        charging: isRev && state.chargeHeld && state.chargeProgress > 0.01,
+        reloadPhase: isRev && state.reloading ? state.reloadPhase : 'none',
+        reloadPhaseProgress: isRev && state.reloading ? phaseProg : 0,
+        cylinderIndex: state.cylinderIndex
+      });
     }
 
     // Update pooled tracers
@@ -2019,6 +2335,8 @@
     SLOTS,
     advanceAdsProgress,
     advanceChronoState,
+    advanceTriggerCharge,
+    stepShellReload,
     computeGauntletSummary,
     evaluateDuelRoundResult,
     evaluateFfaScoreboard,
@@ -2029,6 +2347,9 @@
     cycleSlot,
     resetAmmo,
     startReload,
+    interruptReload,
+    setChargeHeld,
+    consumeChargedShot,
     setAdsHeld,
     cycleScopeZoom,
     toggleScope,
@@ -2080,7 +2401,16 @@
         ammo: state.activeSlot === 'melee' ? null : (state.ammo[state.activeSlot] ?? null),
         magSize: b ? b.magSize : null,
         reloading: state.reloading,
+        reloadMode: b ? (b.reloadMode || 'mag') : 'mag',
+        reloadPhase: state.reloadPhase,
         reloadPct: state.reloading && state.reloadDuration > 0 ? 1 - Math.max(0, state.reloadTimer / state.reloadDuration) : 1,
+        charging: Boolean(b && b.chargeTimeSec > 0 && state.chargeHeld && state.chargeProgress > 0.01 && !state.reloading),
+        chargeHeld: state.chargeHeld,
+        chargeProgress: state.chargeProgress,
+        chargeReadyToFire: state.chargeReadyToFire,
+        chargeTimeSec: b ? (b.chargeTimeSec || 0) : 0,
+        altFireMode: b ? (b.altFireMode || 'ads') : 'ads',
+        cylinderIndex: state.cylinderIndex,
         adsHeld: state.adsHeld,
         adsProgress: state.adsProgress,
         scopeStage: state.scopeStage,

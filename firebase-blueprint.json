@@ -513,7 +513,7 @@
         },
         "weaponType": {
           "type": "string",
-          "enum": ["rifle", "smg", "shotgun", "awp", "deagle", "pistol"]
+          "enum": ["rifle", "smg", "shotgun", "awp", "revolver", "deagle", "pistol"]
         },
         "skinId": {
           "type": "string",

@@ -184,6 +184,52 @@
       allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex']),
       allowedOptics: Object.freeze(['iron_snipe', 'acog_25', 'sniper_4x', 'sniper_var'])
     },
+    revolver: {
+      id: 'revolver',
+      slotCategory: 'primary',
+      classLabel: 'Heavy Revolver',
+      name: 'R-88 Magnum',
+      shortName: 'R-88',
+      hudTag: 'REV',
+      description: 'Hitscan .500 magnum revolver. Hold LMB 0.20s for a 1-shot body kill anywhere on the map, or RMB to fan the hammer up close.',
+      auto: false,
+      pellets: 1,
+      pelletSpread: 0,
+      damageBody: 105,
+      damageHead: 260,
+      falloffStart: 340,
+      falloffEnd: 460,
+      minFalloffMul: 1.0,
+      armorPen: 1.22,
+      rpm: 86,
+      magSize: 6,
+      reloadTime: 2.88,
+      range: 420,
+      spreadHip: 0.0012,
+      spreadAds: 0.0005,
+      spreadMove: 0.0068,
+      recoilPitch: 0.056,
+      recoilYaw: 0.011,
+      adsTimeSec: 0.20,
+      baseWeightKg: 2.35,
+      defaultOptic: 'iron',
+      ammoClass: 'bullet',
+      chargeTimeSec: 0.20,
+      altFireMode: 'fan',
+      fanDamageBody: 68,
+      fanDamageHead: 118,
+      fanFalloffStart: 12,
+      fanFalloffEnd: 38,
+      fanMinFalloffMul: 0.45,
+      fanSpread: 0.042,
+      fanFireInterval: 0.21,
+      reloadMode: 'shell',
+      shellOpenTime: 0.40,
+      shellInsertTime: 0.36,
+      shellCloseTime: 0.32,
+      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'apex']),
+      allowedOptics: Object.freeze(['reflex_dot', 'holo_eotech'])
+    },
     deagle: {
       id: 'deagle',
       slotCategory: 'secondary',
@@ -494,6 +540,7 @@
         shortName: 'Fast Mag',
         unlockLevel: 1,
         visual: 'fast_mag',
+        weaponDeny: Object.freeze(['revolver']),
         pros: ['-26% reload duration', 'Quicker ADS (-8ms)'],
         cons: ['Slightly smaller capacity (-10%)'],
         mods: { reloadMul: 0.74, magMul: 0.90, adsTimeAdd: -0.008, weightKg: -0.10 }
@@ -505,6 +552,7 @@
         shortName: 'Ext Mag',
         unlockLevel: 3,
         visual: 'extended_mag',
+        weaponDeny: Object.freeze(['revolver']),
         pros: ['+40% magazine capacity'],
         cons: ['+14% reload time', '+0.36kg mass & +14ms ADS'],
         mods: { magMul: 1.40, reloadMul: 1.14, adsTimeAdd: 0.014, weightKg: 0.36 }
@@ -520,6 +568,30 @@
         pros: ['+80% magazine capacity for sustained fire'],
         cons: ['Heavy (+0.85kg) mobility penalty', '+26% reload time & +38ms ADS'],
         mods: { magMul: 1.80, reloadMul: 1.26, adsTimeAdd: 0.038, weightKg: 0.85 }
+      },
+      chamfered_cylinder: {
+        id: 'chamfered_cylinder',
+        slot: 'magazine',
+        name: 'Chamfered Speed Chambers',
+        shortName: 'Speed Cyl',
+        unlockLevel: 1,
+        visual: 'fast_mag',
+        weaponAllow: Object.freeze(['revolver']),
+        pros: ['-26% shell-by-shell reload speed', 'Smoother crane snap-shut'],
+        cons: ['+4% vertical recoil kick'],
+        mods: { reloadMul: 0.74, recoilPitchMul: 1.04, weightKg: -0.08 }
+      },
+      titanium_cylinder: {
+        id: 'titanium_cylinder',
+        slot: 'magazine',
+        name: 'Titanium Fluted Cylinder',
+        shortName: 'Ti Cylinder',
+        unlockLevel: 6,
+        visual: 'extended_mag',
+        weaponAllow: Object.freeze(['revolver']),
+        pros: ['-0.28kg weight for faster surf air', '-16% reload speed & -12% hipfire bloom'],
+        cons: ['+8% vertical recoil'],
+        mods: { reloadMul: 0.84, hipSpreadMul: 0.88, recoilPitchMul: 1.08, weightKg: -0.28 }
       }
     }),
 
@@ -774,6 +846,7 @@
     for (const att of Object.values(pool)) {
       if (slotId === 'optic' && spec.allowedOptics && !spec.allowedOptics.includes(att.id)) continue;
       if (att.weaponAllow && !att.weaponAllow.includes(spec.id)) continue;
+      if (att.weaponDeny && att.weaponDeny.includes(spec.id)) continue;
       if (slotId === 'ammo' && att.ammoClass && att.ammoClass !== spec.ammoClass) continue;
       out.push(att);
     }
@@ -995,14 +1068,14 @@
     pelletSpread = pellets > 1 ? Math.max(0.006, Number((pelletSpread * pelletSpreadMul).toFixed(4))) : 0;
     falloffStart = Math.max(8, Math.round(falloffStart * falloffMul));
     falloffEnd = Math.max(falloffStart + 18, Math.round(falloffEnd * falloffMul));
-    minFalloffMul = clamp(Number(minFalloffMul.toFixed(2)), 0.25, 0.98);
+    minFalloffMul = clamp(Number(minFalloffMul.toFixed(2)), 0.25, 1.0);
     armorPen = clamp(Number((armorPen * armorPenMul).toFixed(2)), 0.75, 1.5);
     rpm = Math.max(30, Math.round(rpm * rpmMul));
     const fireInterval = Number((60 / rpm).toFixed(4));
-    magSize = Math.max(2, Math.round(magSize * magMul));
+    magSize = spec.id === 'revolver' ? spec.magSize : Math.max(2, Math.round(magSize * magMul));
     reloadTime = clamp(Number((reloadTime * reloadMul).toFixed(2)), 0.75, 3.8);
     range = Math.max(45, Math.round(range * rangeMul));
-    spreadHip = clamp(Number((spreadHip * hipSpreadMul).toFixed(5)), 0.0015, 0.06);
+    spreadHip = clamp(Number((spreadHip * hipSpreadMul).toFixed(5)), 0.0005, 0.06);
     spreadAds = clamp(Number((spreadAds * adsSpreadMul).toFixed(5)), 0.0002, 0.025);
     spreadMove = clamp(Number((spreadMove * moveSpreadMul).toFixed(5)), 0.002, 0.045);
     recoilPitch = clamp(Number((recoilPitch * recoilPitchMul).toFixed(5)), 0.004, 0.11);
@@ -1010,6 +1083,19 @@
     adsTimeSec = clamp(Number(adsTimeSec.toFixed(3)), 0.085, 0.52);
     weightKg = clamp(Number(weightKg.toFixed(2)), 0.75, 8.2);
     adsMoveMult = clamp(Number(adsMoveMult.toFixed(3)), 0.45, 0.84);
+
+    // Guarantee Revolver's core 1-shot-to-the-body from anywhere on the map across all attachment builds
+    if (spec.id === 'revolver') {
+      damageBody = Math.max(100, damageBody);
+      damageHead = Math.max(240, damageHead);
+      minFalloffMul = 1.0;
+      range = Math.max(360, range);
+    }
+
+    const shellOpenTime = spec.shellOpenTime ? clamp(Number((spec.shellOpenTime * reloadMul).toFixed(3)), 0.22, 0.60) : 0;
+    const shellInsertTime = spec.shellInsertTime ? clamp(Number((spec.shellInsertTime * reloadMul).toFixed(3)), 0.18, 0.55) : 0;
+    const shellCloseTime = spec.shellCloseTime ? clamp(Number((spec.shellCloseTime * reloadMul).toFixed(3)), 0.18, 0.50) : 0;
+    const fanSpread = spec.fanSpread ? clamp(Number((spec.fanSpread * hipSpreadMul).toFixed(5)), 0.020, 0.075) : 0;
 
     // Full VELOCITY Weight-to-Mobility & Surf Air-Strafe curves:
     // ~1.0 kg (USP-9) => ~1.01x mobility, ~1.005x surf air
@@ -1074,6 +1160,19 @@
       suppressed,
       tracerStyle,
       ammoType,
+      chargeTimeSec: spec.chargeTimeSec || 0,
+      altFireMode: spec.altFireMode || 'ads',
+      fanDamageBody: spec.fanDamageBody || 0,
+      fanDamageHead: spec.fanDamageHead || 0,
+      fanFalloffStart: spec.fanFalloffStart || 12,
+      fanFalloffEnd: spec.fanFalloffEnd || 38,
+      fanMinFalloffMul: spec.fanMinFalloffMul || 0.45,
+      fanSpread,
+      fanFireInterval: spec.fanFireInterval || 0.21,
+      reloadMode: spec.reloadMode || 'mag',
+      shellOpenTime,
+      shellInsertTime,
+      shellCloseTime,
       hasChronoKit: chronoTier > 0,
       chronoTimeScale,
       chronoTier,
@@ -1093,8 +1192,21 @@
     };
   }
 
-  function computeDistanceDamage(build, distMeters, isHeadshot, isBotTarget) {
+  function computeDistanceDamage(build, distMeters, isHeadshot, isBotTarget, isFanFire) {
     if (!build) return 0;
+    if (isFanFire && build.altFireMode === 'fan') {
+      const fBase = isHeadshot ? (build.fanDamageHead || build.damageHead) : (build.fanDamageBody || build.damageBody);
+      const fStart = build.fanFalloffStart || 12;
+      const fEnd = build.fanFalloffEnd || 38;
+      const fMin = build.fanMinFalloffMul || 0.45;
+      let fMul = 1;
+      if (distMeters > fStart) {
+        const span = Math.max(1, fEnd - fStart);
+        const t = clamp((distMeters - fStart) / span, 0, 1);
+        fMul = 1 - t * (1 - fMin);
+      }
+      return Math.max(1, Math.round(fBase * fMul));
+    }
     const base = isHeadshot ? build.damageHead : build.damageBody;
     let mul = 1;
     if (distMeters > build.falloffStart) {
@@ -1193,10 +1305,10 @@
       },
       {
         id: 'loadout_5',
-        name: 'Stealth Operative',
+        name: 'Gunslinger R-88',
         primary: {
-          weaponId: 'rifle',
-          attachments: { barrel: 'short_cqb', magazine: 'fast_mag' },
+          weaponId: 'revolver',
+          attachments: { barrel: 'short_cqb', magazine: 'chamfered_cylinder', rearGrip: 'stippled_grip' },
           skinItemId: ''
         },
         secondary: {

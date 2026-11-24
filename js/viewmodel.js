@@ -333,11 +333,172 @@
       osc.start(now);
       osc.stop(now + 0.088);
     }
+    function fireRevolver(fanFire) {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const isFan = Boolean(fanFire);
+      // Optional crisp palm-slap transient on RMB Fan-the-Hammer
+      if (isFan) {
+        noiseBurst(c, now, 0.032, 'bandpass', 920, 1.3, 0.14);
+      }
+      // Massive .500 magnum boom + crisp high crack
+      noiseBurst(c, now, isFan ? 0.22 : 0.30, 'lowpass', isFan ? 1280 : 1080, 0.65, isFan ? 0.32 : 0.38);
+      noiseBurst(c, now, isFan ? 0.09 : 0.13, 'bandpass', 2150, 0.82, isFan ? 0.22 : 0.26);
+      // Heavy sub-bass body punch
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(isFan ? 155 : 138, now);
+      sub.frequency.exponentialRampToValueAtTime(30, now + (isFan ? 0.18 : 0.25));
+      sg.gain.setValueAtTime(isFan ? 0.28 : 0.34, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + (isFan ? 0.20 : 0.27));
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.29);
+      // Signature heavy steel barrel ring overtone
+      const ring = c.createOscillator();
+      const rg = c.createGain();
+      ring.type = 'sine';
+      ring.frequency.setValueAtTime(isFan ? 1820 : 1640, now + 0.01);
+      ring.frequency.exponentialRampToValueAtTime(760, now + 0.18);
+      rg.gain.setValueAtTime(0.055, now + 0.01);
+      rg.gain.exponentialRampToValueAtTime(0.0001, now + 0.19);
+      ring.connect(rg);
+      rg.connect(c.destination);
+      ring.start(now + 0.01);
+      ring.stop(now + 0.20);
+    }
+    function revolverRatchet(stage) {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const hi = stage >= 2;
+      noiseBurst(c, now, 0.018, 'highpass', hi ? 3400 : 2700, 1.8, 0.048);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(hi ? 2680 : 2120, now);
+      osc.frequency.exponentialRampToValueAtTime(hi ? 1140 : 880, now + 0.018);
+      g.gain.setValueAtTime(hi ? 0.046 : 0.036, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.025);
+    }
+    function revolverCraneOpen() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      // Latch thumb click + hinged yoke swing out
+      noiseBurst(c, now, 0.035, 'bandpass', 2400, 2.0, 0.075);
+      [0, 0.085, 0.19].forEach((off, idx) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = idx === 2 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(idx === 0 ? 1850 : idx === 1 ? 1120 : 3180, now + off);
+        osc.frequency.exponentialRampToValueAtTime(idx === 2 ? 2350 : 480, now + off + 0.045);
+        g.gain.setValueAtTime(idx === 2 ? 0.032 : 0.052, now + off);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + off + 0.055);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(now + off);
+        osc.stop(now + off + 0.06);
+      });
+    }
+    function revolverCylinderSpin(intensity) {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const spd = Math.max(0.65, Number(intensity) || 1.0);
+      // 13 decelerating metallic pawl clicks for that iconic free-spinning revolver cylinder whirr
+      let tOff = 0;
+      const count = spd > 1.15 ? 16 : 13;
+      for (let i = 0; i < count; i++) {
+        const frac = i / Math.max(1, count - 1);
+        const step = (0.024 + frac * frac * 0.056) / spd;
+        const t = now + tOff;
+        tOff += step;
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(2950 - frac * 680, t);
+        osc.frequency.exponentialRampToValueAtTime(1180, t + 0.015);
+        const amp = (0.046 * (1 - frac * 0.48)) * Math.min(1.2, spd);
+        g.gain.setValueAtTime(amp, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.018);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(t);
+        osc.stop(t + 0.021);
+      }
+      // Soft metallic resonance tail
+      noiseBurst(c, now, 0.24 / spd, 'bandpass', 3600, 3.2, 0.028);
+    }
+    function revolverShellInsert() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      // Single brass .500 magnum round sliding into steel chamber + rim ping
+      noiseBurst(c, now, 0.026, 'bandpass', 2550, 2.4, 0.062);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(1380, now);
+      osc.frequency.exponentialRampToValueAtTime(560, now + 0.032);
+      g.gain.setValueAtTime(0.056, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.038);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.042);
+      const ping = c.createOscillator();
+      const pg = c.createGain();
+      ping.type = 'sine';
+      ping.frequency.setValueAtTime(3280, now + 0.022);
+      pg.gain.setValueAtTime(0.028, now + 0.022);
+      pg.gain.exponentialRampToValueAtTime(0.0001, now + 0.065);
+      ping.connect(pg);
+      pg.connect(c.destination);
+      ping.start(now + 0.022);
+      ping.stop(now + 0.070);
+    }
+    function revolverCraneClose() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      // Crisp heavy steel wrist-flick snap-shut
+      noiseBurst(c, now, 0.042, 'bandpass', 2250, 1.8, 0.092);
+      const thud = c.createOscillator();
+      const tg = c.createGain();
+      thud.type = 'triangle';
+      thud.frequency.setValueAtTime(520, now);
+      thud.frequency.exponentialRampToValueAtTime(140, now + 0.048);
+      tg.gain.setValueAtTime(0.11, now);
+      tg.gain.exponentialRampToValueAtTime(0.0001, now + 0.054);
+      thud.connect(tg);
+      tg.connect(c.destination);
+      thud.start(now);
+      thud.stop(now + 0.058);
+      const lock = c.createOscillator();
+      const lg = c.createGain();
+      lock.type = 'square';
+      lock.frequency.setValueAtTime(2480, now + 0.012);
+      lock.frequency.exponentialRampToValueAtTime(980, now + 0.044);
+      lg.gain.setValueAtTime(0.058, now + 0.012);
+      lg.gain.exponentialRampToValueAtTime(0.0001, now + 0.048);
+      lock.connect(lg);
+      lg.connect(c.destination);
+      lock.start(now + 0.012);
+      lock.stop(now + 0.052);
+    }
     function fireSuppressed(slot) {
       const c = getCtx();
       if (!c) return;
       const now = c.currentTime;
-      const isHeavy = slot === 'awp' || slot === 'shotgun' || slot === 'deagle';
+      const isHeavy = slot === 'awp' || slot === 'shotgun' || slot === 'deagle' || slot === 'revolver';
       noiseBurst(c, now, isHeavy ? 0.11 : 0.065, 'bandpass', isHeavy ? 1350 : 2400, 1.35, isHeavy ? 0.14 : 0.10);
       const osc = c.createOscillator();
       const g = c.createGain();
@@ -359,6 +520,7 @@
         return;
       }
       if (slot === 'awp') fireAwp();
+      else if (slot === 'revolver') fireRevolver(Boolean(opts && opts.fanFire));
       else if (slot === 'deagle') fireDeagle();
       else if (slot === 'smg') fireSmg();
       else if (slot === 'shotgun') fireShotgun();
@@ -639,8 +801,14 @@
     return {
       fireRifle,
       fireAwp,
+      fireRevolver,
       fireDeagle,
       fireWeapon,
+      revolverRatchet,
+      revolverCraneOpen,
+      revolverCylinderSpin,
+      revolverShellInsert,
+      revolverCraneClose,
       dryFire,
       reloadStart,
       reloadFinish,
@@ -2257,6 +2425,48 @@
         g.lineTo(-42, 2);
         g.lineTo(-50, -6);
       });
+    } else if (wt === 'revolver') {
+      // Sculpted ergonomic magnum revolver grip
+      ctx.fillStyle = '#171f28';
+      ctx.beginPath();
+      ctx.moveTo(-42, 1);
+      ctx.lineTo(-18, 2);
+      ctx.quadraticCurveTo(-24, 22, -32, 34);
+      ctx.lineTo(-56, 31);
+      ctx.quadraticCurveTo(-48, 16, -42, 1);
+      ctx.closePath();
+      ctx.fill();
+      // Exposed checkered hammer spur + trigger guard loop
+      ctx.fillStyle = '#4a5c70';
+      ctx.beginPath();
+      ctx.moveTo(-46, -13); ctx.lineTo(-56, -21); ctx.lineTo(-50, -24); ctx.lineTo(-39, -15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#3c4c5c';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(-18, 3); ctx.lineTo(6, 3); ctx.quadraticCurveTo(8, 15, -4, 15); ctx.lineTo(-18, 14);
+      ctx.stroke();
+      // Heavy R-88 vented magnum barrel + full underlug shroud + frame top strap
+      drawClippedBody((g) => {
+        g.moveTo(-44, -17);
+        g.lineTo(64, -17);
+        g.lineTo(66, -3);
+        g.lineTo(12, -1);
+        g.lineTo(10, 4);
+        g.lineTo(-42, 4);
+      });
+      // Iconic 6-chamber fluted cylinder drum
+      ctx.fillStyle = '#202b36';
+      ctx.fillRect(-20, -14, 26, 18);
+      ctx.strokeStyle = 'rgba(255, 224, 150, 0.45)';
+      ctx.lineWidth = 1.6;
+      for (const fy of [-10, -5, 0]) {
+        ctx.beginPath(); ctx.moveTo(-17, fy); ctx.lineTo(3, fy); ctx.stroke();
+      }
+      // Vented top barrel rib ports
+      ctx.fillStyle = '#091119';
+      for (const vx of [18, 30, 42, 54]) ctx.fillRect(vx, -15.5, 7, 3.2);
     } else {
       // V-47 Rifle (CS:S AK-47): gas tube, angled gas block, hooded front sight, slanted muzzle brake, banana mag
       ctx.fillStyle = '#1b242f';
@@ -3867,6 +4077,25 @@
     reloadShellsGroup.visible = false;
     leftHand.add(reloadShellsGroup);
 
+    // Single gleaming .500 magnum brass cartridge gripped in left fingers during R-88 shell-by-shell reload
+    const reloadBulletGroup = new THREE.Group();
+    reloadBulletGroup.position.set(0.010, -0.020, -0.052);
+    reloadBulletGroup.rotation.set(0.12, 0.08, -0.10);
+    const revCaseMat = new THREE.MeshStandardMaterial({ color: 0xe2bc5c, roughness: 0.24, metalness: 0.90 });
+    const revTipMat = new THREE.MeshStandardMaterial({ color: 0xc97b42, roughness: 0.30, metalness: 0.84 });
+    const rRim = new THREE.Mesh(new THREE.CylinderGeometry(0.0074, 0.0074, 0.0028, 12), revCaseMat);
+    rRim.rotation.x = Math.PI / 2;
+    rRim.position.set(0, 0, 0.021);
+    const rCase = new THREE.Mesh(new THREE.CylinderGeometry(0.0064, 0.0064, 0.036, 12), revCaseMat);
+    rCase.rotation.x = Math.PI / 2;
+    rCase.position.set(0, 0, 0.002);
+    const rNose = new THREE.Mesh(new THREE.ConeGeometry(0.0062, 0.014, 12), revTipMat);
+    rNose.rotation.x = -Math.PI / 2;
+    rNose.position.set(0, 0, -0.023);
+    reloadBulletGroup.add(rRim, rCase, rNose);
+    reloadBulletGroup.visible = false;
+    leftHand.add(reloadBulletGroup);
+
     setHandPose(leftHand, { index: 0.64, middle: 0.74, ring: 0.82, pinky: 0.88, thumb: 0.56 });
 
     rootRig.add(rightHandPivot);
@@ -3883,6 +4112,7 @@
       leftHand,
       knifeSocket,
       reloadShellsGroup,
+      reloadBulletGroup,
       shellHullMat,
       gloveMaterials,
       setHandPose,
@@ -5063,6 +5293,284 @@
       wpn.apexMount = { x: -0.017, y: 0.012, z: -0.105, parent: modelRoot, scale: 0.72 };
       wpn.ironEyePoint = [0, 0.071, 0.044];
 
+    } else if (wt === 'revolver') {
+      const uvBounds = { minZ: -0.32, maxZ: 0.095, minY: -0.140, maxY: 0.090 };
+      wpn.uvBounds = uvBounds;
+
+      // Wrap entire R-88 Magnum around spinPivot centered INSIDE the open trigger guard loop for authentic CS twirls!
+      const spinPivotPos = new THREE.Vector3(0, -0.015, -0.024);
+      const spinGroup = new THREE.Group();
+      spinGroup.position.copy(spinPivotPos);
+      g.add(spinGroup);
+
+      const modelRoot = new THREE.Group();
+      modelRoot.position.copy(spinPivotPos).negate();
+      spinGroup.add(modelRoot);
+
+      g.userData.spinGroup = spinGroup;
+      g.userData.spinPivot = spinPivotPos;
+      wpn.attachParent = modelRoot;
+
+      // 1) Sculpted heavy magnum frame with genuine HOLLOW cylinder window & open trigger guard loop
+      const frameShape = new THREE.Shape();
+      frameShape.moveTo(0.056, 0.046);     // Rear recoil shield top
+      frameShape.lineTo(0.020, 0.070);     // Rear top strap
+      frameShape.lineTo(-0.096, 0.070);    // Front top strap meeting barrel
+      frameShape.lineTo(-0.096, 0.002);    // Front underlug frame base
+      frameShape.lineTo(-0.056, 0.002);
+      frameShape.lineTo(-0.052, -0.036);   // Front trigger guard corner
+      frameShape.lineTo(0.000, -0.036);    // Rear trigger guard corner
+      frameShape.lineTo(0.008, -0.012);
+      frameShape.lineTo(0.026, -0.106);    // Front grip heel
+      frameShape.lineTo(0.076, -0.094);    // Swept magnum grip butt
+      frameShape.lineTo(0.058, 0.004);     // Backstrap curve
+      frameShape.lineTo(0.068, 0.028);     // Beavertail spur
+      frameShape.closePath();
+
+      // Genuine hollow cylinder window cutout (z: -0.088 .. -0.014, y: 0.010 .. 0.061)
+      const cylHole = new THREE.Path();
+      cylHole.moveTo(-0.088, 0.010);
+      cylHole.lineTo(-0.014, 0.010);
+      cylHole.lineTo(-0.014, 0.061);
+      cylHole.lineTo(-0.088, 0.061);
+      cylHole.closePath();
+      frameShape.holes.push(cylHole);
+
+      // Genuine open trigger guard loop (so trigger finger hooks inside cleanly during spins!)
+      const tgHole = new THREE.Path();
+      tgHole.moveTo(-0.044, -0.004);
+      tgHole.lineTo(-0.004, -0.004);
+      tgHole.lineTo(-0.006, -0.028);
+      tgHole.lineTo(-0.044, -0.028);
+      tgHole.closePath();
+      frameShape.holes.push(tgHole);
+
+      const frameMesh = makeSideExtrude(frameShape, 0.030, 0.0024, skinMat, uvBounds);
+      modelRoot.add(frameMesh);
+
+      // Recoil shield & sideplate machined accents
+      const recoilShield = new THREE.Mesh(new THREE.CylinderGeometry(0.0255, 0.0255, 0.014, 16), darkMetal);
+      recoilShield.rotation.x = Math.PI / 2;
+      recoilShield.position.set(0, 0.036, -0.006);
+      modelRoot.add(recoilShield);
+
+      // Left-side thumb cylinder release latch (animates forward when popping cylinder!)
+      const latchGroup = new THREE.Group();
+      latchGroup.position.set(-0.0185, 0.032, 0.006);
+      const latchBtn = new THREE.Mesh(new THREE.BoxGeometry(0.0055, 0.011, 0.020), gunmetal);
+      const latchRib = new THREE.Mesh(new THREE.BoxGeometry(0.0065, 0.008, 0.004), brightSteel);
+      latchRib.position.z = 0.004;
+      latchGroup.add(latchBtn, latchRib);
+      modelRoot.add(latchGroup);
+      g.userData.latchGroup = latchGroup;
+      g.userData.latchRestZ = 0.006;
+
+      // 2) Heavy Vented .500 Magnum Barrel + Full Underlug Ejector Shroud (z: -0.095 .. -0.258, bore y = 0.050)
+      const barrelBody = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.034, 0.162), skinMat);
+      barrelBody.position.set(0, 0.048, -0.176);
+      makeSkinned(barrelBody, uvBounds);
+      const underLug = new THREE.Mesh(new THREE.BoxGeometry(0.021, 0.022, 0.156), darkMetal);
+      underLug.position.set(0, 0.024, -0.172);
+      const topRib = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.008, 0.168), gunmetal);
+      topRib.position.set(0, 0.068, -0.174);
+      modelRoot.add(barrelBody, underLug, topRib);
+
+      // 4 machined cooling vent slots along the heavy barrel rib (iconic Python / R8 silhouette!)
+      for (const vz of [-0.118, -0.152, -0.186, -0.220]) {
+        const vent = new THREE.Mesh(new THREE.BoxGeometry(0.0265, 0.007, 0.020), gripMat);
+        vent.position.set(0, 0.062, vz);
+        modelRoot.add(vent);
+      }
+
+      // Integrated top tactical Picatinny rail across top strap (y = 0.0725) + bottom accessory rail
+      const topRail = new THREE.Mesh(new THREE.BoxGeometry(0.019, 0.005, 0.118), darkMetal);
+      topRail.position.set(0, 0.0725, -0.072);
+      for (const rz of [-0.116, -0.092, -0.068, -0.044, -0.020]) {
+        const lug = new THREE.Mesh(new THREE.BoxGeometry(0.020, 0.003, 0.008), gunmetal);
+        lug.position.set(0, 0.075, rz);
+        modelRoot.add(lug);
+      }
+      const underRailBar = new THREE.Mesh(new THREE.BoxGeometry(0.017, 0.005, 0.102), darkMetal);
+      underRailBar.position.set(0, 0.011, -0.168);
+      modelRoot.add(topRail, underRailBar);
+
+      // Swappable default .500 magnum crown + recessed dark bore (y = 0.050, z = -0.258)
+      const defaultBarrelGroup = new THREE.Group();
+      const muzzleCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.0122, 0.0132, 0.012, 12), brightSteel);
+      muzzleCrown.rotation.x = Math.PI / 2;
+      muzzleCrown.position.set(0, 0.050, -0.260);
+      const bore = new THREE.Mesh(new THREE.CylinderGeometry(0.0082, 0.0082, 0.014, 10), gripMat);
+      bore.rotation.x = Math.PI / 2;
+      bore.position.set(0, 0.050, -0.262);
+      defaultBarrelGroup.add(muzzleCrown, bore);
+      modelRoot.add(defaultBarrelGroup);
+      wpn.defaultBarrelGroup = defaultBarrelGroup;
+
+      // Ramped front target blade + tritium amber/cyan post + adjustable rear notch irons
+      const defaultIronsGroup = new THREE.Group();
+      const frontBlade = new THREE.Mesh(new THREE.BoxGeometry(0.0052, 0.014, 0.022), darkMetal);
+      frontBlade.position.set(0, 0.078, -0.244);
+      const frontDot = new THREE.Mesh(new THREE.BoxGeometry(0.0034, 0.0046, 0.004), accentGlow);
+      frontDot.position.set(0, 0.080, -0.233);
+      const rearL = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.010, 0.012), darkMetal);
+      rearL.position.set(-0.009, 0.077, 0.014);
+      const rearR = rearL.clone();
+      rearR.position.x = 0.009;
+      const rearDotL = new THREE.Mesh(new THREE.BoxGeometry(0.0028, 0.0032, 0.003), accentGlow);
+      rearDotL.position.set(-0.009, 0.078, 0.020);
+      const rearDotR = rearDotL.clone();
+      rearDotR.position.x = 0.009;
+      defaultIronsGroup.add(frontBlade, frontDot, rearL, rearR, rearDotL, rearDotR);
+      modelRoot.add(defaultIronsGroup);
+      wpn.defaultIronsGroup = defaultIronsGroup;
+
+      // 3) HINGED CRANE / YOKE + ROTATING 6-FLUTE CYLINDER + 6 INDIVIDUAL .500 BRASS CARTRIDGES
+      // Hinge axis sits at lower-left (-0.0155, 0.008, -0.051); rotating cranePivot.rotation.z > 0 swings cylinder cleanly OUT to the left!
+      const cranePivot = new THREE.Group();
+      cranePivot.position.set(-0.0155, 0.008, -0.051);
+      modelRoot.add(cranePivot);
+      g.userData.cranePivot = cranePivot;
+
+      // Machined crane yoke arm connecting lower-left hinge up to cylinder axis
+      const craneArm = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.030, 0.018), gunmetal);
+      craneArm.position.set(0.006, 0.014, -0.022);
+      craneArm.rotation.z = -0.44;
+      const cranePin = new THREE.Mesh(new THREE.CylinderGeometry(0.0048, 0.0048, 0.068, 8), darkMetal);
+      cranePin.rotation.x = Math.PI / 2;
+      cranePin.position.set(0, 0, 0);
+      cranePivot.add(craneArm, cranePin);
+
+      // Rotating 6-chamber cylinder centered at (0, 0.036, -0.051) in modelRoot space => (0.0155, 0.028, 0) in cranePivot space
+      const cylinderGroup = new THREE.Group();
+      cylinderGroup.position.set(0.0155, 0.028, 0);
+      cranePivot.add(cylinderGroup);
+      g.userData.cylinderGroup = cylinderGroup;
+
+      const isTiCyl = atts.magazine === 'titanium_cylinder';
+      const isChamferCyl = atts.magazine === 'chamfered_cylinder';
+      const cylDrumMat = isTiCyl
+        ? new THREE.MeshStandardMaterial({ color: 0xb7a682, roughness: 0.24, metalness: 0.90 })
+        : skinMat;
+
+      const cylDrum = new THREE.Mesh(new THREE.CylinderGeometry(0.0242, 0.0242, 0.066, 18), cylDrumMat);
+      cylDrum.rotation.x = Math.PI / 2;
+      if (!isTiCyl) makeSkinned(cylDrum, uvBounds);
+      cylinderGroup.add(cylDrum);
+
+      // Chamfered / ported accent bands on cylinder front & rear rims
+      const bandMat = isTiCyl ? brassMat : (isChamferCyl ? brightSteel : gunmetal);
+      for (const bz of [-0.031, 0.031]) {
+        const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.0234, 0.0246, 0.005, 18), bandMat);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.z = bz;
+        cylinderGroup.add(ring);
+      }
+
+      // 6 deep radial flutes + 6 recessed chamber bores + 6 live toggleable .500 brass cartridges!
+      const shellMeshes = [];
+      const copperTipMat = new THREE.MeshStandardMaterial({ color: 0xc97b42, roughness: 0.30, metalness: 0.84 });
+      const primerMat = new THREE.MeshStandardMaterial({ color: 0xd8e0ea, roughness: 0.20, metalness: 0.92 });
+      const chamberDist = 0.0142;
+
+      for (let i = 0; i < 6; i++) {
+        const ang = (i * Math.PI) / 3;
+        const fluteAng = ang + Math.PI / 6;
+
+        // Sculpted outer flute recess between chambers
+        const flute = new THREE.Mesh(new THREE.CylinderGeometry(0.0062, 0.0062, 0.044, 8), darkMetal);
+        flute.rotation.x = Math.PI / 2;
+        flute.position.set(Math.sin(fluteAng) * 0.0226, Math.cos(fluteAng) * 0.0226, -0.002);
+        cylinderGroup.add(flute);
+
+        // Dark chamber bore hole (visible when empty!)
+        const cx = Math.sin(ang) * chamberDist;
+        const cy = Math.cos(ang) * chamberDist;
+        const chHole = new THREE.Mesh(new THREE.CylinderGeometry(0.0061, 0.0061, 0.068, 10), gripMat);
+        chHole.rotation.x = Math.PI / 2;
+        chHole.position.set(cx, cy, 0);
+        cylinderGroup.add(chHole);
+
+        // Individual .500 brass cartridge mesh (shown/hidden live by ammo count!)
+        const shellGrp = new THREE.Group();
+        shellGrp.position.set(cx, cy, 0);
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.0067, 0.0067, 0.0032, 10), brassMat);
+        rim.rotation.x = Math.PI / 2;
+        rim.position.z = 0.0342;
+        const primer = new THREE.Mesh(new THREE.CylinderGeometry(0.0024, 0.0024, 0.0014, 8), primerMat);
+        primer.rotation.x = Math.PI / 2;
+        primer.position.z = 0.0360;
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.0052, 0.010, 8), copperTipMat);
+        tip.rotation.x = -Math.PI / 2;
+        tip.position.z = -0.032;
+        shellGrp.add(rim, primer, tip);
+        cylinderGroup.add(shellGrp);
+        shellMeshes.push(shellGrp);
+      }
+      g.userData.shellMeshes = shellMeshes;
+
+      // Center ejector rod + star extractor (plunges rearward when dumping brass!)
+      const ejectorRodGroup = new THREE.Group();
+      const starHub = new THREE.Mesh(new THREE.CylinderGeometry(0.0072, 0.0072, 0.006, 6), brightSteel);
+      starHub.rotation.x = Math.PI / 2;
+      starHub.position.z = 0.0355;
+      const rodShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.0036, 0.0036, 0.132, 8), brightSteel);
+      rodShaft.rotation.x = Math.PI / 2;
+      rodShaft.position.z = -0.056;
+      const rodKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.0052, 0.0046, 0.012, 8), gunmetal);
+      rodKnob.rotation.x = Math.PI / 2;
+      rodKnob.position.z = -0.122;
+      ejectorRodGroup.add(starHub, rodShaft, rodKnob);
+      cylinderGroup.add(ejectorRodGroup);
+      g.userData.ejectorRodGroup = ejectorRodGroup;
+
+      // 4) Articulated Checkered Magnum Hammer Spur (rotates smoothly back during 0.20s charge!)
+      const hammerGroup = new THREE.Group();
+      hammerGroup.position.set(0, 0.042, 0.018);
+      const hammerBody = new THREE.Mesh(new THREE.BoxGeometry(0.0095, 0.026, 0.014), brightSteel);
+      hammerBody.position.set(0, 0.012, 0.004);
+      hammerBody.rotation.x = -0.26;
+      const hammerSpur = new THREE.Mesh(new THREE.BoxGeometry(0.0115, 0.0075, 0.016), gunmetal);
+      hammerSpur.position.set(0, 0.026, 0.013);
+      hammerSpur.rotation.x = -0.52;
+      hammerGroup.add(hammerBody, hammerSpur);
+      modelRoot.add(hammerGroup);
+      g.userData.hammerGroup = hammerGroup;
+
+      // 5) Articulated Curved Double-Action Trigger inside open trigger guard loop
+      const triggerGroup = new THREE.Group();
+      triggerGroup.position.set(0, -0.003, -0.012);
+      const triggerBlade = new THREE.Mesh(new THREE.BoxGeometry(0.0052, 0.022, 0.0065), brightSteel);
+      triggerBlade.position.set(0, -0.011, -0.004);
+      triggerBlade.rotation.x = 0.26;
+      triggerGroup.add(triggerBlade);
+      modelRoot.add(triggerGroup);
+      g.userData.triggerGroup = triggerGroup;
+
+      // 6) Sculpted ergonomic revolver grip panels
+      const defaultGripGroup = new THREE.Group();
+      const gripWrap = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.088, 0.044), gripMat);
+      gripWrap.position.set(0, -0.052, 0.042);
+      gripWrap.rotation.x = 0.28;
+      // Subtle grip medallion accent
+      const medL = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.038, 10), brassMat);
+      medL.rotation.z = Math.PI / 2;
+      medL.position.set(0, -0.038, 0.040);
+      defaultGripGroup.add(gripWrap, medL);
+      modelRoot.add(defaultGripGroup);
+      wpn.defaultGripGroup = defaultGripGroup;
+
+      addFlash(modelRoot, 0.050, -0.292, 1.42);
+
+      // Precision Gunsmith attachment mounts (Apex Chrono mounted cleanly on forward underlug flank so crane swings freely!)
+      wpn.opticRail = { x: 0, y: 0.0755, z: -0.070, parent: modelRoot, width: 0.019, isCompact: true };
+      wpn.barrelRoot = { y: 0.050, rootZ: -0.256, shroudEndZ: -0.256, defaultTipZ: -0.265, radius: 0.0122, isPistol: true };
+      wpn.underRail = { x: 0, y: 0.008, z: -0.168, parent: modelRoot, isPistolRail: true, laserPos: [0, -0.004, -0.168] };
+      wpn.magWell = { isRevolverCylinder: true, cylinderGroup };
+      wpn.stockMount = null;
+      wpn.gripSpec = { isPanel: true, pos: [0, -0.052, 0.042], size: [0.037, 0.088, 0.045], rotX: 0.28 };
+      wpn.apexMount = { x: -0.014, y: 0.025, z: -0.174, parent: modelRoot, scale: 0.72 };
+      wpn.ironEyePoint = [0, 0.080, 0.014];
+
     } else if (wt === 'smg') {
       const uvBounds = { minZ: -0.44, maxZ: 0.28, minY: -0.18, maxY: 0.09 };
       wpn.uvBounds = uvBounds;
@@ -6173,6 +6681,17 @@
         stripe.position.set(0, mw.tubeY, -0.455);
         attGroup.add(stripe);
       }
+    } else if (mw && mw.isRevolverCylinder) {
+      // Revolver cylinder visual upgrades (ammo ring stripe + speed-chamfered crown)
+      if (ammoBandCol && mw.cylinderGroup) {
+        const cylBand = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.0249, 0.0249, 0.0042, 18),
+          new THREE.MeshBasicMaterial({ color: ammoBandCol })
+        );
+        cylBand.rotation.x = Math.PI / 2;
+        cylBand.position.set(0, 0, -0.024);
+        mw.cylinderGroup.add(cylBand);
+      }
     } else if (mw) {
       const magParent = g.userData.magGroup || attGroup;
       if (atts.magazine === 'fast_mag') {
@@ -6496,6 +7015,15 @@
       rightPose: { index: 0.44, middle: 0.92, ring: 0.95, pinky: 0.95, thumb: 0.64, indexRingHook: 0, indexPoint: 0 },
       leftPose: { index: 0.78, middle: 0.86, ring: 0.90, pinky: 0.90, thumb: 0.42, indexRingHook: 0, indexPoint: 0 }
     },
+    revolver: {
+      gripCenter: [0.0, -0.050, 0.040],
+      rightPocket: [0.003, -0.027, -0.035],
+      supportAnchor: [-0.015, -0.048, 0.030],
+      leftPocket: [0.0, -0.027, -0.035],
+      leftRelEuler: [0.06, -0.34, 1.48],
+      rightPose: { index: 0.44, middle: 0.92, ring: 0.95, pinky: 0.95, thumb: 0.64, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.78, middle: 0.86, ring: 0.90, pinky: 0.90, thumb: 0.42, indexRingHook: 0, indexPoint: 0 }
+    },
     pistol: {
       gripCenter: [0.0, -0.048, 0.036],
       rightPocket: [0.003, -0.027, -0.035],
@@ -6524,6 +7052,14 @@
       pumpPull: 0,
       lifterPush: 0,
       showReloadShells: false,
+      showReloadBullet: false,
+      craneOpen: 0,
+      cylinderSpin: 0,
+      ejectorPush: 0,
+      latchSlide: 0,
+      triggerPull: 0,
+      ammoVisibleCount: -1,
+      cylinderIndex: 0,
       slideBack: 0, hammerBack: 0,
       magDropY: 0, magTiltX: 0,
       rPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
@@ -6532,6 +7068,7 @@
   }
 
   function weaponInspectDuration(wt, tier) {
+    if (wt === 'revolver') return tier === 'mythic' ? 3.65 : tier === 'uncommon' ? 2.65 : 2.85;
     if (wt === 'deagle') return tier === 'uncommon' ? 2.55 : 2.15;
     if (wt === 'awp') return tier === 'uncommon' ? 2.70 : 2.55;
     return tier === 'uncommon' ? 2.65 : 2.35;
@@ -6600,6 +7137,174 @@
     out.pumpPull = 0;
     out.lifterPush = 0;
     out.showReloadShells = false;
+    out.showReloadBullet = false;
+
+    // 0) R-88 Revolver bespoke draw twirl, 0.20s double-action charge, Fan-the-Hammer palm-slap & live shell-by-shell reload!
+    if (wt === 'revolver') {
+      out.ammoVisibleCount = Number.isFinite(state.revolverAmmo) ? state.revolverAmmo : 6;
+      out.cylinderIndex = Number.isFinite(state.revolverCylinderIndex) ? state.revolverCylinderIndex : 0;
+
+      // 0a) CS-Style Draw Forward Trigger-Finger Twirl (360° spin into crisp catch!)
+      if (state.drawT < 1) {
+        const dtNorm = state.drawT;
+        const spinPhase = smoothstep(0.06, 0.78, dtNorm);
+        const openGrip = smoothstep(0.0, 0.14, dtNorm) * (1 - smoothstep(0.68, 0.84, dtNorm));
+        const catchSnap = bell(dtNorm, 0.72, 0.96);
+        const dropLeft = 1 - smoothstep(0.64, 0.94, dtNorm);
+
+        out.leftLock = Math.min(out.leftLock, 1 - dropLeft);
+        out.leftFreeX = -0.26;
+        out.leftFreeY = -0.34;
+        out.leftFreeZ = -0.34;
+        out.spinAngle += (1 - spinPhase) * Math.PI * 2;
+        out.ry += catchSnap * 0.015;
+        out.rRotX += -catchSnap * 0.14;
+        out.rRotY += openGrip * 0.24;
+        out.rRotZ += openGrip * 0.16;
+
+        out.rPose.indexRingHook = Math.max(out.rPose.indexRingHook, openGrip * 0.95);
+        out.rPose.index = THREE.MathUtils.lerp(out.rPose.index, 0.56, openGrip);
+        out.rPose.middle = THREE.MathUtils.lerp(out.rPose.middle, 0.14, openGrip);
+        out.rPose.ring = THREE.MathUtils.lerp(out.rPose.ring, 0.16, openGrip);
+        out.rPose.pinky = THREE.MathUtils.lerp(out.rPose.pinky, 0.20, openGrip);
+        out.rPose.thumb = THREE.MathUtils.lerp(out.rPose.thumb, 0.18, openGrip);
+
+        if (playAudio && dtNorm > 0.74 && !(state.drawCueMask & 1)) {
+          state.drawCueMask |= 1;
+          CaseAudio.balisongClack(1.04);
+        }
+      }
+
+      // 0b) 0.20s Double-Action Trigger Charge (hammer pulls back, trigger squeezes, cylinder indexes 60°, subtle tension tremor)
+      const ch = Math.max(0, Math.min(1, Number(state.revolverCharge) || 0));
+      if (ch > 0.002) {
+        const chEase = smoothstep(0, 1, ch);
+        out.hammerBack = Math.max(out.hammerBack, chEase * 0.94);
+        out.triggerPull = Math.max(out.triggerPull, chEase);
+        out.cylinderSpin += chEase * (Math.PI / 3);
+        const tremor = Math.sin(performance.now() * 0.092) * 0.00085 * chEase;
+        out.rx += tremor;
+        out.ry += tremor * 0.7 - chEase * 0.004;
+        out.rz += -chEase * 0.012;
+        out.rRotX += chEase * 0.028;
+        out.rPose.index = THREE.MathUtils.lerp(out.rPose.index, 0.86, chEase);
+      }
+
+      // 0c) CS R8 RMB Fan-the-Hammer: left hand sweeps rapidly across the top of the hammer spur in a crisp palm-slap!
+      if (state.fanT < 1) {
+        const ft = state.fanT;
+        const env = bell(ft, 0.0, 1.0);
+        const slapSweep = smoothstep(0.06, 0.42, ft) * (1 - smoothstep(0.56, 0.98, ft));
+        const slapArc = Math.sin(ft * Math.PI);
+        out.rRotZ += env * 0.26;
+        out.rRotY += env * 0.15;
+        out.rRotX += env * 0.06;
+        // Left hand sweeps from support grip up over the hammer (weapon-local [0, 0.064, 0.020])
+        // Relative to supportAnchor [-0.015, -0.048, 0.030] => dx ~ +0.02, dy ~ +0.115, dz ~ -0.01
+        out.leftAnchorOffX += slapSweep * (0.018 + (ft - 0.35) * 0.09);
+        out.leftAnchorOffY += slapSweep * (0.105 + slapArc * 0.028);
+        out.leftAnchorOffZ += slapSweep * (-0.012);
+        out.leftRelOffX += slapSweep * -0.45;
+        out.leftRelOffY += slapSweep * 0.55;
+        out.leftRelOffZ += slapSweep * -0.95;
+        // Flat open palm for cowboy hammer slap
+        out.lPose.index = THREE.MathUtils.lerp(out.lPose.index, 0.14, slapSweep);
+        out.lPose.middle = THREE.MathUtils.lerp(out.lPose.middle, 0.14, slapSweep);
+        out.lPose.ring = THREE.MathUtils.lerp(out.lPose.ring, 0.18, slapSweep);
+        out.lPose.pinky = THREE.MathUtils.lerp(out.lPose.pinky, 0.22, slapSweep);
+        out.lPose.thumb = THREE.MathUtils.lerp(out.lPose.thumb, 0.20, slapSweep);
+      }
+
+      // 0d) Interruptible 6-Round Shell-by-Shell Reload ('open' -> 'insert' x N -> 'close')
+      const rPhase = state.revolverReloadPhase || 'none';
+      if (rPhase !== 'none') {
+        const p = Math.max(0, Math.min(1, Number(state.revolverReloadPhaseProgress) || 0));
+        out.leftUseRawReload = true;
+
+        if (rPhase === 'open') {
+          const lift = smoothstep(0.0, 0.45, p);
+          const dumpTilt = bell(p, 0.44, 0.94);
+          out.rx += -lift * 0.036;
+          out.ry += lift * 0.038;
+          out.rz += lift * 0.016;
+          out.rRotX += lift * 0.18 + dumpTilt * 0.38;
+          out.rRotY += lift * 0.38;
+          out.rRotZ += lift * 0.50;
+          out.latchSlide = bell(p, 0.04, 0.36);
+          out.craneOpen = smoothstep(0.14, 0.66, p);
+          out.ejectorPush = bell(p, 0.46, 0.90);
+
+          // Right thumb presses cylinder release latch
+          out.rPose.thumb = THREE.MathUtils.lerp(spec.rightPose.thumb, 0.34, bell(p, 0.04, 0.38));
+
+          // Left hand swings off grip down to belt pouch to grab first .500 cartridge
+          const toPouch = smoothstep(0.18, 0.85, p);
+          out.leftAnchorOffX += -toPouch * 0.065;
+          out.leftAnchorOffY += -toPouch * 0.145;
+          out.leftAnchorOffZ += -toPouch * 0.025;
+          out.leftRelOffX += -toPouch * 0.25;
+          out.leftRelOffY += toPouch * 0.22;
+          out.leftRelOffZ += -toPouch * 0.35;
+          return;
+        }
+
+        if (rPhase === 'insert') {
+          // Revolver stays steadily canted to present the open rear face of the swung-out cylinder!
+          const feed = bell(p, 0.14, 0.82);
+          const seatBump = bell(p, 0.58, 0.86);
+          out.rx += -0.036;
+          out.ry += 0.038 - seatBump * 0.008;
+          out.rz += 0.016 + seatBump * 0.009;
+          out.rRotX += 0.18 - seatBump * 0.04;
+          out.rRotY += 0.38;
+          out.rRotZ += 0.50 + seatBump * 0.03;
+          out.craneOpen = 1.0;
+          // Smoothly index cylinder 60° as each shell slides home!
+          out.cylinderSpin += smoothstep(0.60, 0.96, p) * (Math.PI / 3);
+
+          // Left hand carries gleaming .500 cartridge from pouch up into open cylinder chamber (swung left to ~[-0.048, 0.024, -0.022])
+          // Relative to supportAnchor [-0.015, -0.048, 0.030] => target delta ~ [-0.042, +0.070, -0.035]
+          const pouchY = -0.145;
+          const chamberY = 0.068;
+          out.leftAnchorOffX += THREE.MathUtils.lerp(-0.068, -0.042, feed);
+          out.leftAnchorOffY += THREE.MathUtils.lerp(pouchY, chamberY, feed);
+          out.leftAnchorOffZ += THREE.MathUtils.lerp(-0.020, -0.036 - seatBump * 0.014, feed);
+          out.leftRelOffX += THREE.MathUtils.lerp(-0.24, 0.16, feed);
+          out.leftRelOffY += THREE.MathUtils.lerp(0.22, 0.38, feed);
+          out.leftRelOffZ += THREE.MathUtils.lerp(-0.32, -0.18, feed);
+
+          out.showReloadBullet = p > 0.08 && p < 0.72;
+          out.lPose.index = 0.42;
+          out.lPose.middle = 0.62;
+          out.lPose.ring = 0.76;
+          out.lPose.pinky = 0.84;
+          out.lPose.thumb = 0.66;
+          return;
+        }
+
+        if (rPhase === 'close') {
+          // Crisp outward-to-inward wrist flick snapping hinged crane & cylinder shut!
+          const holdOut = 1 - smoothstep(0.0, 0.58, p);
+          const whipSnap = bell(p, 0.18, 0.66);
+          const settle = 1 - smoothstep(0.45, 1.0, p);
+          out.rx += -0.036 * settle + whipSnap * 0.024;
+          out.ry += 0.038 * settle;
+          out.rz += 0.016 * settle;
+          out.rRotX += 0.18 * settle;
+          out.rRotY += 0.38 * settle - whipSnap * 0.24;
+          out.rRotZ += 0.50 * holdOut - whipSnap * 0.56;
+          out.craneOpen = 1 - smoothstep(0.08, 0.56, p);
+
+          // Left hand rises cleanly back from pouch to grip
+          const backW = 1 - smoothstep(0.32, 0.94, p);
+          out.leftAnchorOffX += -0.060 * backW;
+          out.leftAnchorOffY += -0.120 * backW;
+          out.leftAnchorOffZ += -0.018 * backW;
+          return;
+        }
+      }
+      return;
+    }
 
     // 1) Post-shot mechanical actions (AWP right-hand bolt cycle & M870 left-hand pump rack)
     if (state.boltT < 1 && state.reloadT >= 1) {
@@ -6838,6 +7543,14 @@
     out.pumpPull = 0;
     out.lifterPush = 0;
     out.showReloadShells = false;
+    out.showReloadBullet = false;
+    out.craneOpen = 0;
+    out.cylinderSpin = 0;
+    out.ejectorPush = 0;
+    out.latchSlide = 0;
+    out.triggerPull = 0;
+    out.ammoVisibleCount = -1;
+    out.cylinderIndex = 0;
     out.slideBack = 0; out.hammerBack = 0;
     out.magDropY = 0; out.magTiltX = 0;
 
@@ -6847,9 +7560,203 @@
     const t = state.inspectT;
     if (t >= 1) return;
 
-    const isRare = state.inspectTier === 'uncommon' || state.inspectTier === 'mythic';
+    const isMythic = state.inspectTier === 'mythic';
+    const isRare = state.inspectTier === 'uncommon' || isMythic;
 
-    if (wt === 'deagle' || wt === 'pistol') {
+    if (wt === 'revolver') {
+      if (isMythic) {
+        // 1-IN-100 MYTHIC "HIGH NOON SHOWSTOPPER":
+        // Cylinder pops out -> blazing free-spin -> wrist-whip shut -> double forward/reverse trigger-finger twirl -> thumb-cock hammer!
+        const env = bell(t, 0.0, 1.0);
+        const dropLeft = smoothstep(0.0, 0.10, t) * (1 - smoothstep(0.88, 1.0, t));
+        const flickHand = bell(t, 0.14, 0.30);
+        out.leftLock = 1 - dropLeft * (1 - flickHand);
+        out.leftFreeX = -0.26;
+        out.leftFreeY = -0.35;
+        out.leftFreeZ = -0.34;
+        out.leftFreeRotX = 0.24;
+        out.leftFreeRotY = -0.38;
+        out.leftFreeRotZ = 0.32;
+
+        // Left hand sweeps quickly across swung-out cylinder to flick it into high-speed spin (0.14..0.30)
+        if (flickHand > 0.01) {
+          out.leftAnchorOffX = -0.034 * flickHand;
+          out.leftAnchorOffY = 0.088 * flickHand;
+          out.leftAnchorOffZ = -0.056 * flickHand;
+          out.leftRelOffZ = -0.45 * flickHand;
+        }
+
+        const cylPhase = smoothstep(0.04, 0.14, t) * (1 - smoothstep(0.45, 0.54, t));
+        const snapWhip = bell(t, 0.44, 0.58);
+        const twirlEnv = smoothstep(0.54, 0.62, t) * (1 - smoothstep(0.84, 0.90, t));
+        const catchBounce = bell(t, 0.84, 0.95);
+        const hammerFlex = bell(t, 0.88, 0.99);
+
+        out.craneOpen = smoothstep(0.08, 0.18, t) * (1 - smoothstep(0.44, 0.52, t));
+        out.latchSlide = bell(t, 0.04, 0.16);
+        out.cylinderSpin = smoothstep(0.18, 0.50, t) * Math.PI * 12;
+
+        // Double forward (+4π) then reverse (-2π) trigger-finger twirl!
+        const fwdSpin = smoothstep(0.55, 0.74, t) * Math.PI * 4;
+        const revSpin = smoothstep(0.74, 0.87, t) * Math.PI * 2;
+        out.spinAngle = -fwdSpin + revSpin;
+
+        out.rx = -0.052 * env + snapWhip * 0.022;
+        out.ry = 0.054 * env + catchBounce * 0.018;
+        out.rz = 0.024 * env;
+        out.rRotX = 0.16 * cylPhase + 0.14 * twirlEnv - catchBounce * 0.15;
+        out.rRotY = 0.56 * cylPhase - snapWhip * 0.28 + 0.42 * twirlEnv;
+        out.rRotZ = 0.46 * cylPhase - snapWhip * 0.58 + 0.16 * twirlEnv;
+        out.hammerBack = hammerFlex * 0.82;
+
+        out.rPose.indexRingHook = twirlEnv * 0.96;
+        out.rPose.index = THREE.MathUtils.lerp(spec.rightPose.index, 0.56, twirlEnv);
+        out.rPose.middle = THREE.MathUtils.lerp(spec.rightPose.middle, 0.12, twirlEnv);
+        out.rPose.ring = THREE.MathUtils.lerp(spec.rightPose.ring, 0.14, twirlEnv);
+        out.rPose.pinky = THREE.MathUtils.lerp(spec.rightPose.pinky, 0.18, twirlEnv);
+        out.rPose.thumb = THREE.MathUtils.lerp(spec.rightPose.thumb, 0.16, twirlEnv + hammerFlex * 0.5);
+
+        if (playAudio) {
+          if (t > 0.08 && !(state.inspectCueMask & 1)) {
+            state.inspectCueMask |= 1;
+            WeaponAudio.revolverCraneOpen();
+          }
+          if (t > 0.20 && !(state.inspectCueMask & 2)) {
+            state.inspectCueMask |= 2;
+            WeaponAudio.revolverCylinderSpin(1.35);
+          }
+          if (t > 0.46 && !(state.inspectCueMask & 4)) {
+            state.inspectCueMask |= 4;
+            WeaponAudio.revolverCraneClose();
+          }
+          if (t > 0.57 && !(state.inspectCueMask & 8)) {
+            state.inspectCueMask |= 8;
+            CaseAudio.spinWhoosh(1.28);
+          }
+          if (t > 0.74 && !(state.inspectCueMask & 16)) {
+            state.inspectCueMask |= 16;
+            CaseAudio.spinWhoosh(1.12);
+          }
+          if (t > 0.86 && !(state.inspectCueMask & 32)) {
+            state.inspectCueMask |= 32;
+            CaseAudio.balisongClack(1.06);
+          }
+          if (t > 0.90 && !(state.inspectCueMask & 64)) {
+            state.inspectCueMask |= 64;
+            WeaponAudio.revolverRatchet(2);
+          }
+        }
+      } else if (isRare) {
+        // CS-STYLE CONTINUOUS TRIGGER-FINGER REVOLVER SPIN (F-spam chainable with spinBonus!)
+        const env = bell(t, 0.0, 1.0);
+        const dropLeft = smoothstep(0.0, 0.13, t) * (1 - smoothstep(0.86, 1.0, t));
+        out.leftLock = 1 - dropLeft;
+        out.leftFreeX = -0.25;
+        out.leftFreeY = -0.34;
+        out.leftFreeZ = -0.34;
+        out.leftFreeRotX = 0.26;
+        out.leftFreeRotY = -0.36;
+        out.leftFreeRotZ = 0.34;
+        out.lPose.index = 0.45; out.lPose.middle = 0.56; out.lPose.ring = 0.64; out.lPose.pinky = 0.72; out.lPose.thumb = 0.38;
+
+        const spinPhase = smoothstep(0.12, 0.80, t);
+        const openGrip = smoothstep(0.05, 0.16, t) * (1 - smoothstep(0.76, 0.86, t));
+        const catchBounce = bell(t, 0.78, 0.94);
+
+        out.rx = -0.054 * env;
+        out.ry = 0.054 * env + catchBounce * 0.018;
+        out.rz = 0.025 * env;
+        out.rRotX = 0.16 * env - catchBounce * 0.15;
+        out.rRotY = 0.46 * env;
+        out.rRotZ = 0.18 * env - Math.sin(spinPhase * Math.PI * 3) * 0.12;
+
+        const totalSpins = Math.PI * 6 + (state.spinBonus || 0);
+        out.spinAngle = -spinPhase * totalSpins;
+
+        out.rPose.indexRingHook = openGrip * 0.96;
+        out.rPose.index = THREE.MathUtils.lerp(spec.rightPose.index, 0.56, openGrip);
+        out.rPose.middle = THREE.MathUtils.lerp(spec.rightPose.middle, 0.12, openGrip);
+        out.rPose.ring = THREE.MathUtils.lerp(spec.rightPose.ring, 0.14, openGrip);
+        out.rPose.pinky = THREE.MathUtils.lerp(spec.rightPose.pinky, 0.18, openGrip);
+        out.rPose.thumb = THREE.MathUtils.lerp(spec.rightPose.thumb, 0.16, openGrip);
+
+        if (playAudio) {
+          if (t > 0.14 && !(state.inspectCueMask & 1)) {
+            state.inspectCueMask |= 1;
+            CaseAudio.spinWhoosh(1.26);
+          }
+          if (t > 0.40 && !(state.inspectCueMask & 2)) {
+            state.inspectCueMask |= 2;
+            CaseAudio.spinWhoosh(1.16);
+          }
+          if (t > 0.62 && !(state.inspectCueMask & 4)) {
+            state.inspectCueMask |= 4;
+            CaseAudio.spinWhoosh(1.06);
+          }
+          if (t > 0.80 && !(state.inspectCueMask & 8)) {
+            state.inspectCueMask |= 8;
+            CaseAudio.balisongClack(0.98);
+          }
+        }
+      } else {
+        // SIGNATURE NORMAL REVOLVER INSPECT:
+        // Thumb pops latch -> crane swings 6-round cylinder OUT -> left fingers flick cylinder into high-speed free-spin -> admire brass & flutes -> wrist-flick snap SHUT!
+        const env = bell(t, 0.0, 1.0);
+        const holdPose = smoothstep(0.0, 0.18, t) * (1 - smoothstep(0.84, 1.0, t));
+        const flickHand = bell(t, 0.28, 0.48);
+        const admireSway = Math.sin(smoothstep(0.42, 0.78, t) * Math.PI * 1.5) * 0.16;
+        const closeWhip = bell(t, 0.75, 0.90);
+
+        const dropLeft = smoothstep(0.04, 0.16, t) * (1 - smoothstep(0.86, 1.0, t));
+        out.leftLock = 1 - dropLeft * (1 - flickHand);
+        out.leftFreeX = -0.25;
+        out.leftFreeY = -0.34;
+        out.leftFreeZ = -0.35;
+        out.leftFreeRotX = 0.24;
+        out.leftFreeRotY = -0.38;
+        out.leftFreeRotZ = 0.30;
+
+        // Left hand reaches across to flick the exposed fluted cylinder into a fast free-spin!
+        if (flickHand > 0.01) {
+          const sweepX = -0.040 + (t - 0.36) * 0.14;
+          out.leftAnchorOffX = sweepX * flickHand;
+          out.leftAnchorOffY = 0.082 * flickHand;
+          out.leftAnchorOffZ = -0.056 * flickHand;
+          out.leftRelOffX = -0.22 * flickHand;
+          out.leftRelOffY = 0.32 * flickHand;
+          out.leftRelOffZ = -0.44 * flickHand;
+          out.lPose.index = 0.22;
+          out.lPose.middle = 0.26;
+        }
+
+        out.latchSlide = bell(t, 0.10, 0.26);
+        out.craneOpen = smoothstep(0.16, 0.30, t) * (1 - smoothstep(0.75, 0.85, t));
+        out.cylinderSpin = smoothstep(0.32, 0.76, t) * Math.PI * 10;
+
+        out.rx = -0.048 * env + closeWhip * 0.022;
+        out.ry = 0.046 * env;
+        out.rz = 0.022 * env;
+        out.rRotX = 0.15 * holdPose + admireSway * 0.4;
+        out.rRotY = 0.62 * holdPose - closeWhip * 0.26 + admireSway;
+        out.rRotZ = 0.46 * holdPose - closeWhip * 0.62 + admireSway * 0.65;
+        out.rPose.thumb = THREE.MathUtils.lerp(spec.rightPose.thumb, 0.32, out.latchSlide);
+
+        if (playAudio) {
+          if (t > 0.16 && !(state.inspectCueMask & 1)) {
+            state.inspectCueMask |= 1;
+            WeaponAudio.revolverCraneOpen();
+          }
+          if (t > 0.34 && !(state.inspectCueMask & 2)) {
+            state.inspectCueMask |= 2;
+            WeaponAudio.revolverCylinderSpin(1.0);
+          }
+          if (t > 0.77 && !(state.inspectCueMask & 4)) {
+            state.inspectCueMask |= 4;
+            WeaponAudio.revolverCraneClose();
+          }
+        }
+      }
+    } else if (wt === 'deagle' || wt === 'pistol') {
       if (isRare) {
         // CS2 RARE DEAGLE TRIGGER-FINGER SPIN (with F-chain spinBonus support!)
         const env = bell(t, 0.0, 1.0);
@@ -7144,6 +8051,29 @@
       mesh.userData.magGroup.position.y = dropY;
       mesh.userData.magGroup.rotation.x = tiltX;
     }
+    // R-88 Revolver articulated crane/yoke, rotating 6-flute cylinder, ejector rod, thumb latch, trigger & live 6-shell visibility
+    if (mesh.userData.cranePivot) {
+      mesh.userData.cranePivot.rotation.z = (wOut ? wOut.craneOpen : 0) * 1.18;
+    }
+    if (mesh.userData.cylinderGroup) {
+      const baseIdxAngle = ((wOut ? wOut.cylinderIndex : 0) * Math.PI) / 3;
+      mesh.userData.cylinderGroup.rotation.z = -(baseIdxAngle + (wOut ? wOut.cylinderSpin : 0));
+    }
+    if (mesh.userData.ejectorRodGroup) {
+      mesh.userData.ejectorRodGroup.position.z = (wOut ? wOut.ejectorPush : 0) * 0.026;
+    }
+    if (mesh.userData.latchGroup && Number.isFinite(mesh.userData.latchRestZ)) {
+      mesh.userData.latchGroup.position.z = mesh.userData.latchRestZ - (wOut ? wOut.latchSlide : 0) * 0.007;
+    }
+    if (mesh.userData.triggerGroup) {
+      mesh.userData.triggerGroup.rotation.x = -(wOut ? wOut.triggerPull : 0) * 0.42;
+    }
+    if (Array.isArray(mesh.userData.shellMeshes)) {
+      const visCount = wOut && Number.isFinite(wOut.ammoVisibleCount) ? wOut.ammoVisibleCount : -1;
+      for (let i = 0; i < mesh.userData.shellMeshes.length; i++) {
+        mesh.userData.shellMeshes[i].visible = visCount < 0 ? true : i < visCount;
+      }
+    }
   }
 
   /**
@@ -7213,19 +8143,20 @@
     let studioEnv = null;
     let rig = null;
     let currentKnifeMesh = null;
-    const ALL_WEAPON_TYPES = ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol'];
-    let currentWeaponMeshes = { rifle: null, smg: null, shotgun: null, awp: null, deagle: null, pistol: null };
+    const ALL_WEAPON_TYPES = ['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol'];
+    let currentWeaponMeshes = { rifle: null, smg: null, shotgun: null, awp: null, revolver: null, deagle: null, pistol: null };
     let currentWeaponItems = {
       rifle: KS.createStarterWeapon('rifle'),
       smg: KS.createStarterWeapon('smg'),
       shotgun: KS.createStarterWeapon('shotgun'),
       awp: KS.createStarterWeapon('awp'),
+      revolver: KS.createStarterWeapon('revolver'),
       deagle: KS.createStarterWeapon('deagle'),
       pistol: KS.createStarterWeapon('pistol')
     };
-    let currentWeaponAttachments = { rifle: {}, smg: {}, shotgun: {}, awp: {}, deagle: {}, pistol: {} };
-    let currentWeaponBuildSig = { rifle: '', smg: '', shotgun: '', awp: '', deagle: '', pistol: '' };
-    let activeSlot = 'knife'; // 'rifle' | 'smg' | 'shotgun' | 'awp' | 'deagle' | 'pistol' | 'knife'
+    let currentWeaponAttachments = { rifle: {}, smg: {}, shotgun: {}, awp: {}, revolver: {}, deagle: {}, pistol: {} };
+    let currentWeaponBuildSig = { rifle: '', smg: '', shotgun: '', awp: '', revolver: '', deagle: '', pistol: '' };
+    let activeSlot = 'knife'; // 'rifle' | 'smg' | 'shotgun' | 'awp' | 'revolver' | 'deagle' | 'pistol' | 'knife'
     let isScoped = false;
     let adsActive = false;
     let adsProgress = 0;
@@ -7246,6 +8177,7 @@
       reloadDuration: 1.6,
       drawT: 1,
       drawDuration: 0.36,
+      drawCueMask: 0,
       inspectT: 1,
       inspectDuration: 2.35,
       inspectTier: 'normal',
@@ -7254,6 +8186,12 @@
       boltCueMask: 0,
       spinBonus: 0,
       boltT: 1,
+      fanT: 1,
+      revolverAmmo: 6,
+      revolverCharge: 0,
+      revolverReloadPhase: 'none',
+      revolverReloadPhaseProgress: 0,
+      revolverCylinderIndex: 0,
       slashT: 1
     };
 
@@ -7390,6 +8328,24 @@
       }
     }
 
+    function setRevolverState(st) {
+      if (!st || !st.active) {
+        weaponAnim.revolverCharge = 0;
+        weaponAnim.revolverReloadPhase = 'none';
+        weaponAnim.revolverReloadPhaseProgress = 0;
+        return;
+      }
+      weaponAnim.revolverAmmo = Number.isFinite(st.ammo) ? st.ammo : 6;
+      weaponAnim.revolverCharge = Number.isFinite(st.chargeProgress) ? st.chargeProgress : 0;
+      weaponAnim.revolverReloadPhase = st.reloadPhase || 'none';
+      weaponAnim.revolverReloadPhaseProgress = Number.isFinite(st.reloadPhaseProgress) ? st.reloadPhaseProgress : 0;
+      weaponAnim.revolverCylinderIndex = Number.isFinite(st.cylinderIndex) ? st.cylinderIndex : 0;
+      if (weaponAnim.revolverCharge > 0.03 || weaponAnim.revolverReloadPhase !== 'none') {
+        weaponAnim.inspectT = 1;
+        weaponAnim.spinBonus = 0;
+      }
+    }
+
     function setActiveSlot(slot, playDraw = true) {
       const valid = ALL_WEAPON_TYPES.includes(slot) || slot === 'knife' ? slot : 'knife';
       const changed = activeSlot !== valid;
@@ -7402,30 +8358,35 @@
       }
       if (valid !== 'knife') ensureWeaponMesh(valid);
       if (rig && rig.reloadShellsGroup) rig.reloadShellsGroup.visible = false;
+      if (rig && rig.reloadBulletGroup) rig.reloadBulletGroup.visible = false;
       syncActiveMeshVisibility();
       if (playDraw && changed) {
         if (valid === 'knife') {
           triggerDraw();
         } else {
           weaponAnim.drawT = 0;
-          weaponAnim.drawDuration = valid === 'awp' ? 0.44 : (valid === 'deagle' || valid === 'pistol') ? 0.26 : valid === 'smg' ? 0.30 : 0.36;
+          weaponAnim.drawCueMask = 0;
+          weaponAnim.drawDuration = valid === 'revolver' ? 0.56 : valid === 'awp' ? 0.44 : (valid === 'deagle' || valid === 'pistol') ? 0.26 : valid === 'smg' ? 0.30 : 0.36;
           weaponAnim.reloadT = 1;
           weaponAnim.reloadCueMask = 0;
           weaponAnim.boltT = 1;
           weaponAnim.boltCueMask = 0;
+          weaponAnim.fanT = 1;
           weaponAnim.inspectT = 1;
           weaponAnim.spinBonus = 0;
           weaponAnim.recoilKick = 0;
           weaponAnim.recoilPitch = 0;
           weaponAnim.slideKick = 0;
           weaponAnim.hammerKick = 0;
-          WeaponAudio.weaponDraw();
+          if (valid === 'revolver') CaseAudio.spinWhoosh(1.16);
+          else WeaponAudio.weaponDraw();
         }
       }
     }
 
-    function triggerFireRecoil(slot) {
+    function triggerFireRecoil(slot, opts) {
       const s = slot || activeSlot;
+      const isFan = Boolean(opts && opts.fanFire);
       if (s === 'knife') {
         weaponAnim.slashT = 0;
         CaseAudio.spinWhoosh(1.22);
@@ -7434,11 +8395,14 @@
       weaponAnim.inspectT = 1;
       weaponAnim.spinBonus = 0;
       const adsDamp = 1 - adsProgress * 0.48;
-      weaponAnim.recoilKick = (s === 'awp' ? 0.088 : s === 'shotgun' ? 0.078 : s === 'deagle' ? 0.058 : s === 'smg' ? 0.022 : s === 'pistol' ? 0.028 : 0.030) * adsDamp;
-      weaponAnim.recoilPitch = (s === 'awp' ? 0.24 : s === 'shotgun' ? 0.22 : s === 'deagle' ? 0.21 : s === 'smg' ? 0.052 : s === 'pistol' ? 0.095 : 0.075) * adsDamp;
+      weaponAnim.recoilKick = (s === 'awp' ? 0.088 : s === 'shotgun' ? 0.078 : s === 'revolver' ? (isFan ? 0.056 : 0.074) : s === 'deagle' ? 0.058 : s === 'smg' ? 0.022 : s === 'pistol' ? 0.028 : 0.030) * adsDamp;
+      weaponAnim.recoilPitch = (s === 'awp' ? 0.24 : s === 'shotgun' ? 0.22 : s === 'revolver' ? (isFan ? 0.20 : 0.30) : s === 'deagle' ? 0.21 : s === 'smg' ? 0.052 : s === 'pistol' ? 0.095 : 0.075) * adsDamp;
       weaponAnim.slideKick = 1.0;
-      weaponAnim.hammerKick = 1.0;
-      weaponAnim.flashTimer = 0.048;
+      weaponAnim.hammerKick = s === 'revolver' ? 0.0 : 1.0;
+      weaponAnim.flashTimer = 0.052;
+      if (s === 'revolver' && isFan) {
+        weaponAnim.fanT = 0;
+      }
       if (s === 'awp' || s === 'shotgun') {
         weaponAnim.boltT = 0;
         weaponAnim.boltCueMask = 0;
@@ -7458,11 +8422,14 @@
       weaponAnim.reloadCueMask = 0;
       weaponAnim.boltT = 1;
       weaponAnim.boltCueMask = 0;
+      weaponAnim.fanT = 1;
       weaponAnim.reloadDuration = Math.max(0.6, Number(duration) || 1.6);
       adsActive = false;
       isScoped = false;
       syncActiveMeshVisibility();
-      if (activeSlot === 'shotgun') {
+      if (activeSlot === 'revolver') {
+        // Revolver crane open audio is triggered by CombatSystem phase sync
+      } else if (activeSlot === 'shotgun') {
         WeaponAudio.weaponDraw();
       } else {
         WeaponAudio.reloadStart();
@@ -7523,23 +8490,33 @@
 
     function triggerInspect(forceTier) {
       if (activeSlot !== 'knife') {
-        if (weaponAnim.reloadT < 1) return null;
+        if (weaponAnim.reloadT < 1 || weaponAnim.revolverReloadPhase !== 'none') return null;
         const wt = activeSlot;
 
-        // Classic CS2 Deagle F-spam chaining during active Trigger-Finger Spin!
-        if (!forceTier && wt === 'deagle' && weaponAnim.inspectT < 0.86 && weaponAnim.inspectTier === 'uncommon') {
+        // Protect an active 1/100 Mythic revolver showstopper inspect from accidental early cancel
+        if (!forceTier && wt === 'revolver' && weaponAnim.inspectT < 0.55 && weaponAnim.inspectTier === 'mythic') {
+          return { tier: 'mythic', weaponType: wt, mythicName: 'High Noon Showstopper', continued: true };
+        }
+
+        // Classic CS2 Deagle & R-88 Revolver F-spam chaining during active Trigger-Finger Spin!
+        if (!forceTier && (wt === 'deagle' || wt === 'revolver') && weaponAnim.inspectT < 0.86 && weaponAnim.inspectTier === 'uncommon') {
           weaponAnim.spinBonus = Math.min(weaponAnim.spinBonus + Math.PI * 2, Math.PI * 10);
           weaponAnim.inspectT = Math.min(weaponAnim.inspectT, 0.24);
-          weaponAnim.inspectCueMask &= ~6;
+          weaponAnim.inspectCueMask &= ~14;
           CaseAudio.spinWhoosh(1.24);
           return { tier: 'uncommon', weaponType: wt, chained: true };
         }
 
         let wTier;
-        if (forceTier === 'uncommon' || forceTier === 'mythic' || forceTier === true) {
+        if (forceTier === 'mythic') {
+          wTier = wt === 'revolver' ? 'mythic' : 'uncommon';
+        } else if (forceTier === 'uncommon' || forceTier === true) {
           wTier = 'uncommon';
         } else if (forceTier === 'normal' || forceTier === false) {
           wTier = 'normal';
+        } else if (wt === 'revolver') {
+          const r = Math.random();
+          wTier = r < 0.01 ? 'mythic' : r < 0.36 ? 'uncommon' : 'normal';
         } else {
           wTier = Math.random() < (wt === 'deagle' ? 0.24 : 0.20) ? 'uncommon' : 'normal';
         }
@@ -7549,9 +8526,10 @@
         weaponAnim.inspectCueMask = 0;
         weaponAnim.spinBonus = 0;
         weaponAnim.inspectDuration = weaponInspectDuration(wt, wTier);
-        if (wTier === 'uncommon' && wt === 'deagle') CaseAudio.spinWhoosh(1.18);
+        if (wTier === 'mythic' && wt === 'revolver') CaseAudio.mythicFlourish();
+        else if (wTier === 'uncommon' && (wt === 'deagle' || wt === 'revolver')) CaseAudio.spinWhoosh(1.18);
         else WeaponAudio.weaponDraw();
-        return { tier: wTier, weaponType: wt };
+        return { tier: wTier, weaponType: wt, mythicName: wt === 'revolver' && wTier === 'mythic' ? 'High Noon Showstopper' : '' };
       }
 
       if (!currentItem) return null;
@@ -7674,6 +8652,7 @@
       if (weaponAnim.reloadT < 1) weaponAnim.reloadT = Math.min(1, weaponAnim.reloadT + dt / weaponAnim.reloadDuration);
       if (weaponAnim.inspectT < 1) weaponAnim.inspectT = Math.min(1, weaponAnim.inspectT + dt / weaponAnim.inspectDuration);
       if (weaponAnim.boltT < 1) weaponAnim.boltT = Math.min(1, weaponAnim.boltT + dt / (wt === 'shotgun' ? 0.45 : 0.85));
+      if (weaponAnim.fanT < 1) weaponAnim.fanT = Math.min(1, weaponAnim.fanT + dt / 0.20);
 
       // adsProgress is supplied by CombatSystem so camera, overlay, and weapon
       // all use the exact same per-frame transition value.
@@ -7697,7 +8676,7 @@
 
       const adsEase = smoothstep(0, 1, adsProgress);
       // Weapon draw should not tug the model away from the sight line after ADS starts.
-      const drawDip = (1 - smoothstep(0, 1, weaponAnim.drawT)) * 0.22 * (1 - adsEase);
+      const drawDip = (1 - smoothstep(0, 1, weaponAnim.drawT)) * (wt === 'revolver' ? 0.16 : 0.22) * (1 - adsEase);
       const reloadArc = weaponAnim.reloadT < 1 ? Math.sin(weaponAnim.reloadT * Math.PI) : 0;
       const boltArc = (wt === 'awp' || wt === 'shotgun') && weaponAnim.boltT < 1 ? Math.sin(weaponAnim.boltT * Math.PI) : 0;
       // Fully stabilize the weapon at full ADS; do not retain surf bank or idle sway.
@@ -7709,10 +8688,10 @@
       _weaponOut.wPosY *= motionDamp;
       _weaponOut.wPosZ *= motionDamp;
 
-      const isPistol = wt === 'deagle' || wt === 'pistol';
-      const hipRx = isPistol ? 0.138 : wt === 'awp' ? 0.168 : wt === 'smg' ? 0.148 : 0.162;
-      const hipRy = isPistol ? -0.152 : wt === 'awp' ? -0.172 : wt === 'smg' ? -0.158 : -0.166;
-      const hipRz = isPistol ? -0.320 : wt === 'awp' ? -0.252 : wt === 'smg' ? -0.285 : -0.268;
+      const isPistol = wt === 'deagle' || wt === 'pistol' || wt === 'revolver';
+      const hipRx = wt === 'revolver' ? 0.132 : isPistol ? 0.138 : wt === 'awp' ? 0.168 : wt === 'smg' ? 0.148 : 0.162;
+      const hipRy = wt === 'revolver' ? -0.148 : isPistol ? -0.152 : wt === 'awp' ? -0.172 : wt === 'smg' ? -0.158 : -0.166;
+      const hipRz = wt === 'revolver' ? -0.305 : isPistol ? -0.320 : wt === 'awp' ? -0.252 : wt === 'smg' ? -0.285 : -0.268;
 
       // Apply the animated weapon socket transform before solving its actual
       // optic point; the old gripCenter/eyeY shortcut ignored X/Z and rotation.
@@ -7742,6 +8721,9 @@
         if (showShells && rig.shellHullMat) {
           rig.shellHullMat.color.setHex(mesh.userData.shellColor || 0xc82532);
         }
+      }
+      if (rig.reloadBulletGroup) {
+        rig.reloadBulletGroup.visible = Boolean(_weaponOut.showReloadBullet) && adsEase < 0.35;
       }
 
       applyWeaponMechanicalParts(mesh, wt, _weaponOut, reloadArc, boltArc, weaponAnim.slideKick, weaponAnim.hammerKick);
@@ -7795,6 +8777,7 @@
       }
 
       if (rig && rig.reloadShellsGroup) rig.reloadShellsGroup.visible = false;
+      if (rig && rig.reloadBulletGroup) rig.reloadBulletGroup.visible = false;
       if (!currentKnifeMesh) return;
       const kt = currentItem.knifeType;
 
@@ -7865,6 +8848,7 @@
       getActiveSlot: () => activeSlot,
       triggerFireRecoil,
       triggerReload,
+      setRevolverState,
       setScoped,
       setAdsState,
       getAdsProgress: () => adsProgress,
@@ -8173,7 +9157,7 @@
       wBox.getCenter(wCenter);
       wBox.getSize(wSize);
       const wMax = Math.max(wSize.x, wSize.y, wSize.z, 0.2);
-      const isShort = cleanWep.weaponType === 'smg' || cleanWep.weaponType === 'deagle' || cleanWep.weaponType === 'pistol';
+      const isShort = cleanWep.weaponType === 'smg' || cleanWep.weaponType === 'deagle' || cleanWep.weaponType === 'pistol' || cleanWep.weaponType === 'revolver';
       const targetLen = isShort ? 0.56 : (cleanWep.weaponType === 'awp' ? 0.88 : 0.74);
       const wScale = targetLen / wMax;
       wepModel.scale.setScalar(wScale);
@@ -8386,7 +9370,7 @@
       } else if (isCombo) {
         pCamera.fov = 44;
         if (previewKind === 'weapon') {
-          const isPistol = currentWeapon && (currentWeapon.weaponType === 'deagle' || currentWeapon.weaponType === 'pistol');
+          const isPistol = currentWeapon && (currentWeapon.weaponType === 'deagle' || currentWeapon.weaponType === 'pistol' || currentWeapon.weaponType === 'revolver');
           targetCamX = 0.03; targetCamY = 0.08; targetCamZ = isPistol ? 0.50 : 0.78;
           targetLookX = 0.0; targetLookY = -0.015;
         } else {
@@ -8553,7 +9537,7 @@
       if (previewMode === 'runner') return;
       if (previewKind === 'weapon') {
         const wt = currentWeapon.weaponType;
-        const wTier = tier === 'mythic' || tier === 'uncommon' ? 'uncommon' : 'normal';
+        const wTier = (tier === 'mythic' && wt === 'revolver') ? 'mythic' : (tier === 'mythic' || tier === 'uncommon') ? 'uncommon' : 'normal';
         comboAnimState.drawT = 1;
         comboAnimState.inspectT = 0;
         comboAnimState.inspectCueMask = 0;
@@ -8562,7 +9546,8 @@
         comboAnimState.inspectDuration = weaponInspectDuration(wt, wTier);
         soloTrickT = 0;
         soloTrickCueMask = 0;
-        if (wTier === 'uncommon' && wt === 'deagle') CaseAudio.spinWhoosh(1.22);
+        if (wTier === 'mythic' && wt === 'revolver') CaseAudio.mythicFlourish();
+        else if (wTier === 'uncommon' && (wt === 'deagle' || wt === 'revolver')) CaseAudio.spinWhoosh(1.22);
         else WeaponAudio.weaponDraw();
         if (!active) {
           active = true;
@@ -8604,7 +9589,7 @@
         }
         evaluateWeaponChoreography(wt, comboAnimState, _comboWeaponOut, true);
 
-        const isPistol = wt === 'deagle' || wt === 'pistol';
+        const isPistol = wt === 'deagle' || wt === 'pistol' || wt === 'revolver';
         const zCenter = isPistol ? -0.26 : wt === 'awp' ? -0.09 : -0.13;
         const yCenter = isPistol ? -0.182 : -0.198;
         comboRig.rightHandPivot.position.set(

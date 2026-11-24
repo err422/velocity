@@ -63,6 +63,14 @@
       range: 120, falloffStart: 30, falloffEnd: 70, falloffMinMult: 0.56,
       tracerColor: 0xffc66b, hasChronoKit: true, chronoTimeScale: 0.28, chronoTier: 1,
       chronoRampIn: 0.14, chronoRampOut: 0.14
+    },
+    revolver: {
+      weaponId: 'revolver', name: 'R-88 Magnum', shortName: 'R-88',
+      damageBody: 105, damageHead: 260, fireInterval: 0.70, magSize: 6,
+      reloadSec: 2.88, pellets: 1, pelletSpread: 0, hipSpread: 0.008, adsSpread: 0.0006,
+      range: 420, falloffStart: 340, falloffEnd: 460, falloffMinMult: 1.0,
+      tracerColor: 0xffe48a, hasChronoKit: true, chronoTimeScale: 0.28, chronoTier: 1,
+      chronoRampIn: 0.14, chronoRampOut: 0.14
     }
   };
 
