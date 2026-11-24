@@ -79,3 +79,15 @@ test('CombatSystem exposes 3-slot loadout model (primary, secondary, melee) and 
   assert.equal(CombatSystem.DUEL_WIN_ROUNDS, 5);
   assert.equal(CombatSystem.FFA_WIN_KILLS, 15);
 });
+
+test('chooseBotMovementIntent uses distance, ammo, and varied combat choices', () => {
+  const choose = CombatSystem.chooseBotMovementIntent;
+  assert.equal(typeof choose, 'function');
+  assert.equal(choose(40, 18, false, 0.5), 'advance');
+  assert.equal(choose(4, 18, false, 0.5), 'disengage');
+  assert.equal(choose(18, 18, true, 0.5), 'reload');
+  assert.equal(choose(18, 18, false, 0.05), 'hold');
+  assert.equal(choose(18, 18, false, 0.3), 'strafe');
+  assert.equal(choose(18, 18, false, 0.7), 'reposition');
+  assert.equal(choose(18, 18, false, 0.95), 'advance');
+});
