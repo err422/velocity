@@ -1135,7 +1135,7 @@
     const profile = bot.profile;
     const group = bot.visual.group;
     const speed = Math.hypot(bot.velocity.x, bot.velocity.z);
-    const abilitiesAllowed = !movementContext || movementContext.abilitiesAllowed !== false;
+    const grappleBurstAllowed = !movementContext || movementContext.abilitiesAllowed !== false;
     const maxSpeed = Math.max(profile.moveSpeed, 8.5);
     const wish = desiredDir;
     if (wish.lengthSq() > 0.001) wish.normalize();
@@ -1188,14 +1188,14 @@
     const obstacleHits = solidList && solidList.length ? _botShotRay.intersectObjects(solidList, false) : [];
     if (obstacleHits.length) obstacleDistance = obstacleHits[0].distance;
 
-    if (grounded && bot.jumpCooldown <= 0 && abilitiesAllowed &&
+    if (grounded && bot.jumpCooldown <= 0 &&
         (obstacleDistance < 2.3 || (seesTarget && horizontalSpeed > 12 && Math.random() < 0.025))) {
       bot.verticalVelocity = Math.max(bot.verticalVelocity, cfg && cfg.jumpSpeed || 9.2);
       bot.grounded = false;
       bot.jumpCooldown = 0.72 + Math.random() * 0.38;
     }
 
-    if (abilitiesAllowed && bot.burstCooldown <= 0 && seesTarget &&
+    if (grappleBurstAllowed && bot.burstCooldown <= 0 && seesTarget &&
         horizontalSpeed > 5 && horizontalSpeed < 30 && Math.random() < stepDt * 0.72) {
       const burstDir = wish.lengthSq() > 0.001 ? wish : forward;
       bot.velocity.x += burstDir.x * (cfg && cfg.burstImpulse || 13);
@@ -1204,7 +1204,7 @@
     }
 
     // A grapple is only fired at a real collision mesh in the bot's forward arc.
-    if (abilitiesAllowed && !bot.grapplePoint && bot.grappleCooldown <= 0 &&
+    if (grappleBurstAllowed && !bot.grapplePoint && bot.grappleCooldown <= 0 &&
         seesTarget && obstacleDistance > 5 && Math.random() < stepDt * 0.26) {
       _botShotRay.set(origin, forward);
       _botShotRay.near = 2;
@@ -1255,7 +1255,7 @@
 
     // Wall-run on vertical geometry, then wall-jump out into the fight.
     bot.wallrunning = false;
-    if (abilitiesAllowed && !grounded && horizontalSpeed > 8 && bot.wallrunTimer <= 0) {
+    if (!grounded && horizontalSpeed > 8 && bot.wallrunTimer <= 0) {
       _botAimRight.set(-forward.z, 0, forward.x);
       for (const side of [-1, 1]) {
         _botCandidateDir.copy(_botAimRight).multiplyScalar(side);
@@ -1283,7 +1283,7 @@
     }
 
     // Map-authored pads and boost rings are first-class traversal routes.
-    if (abilitiesAllowed && movementContext) {
+    if (movementContext) {
       for (const pad of movementContext.pads || []) {
         const dx = group.position.x - pad.position.x;
         const dz = group.position.z - pad.position.z;
