@@ -517,6 +517,12 @@
     return true;
   }
 
+  function canBotDamageTarget(role, phase, botUid, attacker, victim) {
+    return role === 'host' && phase === 'live' &&
+      Boolean(attacker && attacker.isBot && victim && victim.alive &&
+        attacker.uid === botUid && botUid !== victim.uid);
+  }
+
   function hostResolveDamage(attackerUid, victimUid, damage, slot, isHeadshot) {
     if (state.role !== 'host') return;
     if (state.phase !== 'live') return;
@@ -555,7 +561,9 @@
       players: serializePlayersList()
     };
     broadcastGame(dmgPacket);
-    applyDamageEventLocally(dmgPacket);
+    // Host state is already authoritative; do not re-apply the full roster
+    // snapshot (and resync every bot brain) for every individual shot.
+    applyDamageEventLocally(dmgPacket, true);
 
     if (!killed) return;
 
@@ -654,8 +662,8 @@
     }
   }
 
-  function applyDamageEventLocally(pkt) {
-    if (Array.isArray(pkt.players)) {
+  function applyDamageEventLocally(pkt, skipPlayersSnapshot) {
+    if (!skipPlayersSnapshot && Array.isArray(pkt.players)) {
       applyPlayersSnapshot(pkt.players);
     }
     if (pkt.victimUid === state.localUid) {
@@ -1394,7 +1402,7 @@
     if (state.role !== 'host' || state.phase !== 'live') return false;
     const attacker = state.players.get(botUid);
     const victim = state.players.get(victimUid);
-    if (!attacker || !attacker.isBot || !victim || attackerUid === victimUid || !victim.alive) return false;
+    if (!canBotDamageTarget(state.role, state.phase, botUid, attacker, victim)) return false;
     hostResolveDamage(botUid, victimUid, damage, weapon, isHeadshot);
     return true;
   }
@@ -1582,6 +1590,7 @@
     reportShot,
     applyWarmupDamage,
     applyBotDamage,
+    canBotDamageTarget,
     reportBotPose,
     reportBotShot,
     update,
