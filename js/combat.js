@@ -215,21 +215,21 @@
     {
       role: 'RUSHER', weapon: 'smg', preferredRange: 12, sightRange: 44, moveSpeed: 8.4,
       damage: 5, shotInterval: 0.22, magSize: 30, reloadTime: 1.45, aimSpread: 0.040,
-      reaction: 0.24, aimSpeed: 5.4, fireAlignment: 0.986, aimSway: 0.012, leadTime: 0.10,
+      reaction: 0.12, aimSpeed: 8.2, fireAlignment: 0.972, aimSway: 0.008, leadTime: 0.14,
       strafeBias: 1.08, decisionMin: 0.48, decisionMax: 0.92, burstMin: 4, burstMax: 8,
       burstPause: 0.18, color: 0xff8b47, tracer: 0xff9c62
     },
     {
       role: 'RIFLE', weapon: 'rifle', preferredRange: 19, sightRange: 54, moveSpeed: 7.0,
       damage: 7, shotInterval: 0.30, magSize: 24, reloadTime: 1.75, aimSpread: 0.032,
-      reaction: 0.38, aimSpeed: 4.6, fireAlignment: 0.991, aimSway: 0.009, leadTime: 0.13,
+      reaction: 0.20, aimSpeed: 7.2, fireAlignment: 0.978, aimSway: 0.006, leadTime: 0.17,
       strafeBias: 0.92, decisionMin: 0.62, decisionMax: 1.20, burstMin: 2, burstMax: 5,
       burstPause: 0.28, color: 0xffbd42, tracer: 0xffc36b
     },
     {
       role: 'SKIRMISHER', weapon: 'deagle', preferredRange: 24, sightRange: 58, moveSpeed: 6.4,
       damage: 10, shotInterval: 0.62, magSize: 10, reloadTime: 1.95, aimSpread: 0.025,
-      reaction: 0.48, aimSpeed: 4.0, fireAlignment: 0.994, aimSway: 0.006, leadTime: 0.16,
+      reaction: 0.28, aimSpeed: 6.2, fireAlignment: 0.984, aimSway: 0.004, leadTime: 0.19,
       strafeBias: 0.78, decisionMin: 0.82, decisionMax: 1.42, burstMin: 1, burstMax: 2,
       burstPause: 0.46, color: 0x9b78ff, tracer: 0xb79aff
     }
@@ -1129,7 +1129,224 @@
     return hitsPlayer;
   }
 
-  function updateWarmupBot(bot, dt, playerState, playerPos, targetPos, solidList, onDamage, onShot) {
+  function updateBotTraversal(bot, dt, desiredDir, solidList, movementContext, seesTarget) {
+    const cfg = movementContext && movementContext.config;
+    const stepDt = Math.min(0.05, Math.max(0, dt));
+    const profile = bot.profile;
+    const group = bot.visual.group;
+    const speed = Math.hypot(bot.velocity.x, bot.velocity.z);
+    const abilitiesAllowed = !movementContext || movementContext.abilitiesAllowed !== false;
+    const maxSpeed = Math.max(profile.moveSpeed, 8.5);
+    const wish = desiredDir.lengthSq() > 0.001 ? desiredDir.clone().normalize() : new THREE.Vector3();
+    const grounded = bot.grounded !== false && bot.verticalVelocity <= 0.1;
+
+    // Quake-style ground acceleration and air-strafe acceleration.
+    if (wish.lengthSq() > 0.001) {
+      if (grounded) {
+        const current = bot.velocity.x * wish.x + bot.velocity.z * wish.z;
+        const add = maxSpeed - current;
+        if (add > 0) {
+          const accel = Math.min(add, (cfg && cfg.groundAccel || 38) * maxSpeed * stepDt);
+          bot.velocity.x += wish.x * accel;
+          bot.velocity.z += wish.z * accel;
+        }
+      } else if (root.SurfEngine && cfg) {
+        const surfDelta = root.SurfEngine.computeAirStrafeDelta(
+          bot.velocity, wish, stepDt, cfg, bot.surfing === true
+        );
+        bot.velocity.x += surfDelta.dx;
+        bot.velocity.z += surfDelta.dz;
+      } else {
+        bot.velocity.x += wish.x * 14 * stepDt;
+        bot.velocity.z += wish.z * 14 * stepDt;
+      }
+    }
+
+    // Momentum-preserving drag, with active counter-steering instead of snapping to a speed.
+    const drag = grounded ? 2.7 : 0.18;
+    bot.velocity.x *= Math.max(0, 1 - drag * stepDt);
+    bot.velocity.z *= Math.max(0, 1 - drag * stepDt);
+    const horizontalSpeed = Math.hypot(bot.velocity.x, bot.velocity.z);
+
+    bot.jumpCooldown = Math.max(0, (bot.jumpCooldown || 0) - stepDt);
+    bot.burstCooldown = Math.max(0, (bot.burstCooldown || 0) - stepDt);
+    bot.grappleCooldown = Math.max(0, (bot.grappleCooldown || 0) - stepDt);
+    bot.wallrunTimer = Math.max(0, (bot.wallrunTimer || 0) - stepDt);
+
+    const origin = _botOrigin.set(group.position.x, group.position.y + 1.0, group.position.z);
+    const forward = horizontalSpeed > 1.5
+      ? _botForward.set(bot.velocity.x, 0, bot.velocity.z).normalize()
+      : wish.lengthSq() > 0.001 ? wish : _botForward.set(-Math.sin(bot.yaw), 0, -Math.cos(bot.yaw));
+
+    // Read nearby geometry: obstacles can be jumped, walls can be wall-run, and
+    // overhead/forward anchors can be used for a grapple swing.
+    let obstacleDistance = Infinity;
+    _botShotRay.set(origin, forward);
+    _botShotRay.near = 0.25;
+    _botShotRay.far = 3.4;
+    const obstacleHits = solidList && solidList.length ? _botShotRay.intersectObjects(solidList, false) : [];
+    if (obstacleHits.length) obstacleDistance = obstacleHits[0].distance;
+
+    if (grounded && bot.jumpCooldown <= 0 && abilitiesAllowed &&
+        (obstacleDistance < 2.3 || (seesTarget && horizontalSpeed > 12 && Math.random() < 0.025))) {
+      bot.verticalVelocity = Math.max(bot.verticalVelocity, cfg && cfg.jumpSpeed || 9.2);
+      bot.grounded = false;
+      bot.jumpCooldown = 0.72 + Math.random() * 0.38;
+    }
+
+    if (abilitiesAllowed && bot.burstCooldown <= 0 && seesTarget &&
+        horizontalSpeed > 5 && horizontalSpeed < 30 && Math.random() < stepDt * 0.72) {
+      const burstDir = wish.lengthSq() > 0.001 ? wish : forward;
+      bot.velocity.x += burstDir.x * (cfg && cfg.burstImpulse || 13);
+      bot.velocity.z += burstDir.z * (cfg && cfg.burstImpulse || 13);
+      bot.burstCooldown = cfg && cfg.burstCooldown || 3.2;
+    }
+
+    // A grapple is only fired at a real collision mesh in the bot's forward arc.
+    if (abilitiesAllowed && !bot.grapplePoint && bot.grappleCooldown <= 0 &&
+        seesTarget && obstacleDistance > 5 && Math.random() < stepDt * 0.26) {
+      _botShotRay.set(origin, forward);
+      _botShotRay.near = 2;
+      _botShotRay.far = Math.min(22, cfg && cfg.grappleRange || 22);
+      const anchorHits = solidList && solidList.length ? _botShotRay.intersectObjects(solidList, false) : [];
+      if (anchorHits.length) bot.grapplePoint = anchorHits[0].point.clone();
+    }
+    if (bot.grapplePoint) {
+      _botToTarget.subVectors(bot.grapplePoint, origin);
+      const ropeDistance = _botToTarget.length();
+      if (ropeDistance < 2.6 || ropeDistance > 26) {
+        bot.grapplePoint = null;
+        bot.grappleCooldown = 2.0;
+      } else {
+        _botToTarget.normalize();
+        const along = bot.velocity.x * _botToTarget.x + bot.verticalVelocity * _botToTarget.y + bot.velocity.z * _botToTarget.z;
+        const pull = Math.min(24 * stepDt, Math.max(0, 18 - along));
+        bot.velocity.x += _botToTarget.x * pull;
+        bot.verticalVelocity += _botToTarget.y * pull;
+        bot.velocity.z += _botToTarget.z * pull;
+      }
+    }
+
+    // Detect and ride actual surf faces using their collision normals.
+    bot.surfing = false;
+    if (root.SurfEngine && solidList && solidList.length) {
+      _botFloorOrigin.set(group.position.x, group.position.y + 1.3, group.position.z);
+      _botFloorRay.set(_botFloorOrigin, _botDown);
+      _botFloorRay.near = 0.05;
+      _botFloorRay.far = 2.1;
+      const surfHits = _botFloorRay.intersectObjects(solidList, false);
+      for (const hit of surfHits) {
+        if (!hit.face) continue;
+        const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+        if (root.SurfEngine.classifySurfaceNormal(normal.y, cfg || {}, Boolean(hit.object.userData && hit.object.userData.isSurf)) === 'surf') {
+          bot.surfing = true;
+          if (horizontalSpeed > 5) {
+            const tangent = new THREE.Vector3(-normal.z, 0, normal.x).normalize();
+            if (tangent.dot(forward) < 0) tangent.negate();
+            const delta = root.SurfEngine.computeAirStrafeDelta(bot.velocity, tangent, stepDt, cfg || {}, true);
+            bot.velocity.x += delta.dx;
+            bot.velocity.z += delta.dz;
+          }
+          break;
+        }
+      }
+    }
+
+    // Wall-run on vertical geometry, then wall-jump out into the fight.
+    bot.wallrunning = false;
+    if (abilitiesAllowed && !grounded && horizontalSpeed > 8 && bot.wallrunTimer <= 0) {
+      _botAimRight.set(-forward.z, 0, forward.x);
+      for (const side of [-1, 1]) {
+        _botShotRay.set(origin, _botAimRight.clone().multiplyScalar(side));
+        _botShotRay.near = 0.2;
+        _botShotRay.far = 1.15;
+        const wallHits = solidList && solidList.length ? _botShotRay.intersectObjects(solidList, false) : [];
+        if (wallHits.length && wallHits[0].face) {
+          const normal = wallHits[0].face.normal.clone().transformDirection(wallHits[0].object.matrixWorld);
+          if (Math.abs(normal.y) < 0.3) {
+            bot.wallNormal = normal;
+            bot.wallrunning = true;
+            bot.wallrunTimer = 0.45;
+            bot.verticalVelocity = Math.max(bot.verticalVelocity, -2.5);
+            if (bot.jumpCooldown <= 0 && Math.random() < 0.08) {
+              bot.velocity.x += normal.x * 8;
+              bot.velocity.z += normal.z * 8;
+              bot.verticalVelocity = 8.5;
+              bot.jumpCooldown = 0.8;
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    // Map-authored pads and boost rings are first-class traversal routes.
+    if (abilitiesAllowed && movementContext) {
+      for (const pad of movementContext.pads || []) {
+        const dx = group.position.x - pad.position.x;
+        const dz = group.position.z - pad.position.z;
+        if (Math.hypot(dx, dz) < 2.5 && Math.abs(group.position.y - pad.position.y) < 1.25 && (bot.padCooldown || 0) <= 0) {
+          bot.verticalVelocity = Math.max(bot.verticalVelocity, cfg && cfg.padUp || 16);
+          bot.velocity.x *= cfg && cfg.padBoost || 1.18;
+          bot.velocity.z *= cfg && cfg.padBoost || 1.18;
+          bot.padCooldown = 0.6;
+        }
+      }
+      bot.padCooldown = Math.max(0, (bot.padCooldown || 0) - stepDt);
+      for (const booster of movementContext.boosters || []) {
+        const dx = group.position.x - booster.pos.x;
+        const dy = group.position.y + 1 - booster.pos.y;
+        const dz = group.position.z - booster.pos.z;
+        if (dx*dx + dy*dy + dz*dz < booster.radius*booster.radius) {
+          const boostSpeed = Math.max(Math.hypot(bot.velocity.x, bot.velocity.z) + booster.speedBoost * 0.45, booster.minSpeed);
+          bot.velocity.x = booster.dir.x * boostSpeed;
+          bot.velocity.z = booster.dir.z * boostSpeed;
+          bot.verticalVelocity = Math.max(bot.verticalVelocity + booster.upBoost * 0.45, booster.dir.y * boostSpeed + booster.upBoost);
+          break;
+        }
+      }
+      for (const portal of movementContext.teleporters || []) {
+        if (group.position.x >= portal.min.x && group.position.x <= portal.max.x &&
+            group.position.y + 1 >= portal.min.y && group.position.y <= portal.max.y &&
+            group.position.z >= portal.min.z && group.position.z <= portal.max.z) {
+          group.position.copy(portal.dest);
+          if (portal.preserveSpeed) {
+            const spd = Math.min(Math.hypot(bot.velocity.x, bot.velocity.z), portal.maxSpeed);
+            bot.velocity.set(-Math.sin(portal.destYaw) * spd, 0, -Math.cos(portal.destYaw) * spd);
+          } else {
+            bot.velocity.set(0, 0, 0);
+          }
+          bot.verticalVelocity = 0;
+          break;
+        }
+      }
+    }
+
+    bot.verticalVelocity -= (cfg && cfg.gravity || 26) * (bot.grapplePoint ? 0.28 : bot.wallrunning ? 0.55 : 1) * stepDt;
+    if (bot.surfing) bot.verticalVelocity = Math.max(bot.verticalVelocity, -4.5);
+    const nextX = group.position.x + bot.velocity.x * stepDt;
+    const nextZ = group.position.z + bot.velocity.z * stepDt;
+    const nextY = group.position.y + bot.verticalVelocity * stepDt;
+    const floorY = warmupBotFloorAt(nextX, nextZ, nextY, solidList);
+    if (floorY != null && nextY <= floorY + 0.15 && bot.verticalVelocity <= 0) {
+      group.position.set(nextX, floorY, nextZ);
+      bot.verticalVelocity = 0;
+      bot.grounded = true;
+      bot.grapplePoint = null;
+    } else {
+      group.position.set(nextX, nextY, nextZ);
+      bot.grounded = false;
+    }
+
+    // Cap runaway velocity but preserve the game's high-speed movement identity.
+    const finalSpeed = Math.hypot(bot.velocity.x, bot.velocity.z);
+    if (finalSpeed > 58) {
+      bot.velocity.x *= 58 / finalSpeed;
+      bot.velocity.z *= 58 / finalSpeed;
+    }
+  }
+
+  function updateWarmupBot(bot, dt, playerState, playerPos, targetPos, solidList, onDamage, onShot, movementContext) {
     const profile = bot.profile;
     const group = bot.visual.group;
     const stepDt = Math.min(0.05, Math.max(0, dt));
@@ -1327,32 +1544,8 @@
       _botDesiredDir.normalize();
       steerWarmupBotAroundWalls(bot, _botDesiredDir, solidList);
     }
-    const reloadScale = bot.reloadTimer > 0 ? 0.82 : 1;
-    const aimMoveScale = seesPlayer && bot.aimTimer > profile.reaction ? 0.88 : 1;
-    const targetSpeed = profile.moveSpeed * reloadScale * aimMoveScale;
-    bot.velocity.x += (_botDesiredDir.x * targetSpeed - bot.velocity.x) * Math.min(1, stepDt * 5.2);
-    bot.velocity.z += (_botDesiredDir.z * targetSpeed - bot.velocity.z) * Math.min(1, stepDt * 5.2);
-
-    const nextX = group.position.x + bot.velocity.x * stepDt;
-    const nextZ = group.position.z + bot.velocity.z * stepDt;
-    const floorY = warmupBotFloorAt(nextX, nextZ, group.position.y, solidList);
-    if (floorY == null) {
-      bot.velocity.x *= 0.12;
-      bot.velocity.z *= 0.12;
-      bot.verticalVelocity = Math.min(0, bot.verticalVelocity);
-      if (_botDesiredDir.lengthSq() > 0.01) bot.strafeSign *= -1;
-    } else {
-      group.position.x = nextX;
-      group.position.z = nextZ;
-      if (floorY < group.position.y - 0.12) {
-        bot.verticalVelocity = Math.max(-30, bot.verticalVelocity - 24 * stepDt);
-        group.position.y = Math.max(floorY, group.position.y + bot.verticalVelocity * stepDt);
-        if (group.position.y <= floorY + 0.001) bot.verticalVelocity = 0;
-      } else {
-        bot.verticalVelocity = 0;
-        group.position.y += (floorY - group.position.y) * Math.min(1, stepDt * 12);
-      }
-    }
+    if (bot.reloadTimer > 0) _botDesiredDir.multiplyScalar(0.82);
+    updateBotTraversal(bot, stepDt, _botDesiredDir, solidList, movementContext, seesPlayer);
 
     let faceX = bot.velocity.x;
     let faceZ = bot.velocity.z;
