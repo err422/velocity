@@ -465,6 +465,8 @@ const armoryCasesSelect=$('armoryCasesSelect'),armoryCaseGrid=$('armoryCaseGrid'
 const selectedCaseTitle=$('selectedCaseTitle'),caseOddsLine=$('caseOddsLine'),selectedCasePool=$('selectedCasePool');
 const openCaseBtn=$('openCaseBtn'),buyCaseBtn=$('buyCaseBtn'),openCaseHint=$('openCaseHint'),armoryOpenedStat=$('armoryOpenedStat');
 const bulkCaseQuantityInput=$('bulkCaseQuantity'),bulkCaseTotalEl=$('bulkCaseTotal'),bulkCaseHintEl=$('bulkCaseHint'),bulkBuyCaseBtn=$('bulkBuyCaseBtn');
+const bulkOpenPanelEl=$('bulkCaseOpenBox'),bulkOpenQuantityInput=$('bulkOpenQuantity'),bulkOpenTotalEl=$('bulkOpenTotal'),bulkOpenHintEl=$('bulkOpenHint'),bulkOpenBtn=$('bulkOpenBtn');
+const armoryBulkResultsWrap=$('armoryBulkResultsWrap'),bulkDropListEl=$('bulkDropList'),bulkResultsTitleEl=$('bulkResultsTitle'),bulkResultsSubtitleEl=$('bulkResultsSubtitle'),bulkResultsValueEl=$('bulkResultsValue'),bulkResultsConfirmBtn=$('bulkResultsConfirmBtn');
 const armoryRouletteWrap=$('armoryRouletteWrap'),rouletteCaseLabel=$('rouletteCaseLabel');
 const rouletteViewport=$('rouletteViewport'),rouletteTrack=$('rouletteTrack'),rouletteStatus=$('rouletteStatus');
 const armoryRevealWrap=$('armoryRevealWrap'),armoryRevealStage=$('armoryRevealStage'),revealStageBar=$('revealStageBar');
@@ -514,6 +516,10 @@ let armoryReturnTarget='menu';
 let activeArmoryTab='cases';
 let selectedCaseId='velocity';
 let bulkCaseQuantity=10;
+let bulkOpenQuantity=10;
+let pendingBulkDrops=[];
+const bulkDropSellIds=new Set();
+let pendingBulkOpenCloudSync=Promise.resolve(null);
 let invCategory='weapons';
 let invFilterType='all';
 let invPreviewMode='combo';
@@ -1304,6 +1310,7 @@ function renderArmoryCases(){
   }
   updateArmoryBadges();
   updateBulkCaseBuyUI();
+  updateBulkCaseOpenUI();
 }
 
 function buyCaseOnly(caseId){
@@ -1381,10 +1388,209 @@ function buyCasesInBulk(caseId){
   showToast(`BULK PURCHASE · ${fmtCoins(res.quantity)} ${cDef.shortName.toUpperCase()} CASES · -${fmtCoins(res.totalCost)} COINS`);
 }
 
+
+function updateBulkCaseOpenUI(){
+  if(!bulkOpenPanelEl||!bulkOpenQuantityInput||!bulkOpenBtn)return;
+  const cid=KnivesSystem.CASES[selectedCaseId]?selectedCaseId:'velocity';
+  const owned=window.activeInventory.caseCounts[cid]||0;
+  const maxQty=Math.min(owned,100);
+  bulkOpenPanelEl.style.display=owned>1?'':'none';
+
+  if(maxQty>0){
+    bulkOpenQuantityInput.max=String(maxQty);
+    const current=Number(bulkOpenQuantityInput.value);
+    if(!Number.isSafeInteger(current)||current>maxQty){
+      bulkOpenQuantity= maxQty>1 ? Math.min(10,maxQty) : maxQty;
+      bulkOpenQuantityInput.value=String(bulkOpenQuantity);
+    }
+  }
+
+  const qty=Number(bulkOpenQuantityInput.value);
+  const valid=Number.isSafeInteger(qty)&&qty>=1&&qty<=maxQty;
+  if(bulkOpenTotalEl){
+    bulkOpenTotalEl.textContent=valid
+      ?`OPEN ${fmtCoins(qty)} CASES · ${fmtCoins(qty)} DROPS`
+      :`YOU OWN ${fmtCoins(owned)} CASES`;
+  }
+  if(bulkOpenHintEl){
+    bulkOpenHintEl.textContent=owned>100
+      ?`${fmtCoins(owned)} OWNED · 100 MAX PER BATCH`
+      :`${fmtCoins(owned)} OWNED · EACH DROP CAN BE KEPT OR SOLD`;
+  }
+  bulkOpenBtn.disabled=!valid;
+  bulkOpenBtn.textContent=valid?`OPEN ${fmtCoins(qty)} CASES`:'NOT ENOUGH OWNED CASES';
+  document.querySelectorAll('[data-open-case-qty]').forEach(btn=>{
+    btn.classList.toggle('active',Number(btn.dataset.openCaseQty)===qty);
+  });
+}
+
+function bulkDropDisplayName(item){
+  return KnivesSystem.formatItemFullName(item);
+}
+
+function updateBulkCaseResultsSummary(){
+  if(!bulkResultsTitleEl||!bulkResultsConfirmBtn)return;
+  const total=pendingBulkDrops.length;
+  const sellItems=pendingBulkDrops.filter(item=>bulkDropSellIds.has(item.id));
+  const sellValue=sellItems.reduce((sum,item)=>sum+KnivesSystem.getItemSellValue(item),0);
+  const keepCount=total-sellItems.length;
+  bulkResultsTitleEl.textContent=`${fmtCoins(total)} CASES OPENED`;
+  if(bulkResultsSubtitleEl){
+    bulkResultsSubtitleEl.textContent=`${fmtCoins(keepCount)} KEEP · ${fmtCoins(sellItems.length)} MARKED TO SELL`;
+  }
+  if(bulkResultsValueEl){
+    bulkResultsValueEl.textContent=sellItems.length
+      ?`POTENTIAL SALE · +${fmtCoins(sellValue)} COINS`
+      :'NO ITEMS MARKED FOR SALE';
+  }
+  bulkResultsConfirmBtn.disabled=total===0;
+  bulkResultsConfirmBtn.textContent=sellItems.length
+    ?`REVIEW SALE · SELL ${fmtCoins(sellItems.length)} / KEEP ${fmtCoins(keepCount)} · +${fmtCoins(sellValue)}C`
+    :`KEEP ALL ${fmtCoins(total)} DROPS`;
+}
+
+function renderBulkCaseResults(){
+  if(!bulkDropListEl)return;
+  bulkDropListEl.textContent='';
+  for(const item of pendingBulkDrops){
+    const rarity=KnivesSystem.RARITIES[item.rarity]||KnivesSystem.RARITIES.milspec;
+    const sellValue=KnivesSystem.getItemSellValue(item);
+    const marked=bulkDropSellIds.has(item.id);
+    const row=document.createElement('div');
+    row.className='bulk-drop-row'+(marked?' marked-sell':'');
+    row.style.setProperty('--rar-col',rarity.color);
+
+    const thumb=document.createElement('img');
+    thumb.className='bulk-drop-thumb';
+    thumb.src=getThumbForItem(item);
+    thumb.alt=bulkDropDisplayName(item);
+    thumb.loading='lazy';
+
+    const details=document.createElement('div');
+    details.className='bulk-drop-details';
+    const name=document.createElement('div');
+    name.className='bulk-drop-name';
+    name.textContent=bulkDropDisplayName(item);
+    const meta=document.createElement('div');
+    meta.className='bulk-drop-meta';
+    const parts=[rarity.label,item.wearGrade||KnivesSystem.getWearGrade(item.floatValue).code,
+      `FLOAT ${KnivesSystem.formatFloat(item.floatValue)}`,`#${item.patternSeed}`];
+    if(item.specialTag)parts.push(item.specialTag);
+    meta.textContent=parts.join(' · ');
+    details.appendChild(name);
+    details.appendChild(meta);
+
+    const right=document.createElement('div');
+    right.className='bulk-drop-right';
+    const value=document.createElement('div');
+    value.className='bulk-drop-value';
+    value.textContent=`SELL VALUE · ${fmtCoins(sellValue)}C`;
+    const decision=document.createElement('button');
+    decision.type='button';
+    decision.className='bulk-drop-decision'+(marked?' sell':' keep');
+    decision.textContent=marked?`SELL · +${fmtCoins(sellValue)}C`:'KEEP';
+    decision.setAttribute('aria-pressed',marked?'true':'false');
+    decision.onclick=()=>{
+      if(marked)bulkDropSellIds.delete(item.id);
+      else bulkDropSellIds.add(item.id);
+      renderBulkCaseResults();
+    };
+    right.appendChild(value);
+    right.appendChild(decision);
+    row.appendChild(thumb);
+    row.appendChild(details);
+    row.appendChild(right);
+    bulkDropListEl.appendChild(row);
+  }
+  updateBulkCaseResultsSummary();
+}
+
+function saveBulkOpenedItemsToCloud(items){
+  const snapshot=window.activeInventory;
+  const summaryPromise=persistInventorySummary(true);
+  pendingBulkOpenCloudSync=Promise.resolve(summaryPromise).then(async summary=>{
+    if(window.VELOCITY_TEST_MODE||!window.DailyBackend||!summary||!summary.saved){
+      return {saved:false};
+    }
+    const st=window.DailyBackend.getState();
+    if(!st.user||!st.user.emailVerified)return {saved:false};
+
+    const outcomes=[];
+    for(let i=0;i<items.length;i+=10){
+      const chunk=items.slice(i,i+10);
+      const chunkResults=await Promise.allSettled(chunk.map(item=>{
+        if(KnivesSystem.isWeaponItem(item))return window.DailyBackend.saveCloudWeapon(item,snapshot);
+        if(KnivesSystem.isGloveItem(item))return window.DailyBackend.saveCloudGlove(item,snapshot);
+        return window.DailyBackend.saveCloudKnife(item,snapshot);
+      }));
+      outcomes.push(...chunkResults);
+    }
+    const allSaved=outcomes.length===items.length&&outcomes.every(result=>
+      result.status==='fulfilled'&&result.value&&result.value.saved
+    );
+    if(allSaved){
+      if(KnivesSystem.loadPendingSoldItems().length===0)KnivesSystem.setLocalDirty(false);
+      updateArmorySyncLabel('CLOUD SYNCED');
+    }else{
+      updateArmorySyncLabel('LOCAL FALLBACK');
+    }
+    return {saved:allSaved};
+  }).catch(err=>{
+    console.warn('Bulk case cloud sync failed; items remain saved locally:',err);
+    updateArmorySyncLabel('LOCAL FALLBACK');
+    return {saved:false};
+  });
+  return pendingBulkOpenCloudSync;
+}
+
+function openCasesInBulk(caseId){
+  const cid=KnivesSystem.CASES[caseId]?caseId:'velocity';
+  const requested=bulkOpenQuantityInput?Number(bulkOpenQuantityInput.value):bulkOpenQuantity;
+  const result=KnivesSystem.openCases(window.activeInventory,cid,requested);
+  if(!result.opened){
+    if(result.reason==='INSUFFICIENT_CASES'){
+      showToast(`YOU ONLY OWN ${fmtCoins(result.available)} CASES`);
+    }else if(result.reason==='QUANTITY_LIMIT'){
+      showToast('MAXIMUM 100 CASES PER BULK OPEN');
+    }else{
+      showToast('ENTER A VALID BULK OPEN QUANTITY');
+    }
+    updateBulkCaseOpenUI();
+    return;
+  }
+
+  window.activeInventory=result.inventory;
+  pendingBulkDrops=result.items;
+  bulkDropSellIds.clear();
+  window.activeInventory=KnivesSystem.saveLocal(window.activeInventory);
+  KnivesSystem.setLocalDirty(!window.VELOCITY_TEST_MODE);
+  updateArmoryBadges();
+  saveBulkOpenedItemsToCloud(result.items);
+  renderBulkCaseResults();
+  showCasesView('bulk');
+  const caseDef=KnivesSystem.CASES[cid];
+  showToast(`OPENED ${fmtCoins(result.quantity)} ${caseDef.shortName.toUpperCase()} CASES · REVIEW YOUR DROPS`);
+}
+
+function finishBulkCaseReview(){
+  const sellItems=pendingBulkDrops.filter(item=>bulkDropSellIds.has(item.id));
+  if(sellItems.length===0){
+    pendingBulkDrops=[];
+    bulkDropSellIds.clear();
+    pendingBulkOpenCloudSync=Promise.resolve(null);
+    showCasesView('select');
+    renderArmoryCases();
+    showToast('ALL DROPS KEPT · ADDED TO INVENTORY');
+    return;
+  }
+  openSellConfirmModal(sellItems,'bulk-case');
+}
+
 function showCasesView(mode){
   armoryCasesSelect.style.display=mode==='select'?'':'none';
   armoryRouletteWrap.style.display=mode==='roulette'?'':'none';
   armoryRevealWrap.style.display=mode==='reveal'?'':'none';
+  if(armoryBulkResultsWrap)armoryBulkResultsWrap.style.display=mode==='bulk'?'':'none';
   if(mode!=='reveal')ArmoryPreview.stop();
 }
 
@@ -1792,27 +1998,32 @@ function executeConfirmedSale(){
     bulkSelectedIds.delete(sold.id);
   }
   KnivesSystem.recordPendingSoldItems(res.soldItems);
-  persistInventorySummary(true,{allowBackupReset:true});
+  const saleSummaryPromise=persistInventorySummary(true,{allowBackupReset:true});
 
-  if(!window.VELOCITY_TEST_MODE&&window.DailyBackend){
-    Promise.allSettled(res.soldItems.map(sold=>{
+  const deleteSoldCloudItems=()=>{
+    if(window.VELOCITY_TEST_MODE||!window.DailyBackend)return Promise.resolve();
+    return Promise.allSettled(res.soldItems.map(sold=>{
       const delPromise=KnivesSystem.isWeaponItem(sold)
         ?window.DailyBackend.deleteCloudWeapon(sold.id)
         :KnivesSystem.isGloveItem(sold)
           ?window.DailyBackend.deleteCloudGlove(sold.id)
           :window.DailyBackend.deleteCloudKnife(sold.id);
       return delPromise.then(delRes=>{
-        if(delRes&&delRes.deleted){
-          KnivesSystem.clearPendingSoldItem(sold.id);
-        }
+        if(delRes&&delRes.deleted)KnivesSystem.clearPendingSoldItem(sold.id);
       });
     })).then(()=>{
       if(KnivesSystem.loadPendingSoldItems().length===0){
         KnivesSystem.setLocalDirty(false);
       }
-    }).catch(err=>{
-      console.warn('Cloud item deletion failed; queued for next sync:',err);
     });
+  };
+  const runCloudDeletes=()=>Promise.resolve(saleSummaryPromise)
+    .then(()=>deleteSoldCloudItems())
+    .catch(err=>console.warn('Cloud item deletion failed; queued for next sync:',err));
+  if(mode==='bulk-case'){
+    Promise.resolve(pendingBulkOpenCloudSync).catch(()=>{}).then(runCloudDeletes);
+  }else{
+    runCloudDeletes();
   }
 
   CaseAudio.coinChime('sell');
@@ -1821,7 +2032,13 @@ function executeConfirmedSale(){
     :`${res.soldItems.length} SKINS`;
   showToast(`SOLD ${label} · +${fmtCoins(res.coinsEarned)} COINS`);
 
-  if(mode==='reveal'){
+  if(mode==='bulk-case'){
+    pendingBulkDrops=[];
+    bulkDropSellIds.clear();
+    pendingBulkOpenCloudSync=Promise.resolve(null);
+    showCasesView('select');
+    renderArmoryCases();
+  }else if(mode==='reveal'){
     lastRevealedItem=null;
     showCasesView('select');
     renderArmoryCases();
@@ -2128,7 +2345,12 @@ function setArmoryTab(tab){
     pane.style.display=pane.dataset.armPane===activeArmoryTab?'':'none';
   });
   if(activeArmoryTab==='cases'){
-    showCasesView('select');
+    if(pendingBulkDrops.length){
+      renderBulkCaseResults();
+      showCasesView('bulk');
+    }else{
+      showCasesView('select');
+    }
     renderArmoryCases();
   }else{
     renderArmoryInventory();
@@ -4330,6 +4552,35 @@ document.querySelectorAll('[data-case-qty]').forEach(btn=>{
   };
 });
 if(bulkBuyCaseBtn)bulkBuyCaseBtn.onclick=()=>buyCasesInBulk(selectedCaseId);
+if(bulkOpenQuantityInput){
+  bulkOpenQuantityInput.value=String(bulkOpenQuantity);
+  bulkOpenQuantityInput.addEventListener('input',()=>{
+    const next=Number(bulkOpenQuantityInput.value);
+    bulkOpenQuantity=Number.isSafeInteger(next)?next:0;
+    updateBulkCaseOpenUI();
+  });
+}
+document.querySelectorAll('[data-open-case-qty]').forEach(btn=>{
+  btn.onclick=()=>{
+    const owned=window.activeInventory.caseCounts[selectedCaseId]||0;
+    bulkOpenQuantity=Math.min(Number(btn.dataset.openCaseQty)||1,Math.min(owned,100));
+    if(bulkOpenQuantityInput)bulkOpenQuantityInput.value=String(bulkOpenQuantity);
+    updateBulkCaseOpenUI();
+  };
+});
+if(bulkOpenBtn)bulkOpenBtn.onclick=()=>openCasesInBulk(selectedCaseId);
+if($('bulkDropKeepAllBtn'))$('bulkDropKeepAllBtn').onclick=()=>{
+  bulkDropSellIds.clear();
+  finishBulkCaseReview();
+};
+if($('bulkDropMarkAllSellBtn'))$('bulkDropMarkAllSellBtn').onclick=()=>{
+  bulkDropSellIds.clear();
+  for(const item of pendingBulkDrops){
+    if(KnivesSystem.isItemSellable(window.activeInventory,item).sellable)bulkDropSellIds.add(item.id);
+  }
+  renderBulkCaseResults();
+};
+if(bulkResultsConfirmBtn)bulkResultsConfirmBtn.onclick=finishBulkCaseReview;
 $('skipRouletteBtn').onclick=()=>{
   if(rouletteFinishCb){
     const fn=rouletteFinishCb;

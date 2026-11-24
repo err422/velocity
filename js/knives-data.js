@@ -1911,6 +1911,63 @@
     };
   }
 
+
+  function openCases(inventory, caseId, quantity, rng) {
+    const inv = sanitizeInventory(inventory);
+    const validId = CASES[caseId] ? caseId : 'velocity';
+    const qty = Number(quantity);
+    const owned = inv.caseCounts[validId] || 0;
+
+    if (!Number.isSafeInteger(qty) || qty < 1) {
+      return {
+        opened: false,
+        reason: 'INVALID_QUANTITY',
+        quantity: 0,
+        available: owned,
+        inventory: inv
+      };
+    }
+    if (qty > 100) {
+      return {
+        opened: false,
+        reason: 'QUANTITY_LIMIT',
+        quantity: qty,
+        available: owned,
+        inventory: inv
+      };
+    }
+    if (qty > owned) {
+      return {
+        opened: false,
+        reason: 'INSUFFICIENT_CASES',
+        quantity: qty,
+        available: owned,
+        inventory: inv
+      };
+    }
+
+    const r = typeof rng === 'function' ? rng : Math.random;
+    const items = [];
+    for (let i = 0; i < qty; i++) {
+      const rarity = pickWeightedRarity(r, validId);
+      const item = rollItemFromPool(validId, rarity, r);
+      if (isWeaponItem(item)) inv.weapons.unshift(item);
+      else if (isGloveItem(item)) inv.gloves.unshift(item);
+      else inv.knives.unshift(item);
+      items.push(item);
+    }
+
+    inv.caseCounts[validId] = owned - qty;
+    inv.totalOpened = Math.min(99999, (inv.totalOpened || 0) + qty);
+    return {
+      opened: true,
+      caseId: validId,
+      quantity: qty,
+      items,
+      inventory: inv
+    };
+  }
+
   function buyCase(inventory, caseId) {
     const inv = sanitizeInventory(inventory);
     const validId = CASES[caseId] ? caseId : 'velocity';
@@ -2569,6 +2626,7 @@
     isItemSellable,
     buyCase,
     buyCases,
+    openCases,
     sellItems,
     findDuplicateSellableIds,
     rollItemFromPool,

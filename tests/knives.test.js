@@ -397,6 +397,41 @@ test('bulk case purchases are atomic and respect the 999-case inventory cap', ()
   assert.equal(invalid.reason, 'INVALID_QUANTITY');
 });
 
+
+test('bulk case opening consumes the requested cases and grants every drop atomically', () => {
+  const inv = KnivesSystem.createStarterInventory();
+  inv.caseCounts.velocity = 100;
+
+  const opened = KnivesSystem.openCases(inv, 'velocity', 100);
+  assert.equal(opened.opened, true);
+  assert.equal(opened.quantity, 100);
+  assert.equal(opened.items.length, 100);
+  assert.equal(opened.inventory.caseCounts.velocity, 0);
+  assert.equal(opened.inventory.totalOpened, 100);
+
+  const allOwned = [
+    ...opened.inventory.weapons,
+    ...opened.inventory.knives.filter(item => item.id !== 'starter_default_vanilla'),
+    ...opened.inventory.gloves.filter(item => item.id !== 'starter_standard_tactical')
+  ];
+  const newIds = new Set(opened.items.map(item => item.id));
+  assert.equal(newIds.size, 100, 'every bulk drop must have a unique inventory id');
+  assert.equal(opened.items.every(item => allOwned.some(owned => owned.id === item.id)), true);
+
+  const noCases = KnivesSystem.openCases(inv, 'velocity', 101);
+  assert.equal(noCases.opened, false);
+  assert.equal(noCases.reason, 'QUANTITY_LIMIT');
+  assert.equal(inv.caseCounts.velocity, 100, 'failed batch must not consume cases');
+
+  const insufficient = KnivesSystem.openCases(inv, 'velocity', 101);
+  assert.equal(insufficient.opened, false);
+  assert.equal(insufficient.reason, 'QUANTITY_LIMIT');
+
+  const invalid = KnivesSystem.openCases(inv, 'velocity', 0);
+  assert.equal(invalid.opened, false);
+  assert.equal(invalid.reason, 'INVALID_QUANTITY');
+});
+
 test('buyCase, sellItems, starter/equipped protection, duplicate finder, and arena coin rewards work end-to-end', () => {
   let inv = KnivesSystem.createStarterInventory(); // 150 coins
 
