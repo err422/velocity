@@ -564,6 +564,11 @@
     // Host state is already authoritative; do not re-apply the full roster
     // snapshot (and resync every bot brain) for every individual shot.
     applyDamageEventLocally(dmgPacket, true);
+    // Keep the host's bot brains in step with authoritative deaths immediately.
+    if (killed && victim.isBot && root.CombatSystem &&
+        typeof root.CombatSystem.syncArenaBots === 'function') {
+      root.CombatSystem.syncArenaBots(serializePlayersList());
+    }
 
     if (!killed) return;
 
