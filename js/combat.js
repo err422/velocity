@@ -1458,9 +1458,16 @@
         if (Math.random() < 0.34) bot.strafeSign *= -1;
       }
 
+      const finishingTarget = Number.isFinite(playerState.hp) && playerState.hp <= 35;
       let radial = 0;
       let tangent = profile.strafeBias;
-      switch (bot.combatIntent) {
+      if (finishingTarget) {
+        // Close distance decisively and keep pressure through reloads.
+        radial = horizontalDistance > 3.2 ? 1.18 : 0.32;
+        tangent *= horizontalDistance > 7 ? 0.34 : 0.62;
+        bot.combatIntent = 'finish';
+        bot.combatIntentTimer = Math.max(bot.combatIntentTimer, 0.32);
+      } else switch (bot.combatIntent) {
         case 'advance':
           radial = horizontalDistance > profile.preferredRange ? 0.88 : 0.22;
           tangent *= 0.42;
@@ -1641,6 +1648,14 @@
     bot.wanderPoint.copy(pos);
     bot.velocity.set(0, 0, 0);
     bot.verticalVelocity = 0;
+    bot.grounded = true;
+    bot.surfing = false;
+    bot.wallrunning = false;
+    bot.grapplePoint = null;
+    bot.jumpCooldown = 0;
+    bot.burstCooldown = 0;
+    bot.grappleCooldown = 0;
+    bot.padCooldown = 0;
     bot.aimTimer = 0;
     bot.alertTimer = 0;
     bot.alertOnNextUpdate = false;
@@ -1761,34 +1776,49 @@
     }
   }
 
-  function updateArenaBots(dt, playerState, solidList) {
+  function updateArenaBots(dt, playerState, solidList, movementContext) {
     if (!playerState || !playerState.isHost || playerState.phase !== 'live' || arenaBotAi.size === 0) return;
 
+    const roster = Array.isArray(playerState.players) ? playerState.players : [];
+    const rosterByUid = new Map(roster.map((p) => [p.uid, p]));
     for (const bot of arenaBotAi.values()) {
       if (!bot.alive) continue;
       let target = null;
-      let targetDistanceSq = Infinity;
+      let targetScore = Infinity;
 
-      if (playerState.position && playerState.uid && playerState.alive !== false) {
-        const dx = playerState.position.x - bot.visual.group.position.x;
-        const dz = playerState.position.z - bot.visual.group.position.z;
-        targetDistanceSq = dx * dx + dz * dz;
-        target = {
-          uid: playerState.uid,
-          position: playerState.position,
-          eye: playerState.eye || 1.6
-        };
+      const consider = (uid, position, hp, eye, isAlive, isBot) => {
+        if (!uid || uid === bot.uid || !position || !isAlive) return;
+        const dx = position.x - bot.visual.group.position.x;
+        const dy = position.y - bot.visual.group.position.y;
+        const dz = position.z - bot.visual.group.position.z;
+        const distance = Math.hypot(dx, dy * 0.65, dz);
+        // Prefer weakened opponents, but distance still matters enough to avoid
+        // irrational cross-map target swaps.
+        const finishBonus = Number.isFinite(hp) && hp <= 35 ? Math.min(15, (36 - hp) * 0.42) : 0;
+        const currentTargetBonus = bot.targetUid === uid ? 2.2 : 0;
+        const score = distance - finishBonus - currentTargetBonus;
+        if (score < targetScore) {
+          targetScore = score;
+          target = { uid, position, hp: Number.isFinite(hp) ? hp : 100, eye: eye || 1.6, isBot: Boolean(isBot) };
+        }
+      };
+
+      if (playerState.position && playerState.uid) {
+        consider(
+          playerState.uid,
+          playerState.position,
+          playerState.hp,
+          playerState.eye,
+          playerState.alive !== false,
+          false
+        );
       }
 
       for (const [uid, avatar] of remoteAvatars) {
-        if (avatar.isBot || !avatar.alive || uid === playerState.uid) continue;
-        const dx = avatar.pos.x - bot.visual.group.position.x;
-        const dz = avatar.pos.z - bot.visual.group.position.z;
-        const d2 = dx * dx + dz * dz;
-        if (d2 < targetDistanceSq) {
-          targetDistanceSq = d2;
-          target = { uid, position: avatar.pos, eye: 1.6 };
-        }
+        if (!avatar || !avatar.alive || uid === bot.uid) continue;
+        const record = rosterByUid.get(uid);
+        consider(uid, avatar.pos, record && Number.isFinite(record.hp) ? record.hp : avatar.hp,
+          1.6, true, avatar.isBot);
       }
 
       bot.targetUid = target ? target.uid : '';
@@ -1799,7 +1829,7 @@
       updateWarmupBot(
         bot,
         dt,
-        { alive: Boolean(target), eye: target ? target.eye : 1.6, uid: target ? target.uid : '' },
+        { alive: Boolean(target), eye: target ? target.eye : 1.6, uid: target ? target.uid : '', hp: target ? target.hp : 100 },
         target ? target.position : null,
         targetAim,
         solidList,
@@ -1812,7 +1842,8 @@
           if (root.NetcodeSystem && typeof root.NetcodeSystem.reportBotShot === 'function') {
             root.NetcodeSystem.reportBotShot(firingBot.uid, origin, endPoint, weapon);
           }
-        }
+        },
+        movementContext
       );
 
       const avatar = remoteAvatars.get(bot.uid);
@@ -2247,7 +2278,7 @@
 
   // ---------- Per-Frame Update (Zero Allocations) ----------
   let animClock = 0;
-  function update(dt, playerState, solidMeshes) {
+  function update(dt, playerState, solidMeshes, movementContext) {
     const playerPos = playerState && (playerState.position || playerState.pos || playerState);
     const playerAlive = !playerState || playerState.alive !== false;
     const playerEye = playerState && Number(playerState.eye) > 0 ? Number(playerState.eye) : 1.6;
@@ -2388,7 +2419,10 @@
           botPlayerState,
           playerPos,
           botTargetPos,
-          botSolids
+          botSolids,
+          null,
+          null,
+          movementContext
         );
       }
     }
@@ -2401,8 +2435,11 @@
       eye: playerEye,
       alive: playerAlive,
       isHost: Boolean(playerState && playerState.isHost),
-      phase: playerState && playerState.phase
-    }, botSolids);
+      phase: playerState && playerState.phase,
+      players: playerState && playerState.players,
+      hp: playerState && playerState.hp,
+      mode: playerState && playerState.mode
+    }, botSolids, movementContext);
 
     // Smoothly interpolate Remote WebRTC Player Avatars
     const lerpK = Math.min(1, dt * 16);
