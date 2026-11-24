@@ -4219,32 +4219,50 @@
           out.rRotZ += Math.sin(smoothstep(0.28, 0.86, t) * Math.PI * 2) * 0.65;
         }
       } else if (kt === 'butterfly') {
-        if (isUncommon) {
-          // UNCOMMON: a single clean aerial rollover, with the handles fanning
-          // around the pivot instead of spinning the whole knife like a propeller.
-          const release = smoothstep(0.10, 0.24, t) * (1 - smoothstep(0.70, 0.84, t));
-          const catchAmt = smoothstep(0.68, 0.86, t);
-          const palmUp = bell(t, 0.18, 0.82);
-          out.rRotZ += palmUp * 0.62;
-          out.rRotX += palmUp * 0.16;
-          rp.index = THREE.MathUtils.lerp(0.96, 0.42, release);
-          rp.middle = THREE.MathUtils.lerp(0.98, 0.20, release);
-          rp.ring = THREE.MathUtils.lerp(0.98, 0.18, release);
-          rp.pinky = THREE.MathUtils.lerp(0.96, 0.22, release);
-          rp.thumb = THREE.MathUtils.lerp(0.88, 0.30, release);
+        // Blade showcase inspect: stop trying to perform tricks. Bring the
+        // open blade up toward the camera, turn its broad face toward the
+        // player, then slowly sweep it through the light and hold the pose.
+        const reveal = smoothstep(0.04, 0.34, t);
+        const present = smoothstep(0.28, 0.52, t);
+        const settle = smoothstep(0.88, 1.0, t);
+        const hold = smoothstep(0.48, 0.66, t) * (1 - settle);
 
-          const arc = bell(t, 0.18, 0.80);
-          const spin = smoothstep(0.18, 0.80, t);
-          out.kPosY += arc * 0.052;
-          out.kRotZ -= spin * Math.PI * 2;
-          out.baliBladeAngle = THREE.MathUtils.lerp(0.0, 2.55, smoothstep(0.10, 0.34, t)) * (1 - catchAmt);
-          out.baliBiteAngle = THREE.MathUtils.lerp(0.0, 2.75, smoothstep(0.12, 0.38, t)) * (1 - catchAmt);
-          out.rRotY += Math.sin(spin * Math.PI) * 0.18;
+        // Lift the hand into a centered, readable inspection position.
+        out.rx -= reveal * 0.060;
+        out.ry += reveal * 0.020;
+        out.rRotX += reveal * 0.22;
+        out.rRotY += reveal * 0.34;
+        out.rRotZ += reveal * 0.16;
 
-          if (t > 0.20) cue(1, () => CaseAudio.spinWhoosh(1.08));
-          if (t > 0.70) cue(2, () => CaseAudio.balisongClack(1.12));
-          if (t > 0.84) cue(4, () => CaseAudio.balisongClack(0.92));
-        } else {
+        // Rotate the knife itself so the blade's flat is presented toward
+        // the camera instead of showing only its thin edge.
+        out.kRotY += present * 0.42;
+        out.kRotX += present * 0.16;
+        out.kRotZ -= present * 0.10;
+        out.kPosY += reveal * 0.040;
+        out.kPosX -= reveal * 0.012;
+
+        // Keep the balisong fully open and make a slow, restrained display
+        // sweep. The tiny oscillations keep the presentation alive without
+        // turning it back into a spin animation.
+        out.rRotY += hold * Math.sin(t * Math.PI * 2.2) * 0.075;
+        out.rRotZ += hold * Math.sin(t * Math.PI * 1.5) * 0.035;
+        out.kRotY += hold * Math.sin(t * Math.PI * 2.2) * 0.055;
+        out.kRotX += hold * Math.sin(t * Math.PI * 1.5) * 0.025;
+
+        // Keep the handles tucked against the grip so the blade silhouette
+        // stays unobstructed throughout the showcase.
+        out.baliBladeAngle = 0;
+        out.baliBiteAngle = 0;
+        rp.index = THREE.MathUtils.lerp(0.96, 0.88, reveal);
+        rp.middle = THREE.MathUtils.lerp(0.98, 0.90, reveal);
+        rp.ring = THREE.MathUtils.lerp(0.98, 0.90, reveal);
+        rp.pinky = THREE.MathUtils.lerp(0.96, 0.88, reveal);
+        rp.thumb = THREE.MathUtils.lerp(0.88, 0.82, reveal);
+
+        // A soft latch click as the blade is presented; no repeated spin SFX.
+        if (t > 0.46) cue(1, () => CaseAudio.balisongClack(0.92));
+      } else {
           // Reference-matched CS butterfly inspect: a deliberate two-part
           // sequence. First a quick wrist lift and handle flick, then a pause,
           // followed by the slower, wider handle fan and final presentation.
@@ -4332,7 +4350,7 @@
       if (kt === 'm9') return 3.60;
       return 3.65;
     }
-    if (kt === 'butterfly') return tier === 'uncommon' ? 4.8 : 6.6;
+    if (kt === 'butterfly') return tier === 'uncommon' ? 4.8 : 4.8;
     if (kt === 'karambit') return tier === 'uncommon' ? 2.15 : 1.85;
     if (kt === 'skeleton') return tier === 'uncommon' ? 2.25 : 1.95;
     return tier === 'uncommon' ? 2.15 : 2.10;
