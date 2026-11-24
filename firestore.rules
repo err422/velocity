@@ -337,7 +337,6 @@ service cloud.firestore {
           'equippedRifleId',
           'equippedAwpId',
           'equippedDeagleId',
-          'equippedRevolverId',
           'caseCounts',
           'totalOpened',
           'lastDailyDropDate',
@@ -352,7 +351,6 @@ service cloud.firestore {
           'equippedRifleId',
           'equippedAwpId',
           'equippedDeagleId',
-          'equippedRevolverId',
           'caseCounts',
           'totalOpened',
           'lastDailyDropDate',
@@ -387,10 +385,6 @@ service cloud.firestore {
         && data.equippedDeagleId.size() >= 1
         && data.equippedDeagleId.size() <= 64
         && data.equippedDeagleId.matches('^[a-zA-Z0-9_\\-]+$')
-        && data.equippedRevolverId is string
-        && data.equippedRevolverId.size() >= 1
-        && data.equippedRevolverId.size() <= 64
-        && data.equippedRevolverId.matches('^[a-zA-Z0-9_\\-]+$')
         && isValidCaseCountsMap(data.caseCounts)
         && data.totalOpened is int
         && data.totalOpened >= 0
@@ -623,7 +617,7 @@ service cloud.firestore {
         && data.weaponType is string
         && data.weaponType.size() >= 3
         && data.weaponType.size() <= 12
-        && data.weaponType in ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol', 'revolver']
+        && data.weaponType in ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol']
         && data.skinId is string
         && data.skinId.size() >= 4
         && data.skinId.size() <= 24
@@ -850,7 +844,7 @@ service cloud.firestore {
         && l.name.size() >= 1
         && l.name.size() <= 24
         && isValidLoadoutSlot(l.primary, ['rifle', 'smg', 'shotgun', 'awp'])
-        && isValidLoadoutSlot(l.secondary, ['deagle', 'pistol', 'revolver'])
+        && isValidLoadoutSlot(l.secondary, ['deagle', 'pistol'])
         && l.melee is map
         && l.melee.keys().hasAll(['knifeItemId'])
         && l.melee.keys().hasOnly(['knifeItemId'])
@@ -862,28 +856,26 @@ service cloud.firestore {
 
     function isValidWeaponXpMap(xp) {
       return xp is map
-        && xp.keys().hasAll(['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol', 'revolver'])
-        && xp.keys().hasOnly(['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol', 'revolver'])
+        && xp.keys().hasAll(['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol'])
+        && xp.keys().hasOnly(['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol'])
         && xp.rifle is int && xp.rifle >= 0 && xp.rifle <= 999999
         && xp.smg is int && xp.smg >= 0 && xp.smg <= 999999
         && xp.shotgun is int && xp.shotgun >= 0 && xp.shotgun <= 999999
         && xp.awp is int && xp.awp >= 0 && xp.awp <= 999999
         && xp.deagle is int && xp.deagle >= 0 && xp.deagle <= 999999
-        && xp.pistol is int && xp.pistol >= 0 && xp.pistol <= 999999
-        && xp.revolver is int && xp.revolver >= 0 && xp.revolver <= 999999;
+        && xp.pistol is int && xp.pistol >= 0 && xp.pistol <= 999999;
     }
 
     function isValidWeaponSkinsMap(skins) {
       return skins is map
-        && skins.keys().hasAll(['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol', 'revolver'])
-        && skins.keys().hasOnly(['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol', 'revolver'])
+        && skins.keys().hasAll(['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol'])
+        && skins.keys().hasOnly(['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol'])
         && skins.rifle is string && skins.rifle.size() >= 1 && skins.rifle.size() <= 64 && skins.rifle.matches('^[a-zA-Z0-9_\\-]+$')
         && skins.smg is string && skins.smg.size() >= 1 && skins.smg.size() <= 64 && skins.smg.matches('^[a-zA-Z0-9_\\-]+$')
         && skins.shotgun is string && skins.shotgun.size() >= 1 && skins.shotgun.size() <= 64 && skins.shotgun.matches('^[a-zA-Z0-9_\\-]+$')
         && skins.awp is string && skins.awp.size() >= 1 && skins.awp.size() <= 64 && skins.awp.matches('^[a-zA-Z0-9_\\-]+$')
         && skins.deagle is string && skins.deagle.size() >= 1 && skins.deagle.size() <= 64 && skins.deagle.matches('^[a-zA-Z0-9_\\-]+$')
-        && skins.pistol is string && skins.pistol.size() >= 1 && skins.pistol.size() <= 64 && skins.pistol.matches('^[a-zA-Z0-9_\\-]+$')
-        && skins.revolver is string && skins.revolver.size() >= 1 && skins.revolver.size() <= 64 && skins.revolver.matches('^[a-zA-Z0-9_\\-]+$');
+        && skins.pistol is string && skins.pistol.size() >= 1 && skins.pistol.size() <= 64 && skins.pistol.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function isValidUserLoadoutsShape(data, uid) {
@@ -998,7 +990,6 @@ service cloud.firestore {
           'equippedRifleId',
           'equippedAwpId',
           'equippedDeagleId',
-          'equippedRevolverId',
           'caseCounts',
           'totalOpened',
           'lastDailyDropDate',

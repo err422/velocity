@@ -7,7 +7,6 @@ const player={pos:SPAWN.clone(),prev:SPAWN.clone(),vel:V3(),yaw:Math.PI,pitch:0,
 const contact={ground:false,wall:false,surf:false,gn:V3(),wn:V3(),sn:V3()};
 const keys={},wish=V3();
 let locked=false,last=performance.now(),acc=0,jumpBuffer=0,coyote=0,burstCd=0,padCd=0,boosterCd=0,teleCd=0,toastTimer=0;
-let revolverChargeTimer=-2; // -2 idle, >=0 charging, -1 fired; a fresh press is required.
 let ghostRecorder=null,ghostPb=null,ghostLast=null,ghostMode='pb',ghostVisual=null;
 camera.rotation.order='YXZ';
 const $=id=>document.getElementById(id);
@@ -65,7 +64,6 @@ function clearHeldInputs(){
   for(const k in keys)keys[k]=false;
   window.isScoreboardHeld=false;
   if(window.CombatSystem)window.CombatSystem.setAdsHeld(false);
-  revolverChargeTimer=-2;
 }
 function isArenaBlocked(){
   if(!window.NetcodeSystem)return false;
@@ -131,11 +129,7 @@ function triggerBoundToken(token,repeat){
   if(token===kb.slotDeagle&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('melee');
   if(token===kb.slotKnife&&!repeat&&window.CombatSystem)window.CombatSystem.quickSwitch();
   if(token===kb.reload&&!repeat&&window.CombatSystem)window.CombatSystem.startReload();
-  if(token===kb.fire&&!repeat){
-    const st=window.CombatSystem&&window.CombatSystem.getState();
-    if(st&&st.activeSlot!=='melee'&&st.activeBuild&&st.activeBuild.weaponId==='revolver')revolverChargeTimer=0.000001;
-    else performFire(false);
-  }
+  if(token===kb.fire&&!repeat)performFire(false);
   if(token===kb.altFire&&!repeat&&window.CombatSystem){
     const st=window.CombatSystem.getState();
     if(st.activeSlot==='melee')performFire(true);
@@ -181,7 +175,6 @@ document.addEventListener('keyup',e=>{
   if(e.code==='Tab'){window.isScoreboardHeld=false;}
   keys[e.code]=false;
   if(e.code===getSettings().keybinds.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
-  if(e.code===getSettings().keybinds.fire)revolverChargeTimer=-2;
 });
 // Mouse events report each button independently, including when multiple
 // buttons are held together (e.g. RMB aim + LMB fire).
@@ -198,7 +191,6 @@ document.addEventListener('mouseup',e=>{
   if(tok){
     keys[tok]=false;
     if(tok===getSettings().keybinds.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
-    if(tok===getSettings().keybinds.fire)revolverChargeTimer=-2;
   }
 });
 document.addEventListener('wheel',e=>{
@@ -443,23 +435,9 @@ function step(dt){
   p.slideCd=Math.max(0,p.slideCd-dt);p.wallCd=Math.max(0,p.wallCd-dt);p.noGround=Math.max(0,p.noGround-moveDt);
   p.surfGrace=Math.max(0,p.surfGrace-moveDt);
 
-  // Full-auto weapons fire while held. The R-8 instead requires a deliberate 200ms trigger hold,
-  // fires once, and cannot fire again until the input is released.
-  if(window.CombatSystem){
-    const fireState=window.CombatSystem.getState();
-    if(isActionDown('fire')&&fireState.activeBuild&&fireState.activeBuild.weaponId==='revolver'){
-      if(revolverChargeTimer>=0){
-        revolverChargeTimer+=dt;
-        const triggerDelaySec=Number(fireState.activeBuild.triggerDelaySec)||0.20;
-        if(revolverChargeTimer>=triggerDelaySec){
-          performFire(false);
-          revolverChargeTimer=-1;
-        }
-      }
-    }else{
-      if(fireState.auto&&isActionDown('fire'))performFire(false);
-      revolverChargeTimer=-2;
-    }
+  // Full-auto firing for any automatic equipped weapon (V-47 Rifle, VX-9 Vector SMG)
+  if(isActionDown('fire')&&window.CombatSystem&&window.CombatSystem.getState().auto){
+    performFire(false);
   }
 
   // Freeze player movement during 1v1 round countdown or death respawn
