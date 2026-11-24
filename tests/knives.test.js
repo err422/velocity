@@ -17,6 +17,14 @@ test('catalog defines 5 knife silhouettes, 12 skins, 6 cases, and 5 rarity tiers
   assert.deepEqual(KnivesSystem.RARITY_IDS, ['milspec', 'restricted', 'classified', 'covert', 'gold']);
 });
 
+
+test('starter inventory includes a persistent R-8 slot and starter skin', () => {
+  const inv = KnivesSystem.createStarterInventory();
+  assert.equal(inv.equippedRevolverId, 'starter_revolver_slate');
+  assert.equal(KnivesSystem.getEquippedWeapon(inv, 'revolver').weaponType, 'revolver');
+  assert.ok(inv.weapons.some((item) => item.id === 'starter_revolver_slate'));
+});
+
 test('wear grade classification matches CS float ranges', () => {
   assert.equal(KnivesSystem.getWearGrade(0.0012).code, 'FN');
   assert.equal(KnivesSystem.getWearGrade(0.0699).code, 'FN');
@@ -275,7 +283,7 @@ test('rollInspectTier implements exact 1/100 Mythic, 25% Uncommon, and 74% Norma
 });
 
 test('tiered cases enforce escalating prices and increasing Gold odds', () => {
-  assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol']);
+  assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'revolver', 'pistol']);
   assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 20);
   assert.equal(KnivesSystem.getCasePrice('velocity'), 100);
   assert.equal(KnivesSystem.getCasePrice('chroma'), 175);
