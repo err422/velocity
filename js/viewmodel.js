@@ -6715,7 +6715,7 @@
       out.rRotZ += open * 0.16;
       if (playAudio) {
         if (t > 0.24 && !(state.reloadCueMask & 1)) { state.reloadCueMask |= 1; WeaponAudio.boltRack(); }
-        if (t > 0.64 && !(state.reloadCueMask & 2)) { state.reloadCueMask |= 2; WeaponAudio.magInsert(); }
+        if (t > 0.64 && !(state.reloadCueMask & 2)) { state.reloadCueMask |= 2; WeaponAudio.shellInsert(); }
         if (t > 0.90 && !(state.reloadCueMask & 4)) { state.reloadCueMask |= 4; WeaponAudio.boltRack(); }
       }
       return;
