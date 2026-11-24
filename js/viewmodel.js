@@ -4255,7 +4255,6 @@
         rp.thumb = THREE.MathUtils.lerp(0.88, 0.86, reveal);
 
         if (t > 0.40) cue(1, () => CaseAudio.balisongClack(0.88));
-      }
       } else {
         if (isUncommon) {
           const openAmt = bell(t, 0.12, 0.66);
