@@ -1520,10 +1520,12 @@
         ? (1 + (build.chronoAirSpreadMul - 1) * chronoW)
         : 1;
       baseSpread = weaponId === 'revolver' ? 0 : build.spreadHip + (build.spreadAds - build.spreadHip) * adsT;
-      if (moveSpeed > 3.5) baseSpread += Math.min(build.spreadMove, (moveSpeed - 3.5) * 0.00075) * (1 - adsT * 0.35) * (1 - chronoW * 0.25);
-      if (airborne) baseSpread += ((weaponId === 'awp' && adsT < 0.6) ? 0.018 : (0.0042 * (1 - adsT * 0.35))) * chronoAirMul;
-      baseSpread += state.spreadBloom;
-      state.spreadBloom = Math.min(0.026, state.spreadBloom + (build.auto ? 0.0028 : 0.0052));
+      if (weaponId !== 'revolver') {
+        if (moveSpeed > 3.5) baseSpread += Math.min(build.spreadMove, (moveSpeed - 3.5) * 0.00075) * (1 - adsT * 0.35) * (1 - chronoW * 0.25);
+        if (airborne) baseSpread += ((weaponId === 'awp' && adsT < 0.6) ? 0.018 : (0.0042 * (1 - adsT * 0.35))) * chronoAirMul;
+        baseSpread += state.spreadBloom;
+        state.spreadBloom = Math.min(0.026, state.spreadBloom + (build.auto ? 0.0028 : 0.0052));
+      }
     }
 
     // Collect shootable meshes once for all pellets
