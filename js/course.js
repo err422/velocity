@@ -10,7 +10,8 @@
     1: { code: 'T1', label: 'Tier 1 — Beginner', short: 'Beginner', coinBonus: 0, color: '#7ee7ff' },
     2: { code: 'T2', label: 'Tier 2 — Intermediate', short: 'Intermediate', coinBonus: 10, color: '#5ef2a5' },
     3: { code: 'T3', label: 'Tier 3 — Advanced', short: 'Advanced', coinBonus: 20, color: '#f5c542' },
-    4: { code: 'T4', label: 'Tier 4 — Expert', short: 'Expert', coinBonus: 35, color: '#ff6f61' }
+    4: { code: 'T4', label: 'Tier 4 — Expert', short: 'Expert', coinBonus: 35, color: '#ff6f61' },
+    5: { code: 'T5', label: 'Tier 5 — Master', short: 'Master', coinBonus: 55, color: '#b99cff' }
   };
 
   // Backward-compatible global helpers for sandbox.js / daily.js / arenas.js
