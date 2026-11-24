@@ -181,7 +181,7 @@ document.addEventListener('keyup',e=>{
   if(e.code==='Tab'){window.isScoreboardHeld=false;}
   keys[e.code]=false;
   if(e.code===getSettings().keybinds.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
-  if(e.code===getSettings().keybinds.fire)revolverChargeTimer=0;
+  if(e.code===getSettings().keybinds.fire)revolverChargeTimer=-2;
 });
 // Mouse events report each button independently, including when multiple
 // buttons are held together (e.g. RMB aim + LMB fire).
@@ -198,7 +198,7 @@ document.addEventListener('mouseup',e=>{
   if(tok){
     keys[tok]=false;
     if(tok===getSettings().keybinds.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
-    if(tok===getSettings().keybinds.fire)revolverChargeTimer=0;
+    if(tok===getSettings().keybinds.fire)revolverChargeTimer=-2;
   }
 });
 document.addEventListener('wheel',e=>{
@@ -457,7 +457,7 @@ function step(dt){
       }
     }else{
       if(fireState.auto&&isActionDown('fire'))performFire(false);
-      revolverChargeTimer=0;
+      revolverChargeTimer=-2;
     }
   }
 
