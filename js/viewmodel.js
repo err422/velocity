@@ -4890,6 +4890,7 @@
       }
       const ejectorRod = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.044, 7), brightSteel);
       ejectorRod.rotation.z = Math.PI / 2; ejectorRod.position.set(0.040, 0.027, -0.105); g.add(ejectorRod);
+      g.userData.revolverEjectorRod = ejectorRod;
       const craneArm = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.018, 0.060), brightSteel);
       craneArm.position.set(0.012, 0.027, -0.105); g.add(craneArm);
       const hammerGroup = new THREE.Group(); hammerGroup.position.set(0, 0.050, 0.035);
@@ -6952,6 +6953,7 @@
       out.rRotX = 0.12 * env; out.rRotY = 0.22 * env; out.rRotZ = 0.12 * env;
       out.revolverOpen = open * 0.85;
       out.revolverSpin = spin * Math.PI * (state.inspectTier === 'uncommon' || state.inspectTier === 'mythic' ? 8 : 4);
+      out.hammerBack = Math.sin(spin * Math.PI * 8) * 0.20;
       out.leftAnchorOffX += -open * 0.025; out.leftAnchorOffY += -open * 0.025;
       out.leftRelOffZ += -open * 0.20;
       out.rPose.thumb = THREE.MathUtils.lerp(spec.rightPose.thumb, 0.30, open);
@@ -7237,6 +7239,7 @@
     }
     if (wt === 'revolver' && mesh.userData.revolverCylinderPivot) {
       mesh.userData.revolverCylinderPivot.rotation.y = (wOut ? wOut.revolverOpen : 0) * 0.92;
+      if (mesh.userData.revolverEjectorRod) mesh.userData.revolverEjectorRod.position.x = 0.040 + (wOut ? wOut.revolverEject : 0) * 0.030;
       if (mesh.userData.revolverCylinderGroup) mesh.userData.revolverCylinderGroup.rotation.x = wOut ? wOut.revolverSpin : 0;
       if (mesh.userData.revolverShellGroup) mesh.userData.revolverShellGroup.visible = !(wOut && wOut.revolverEject > 0.45);
     }
