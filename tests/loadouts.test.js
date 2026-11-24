@@ -46,6 +46,8 @@ test('R-8 Sovereign resolves as a six-shot, full-range, one-body-hit secondary',
   assert.equal(build.range, 999999);
   assert.equal(build.falloffStart, 999999);
   assert.equal(build.minFalloffMul, 1);
+  assert.equal(LoadoutsSystem.computeDistanceDamage(build, 1000000, false), 100);
+  assert.equal(LoadoutsSystem.computeDistanceDamage(build, 1000000, true), 100);
 });
 
 test('weapon level progress exposes the fields used by the Gunsmith XP display', () => {
