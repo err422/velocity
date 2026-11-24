@@ -337,6 +337,7 @@ service cloud.firestore {
           'equippedRifleId',
           'equippedAwpId',
           'equippedDeagleId',
+          'equippedRevolverId',
           'caseCounts',
           'totalOpened',
           'lastDailyDropDate',
@@ -351,6 +352,7 @@ service cloud.firestore {
           'equippedRifleId',
           'equippedAwpId',
           'equippedDeagleId',
+          'equippedRevolverId',
           'caseCounts',
           'totalOpened',
           'lastDailyDropDate',
@@ -385,6 +387,10 @@ service cloud.firestore {
         && data.equippedDeagleId.size() >= 1
         && data.equippedDeagleId.size() <= 64
         && data.equippedDeagleId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.equippedRevolverId is string
+        && data.equippedRevolverId.size() >= 1
+        && data.equippedRevolverId.size() <= 64
+        && data.equippedRevolverId.matches('^[a-zA-Z0-9_\\-]+$')
         && isValidCaseCountsMap(data.caseCounts)
         && data.totalOpened is int
         && data.totalOpened >= 0
@@ -991,6 +997,7 @@ service cloud.firestore {
           'equippedRifleId',
           'equippedAwpId',
           'equippedDeagleId',
+          'equippedRevolverId',
           'caseCounts',
           'totalOpened',
           'lastDailyDropDate',
@@ -1385,6 +1392,7 @@ service cloud.firestore {
           'equippedRifleId',
           'equippedAwpId',
           'equippedDeagleId',
+          'equippedRevolverId',
           'caseCounts',
           'totalOpened',
           'lastDailyDropDate',
@@ -1778,6 +1786,7 @@ service cloud.firestore {
           'equippedRifleId',
           'equippedAwpId',
           'equippedDeagleId',
+          'equippedRevolverId',
           'caseCounts',
           'totalOpened',
           'lastDailyDropDate',
