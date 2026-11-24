@@ -182,6 +182,20 @@ const SURF_THEME_SPECS = {
     deckColor: 0x423766, darkColor: 0x221b3d, underColor: 0x191330,
     accentHex: 0xc290ff, accentEmissive: 0x6f32cc, lipHex: 0xffcf66, lipEmissive: 0xb07110
   },
+  abyssal: {
+    name: 'Abyssal Eventide',
+    bgHex: 0x090817,
+    fogDensity: 0.0022,
+    hemiSky: 0xc4b6ff,
+    hemiGround: 0x17132e,
+    hemiInt: 1.8,
+    sunColor: 0xd9d0ff,
+    sunInt: 2.25,
+    rampTex: { bg0:'#19152d', bg1:'#282047', bg2:'#141126', grain:'rgba(176,150,255,0.08)', grid:'rgba(176,150,255,0.3)', chevron:'rgba(104,244,255,0.75)', rail:'rgba(205,145,255,0.72)' },
+    rampColor: 0xf0eaff, rampRough: 0.24, rampMetal: 0.42, rampOpacity: 1,
+    deckColor: 0x302a49, darkColor: 0x17142b, underColor: 0x100d20,
+    accentHex: 0xb18cff, accentEmissive: 0x6334c9, lipHex: 0x5df4ff, lipEmissive: 0x0b93a8
+  },
   void: {
     name: 'Sinsane Obsidian Ember',
     bgHex: 0x181018,

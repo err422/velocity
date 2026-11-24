@@ -2792,8 +2792,8 @@ function refreshMenuCourseStats(){
   const ttDone=ttList.filter(c=>localPbFor(c.id)>0).length;
   if(menuSurfStatEl){
     menuSurfStatEl.textContent=surfDone>0
-      ?`${surfList.length} MAPS · T1–T4 · ${surfDone}/${surfList.length} CLEARED`
-      :`${surfList.length} MAPS · T1–T4 · LINEAR & STAGED`;
+      ?`${surfList.length} MAPS · T1–T5 · ${surfDone}/${surfList.length} CLEARED`
+      :`${surfList.length} MAPS · T1–T5 · LINEAR & STAGED`;
   }
   if(menuTTStatEl){
     menuTTStatEl.textContent=ttDone>0
@@ -2906,7 +2906,7 @@ function renderCourseBrowserFilters(){
   });
 
   mkSep();
-  for(let t=1;t<=4;t++){
+  for(let t=1;t<=5;t++){
     const cnt=all.filter(c=>c.tier===t).length;
     if(cnt===0)continue;
     mkBtn(`Tier ${t}`,cnt,cbTierFilter===t,()=>{
