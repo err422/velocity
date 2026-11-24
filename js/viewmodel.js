@@ -3735,9 +3735,9 @@
       // Keep the blade extending to screen-right; arm clearance is handled
       // by the hand/forearm rest pose below, not by twisting the knife socket.
       knifeMesh.position.set(-0.0205, -0.0085, -0.043);
-      // Rotate the blade back the opposite way from the last adjustment;
-      // the lowered wrist needs the broader face turned toward the camera.
-      knifeMesh.rotation.set(1.05, 0.04, 0.80);
+      // Tilt the blade's spine/back downward around its local Z axis,
+      // while keeping the lowered wrist pose unchanged.
+      knifeMesh.rotation.set(1.05, 0.04, -0.24);
       knifeMesh.scale.setScalar(1.10);
     } else if (kt === 'skeleton') {
       knifeMesh.position.set(-0.0255, -0.0215, -0.041);
