@@ -366,7 +366,7 @@
   function normalizeSlotName(slot) {
     if (slot === 'primary' || slot === 'secondary' || slot === 'melee') return slot;
     if (slot === 'knife') return 'melee';
-    if (slot === 'deagle' || slot === 'pistol') return 'secondary';
+    if (slot === 'deagle' || slot === 'pistol' || slot === 'revolver') return 'secondary';
     if (slot === 'rifle' || slot === 'smg' || slot === 'shotgun' || slot === 'awp') return 'primary';
     return 'melee';
   }
@@ -1505,7 +1505,7 @@
       if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil('knife');
     }
 
-    const maxRange = isKnife ? 3.2 : build.range;
+    const maxRange = isKnife ? 3.2 : (weaponId === 'revolver' ? 999999 : build.range);
     const solidList = o.solidMeshes || (typeof root.solidMeshes !== 'undefined' ? root.solidMeshes : []);
     const pellets = isKnife ? 1 : Math.max(1, build.pellets || 1);
 
@@ -1519,11 +1519,13 @@
       const chronoAirMul = chronoW > 0 && build.chronoAirSpreadMul
         ? (1 + (build.chronoAirSpreadMul - 1) * chronoW)
         : 1;
-      baseSpread = build.spreadHip + (build.spreadAds - build.spreadHip) * adsT;
-      if (moveSpeed > 3.5) baseSpread += Math.min(build.spreadMove, (moveSpeed - 3.5) * 0.00075) * (1 - adsT * 0.35) * (1 - chronoW * 0.25);
-      if (airborne) baseSpread += ((weaponId === 'awp' && adsT < 0.6) ? 0.018 : (0.0042 * (1 - adsT * 0.35))) * chronoAirMul;
-      baseSpread += state.spreadBloom;
-      state.spreadBloom = Math.min(0.026, state.spreadBloom + (build.auto ? 0.0028 : 0.0052));
+      baseSpread = weaponId === 'revolver' ? 0 : build.spreadHip + (build.spreadAds - build.spreadHip) * adsT;
+      if (weaponId !== 'revolver') {
+        if (moveSpeed > 3.5) baseSpread += Math.min(build.spreadMove, (moveSpeed - 3.5) * 0.00075) * (1 - adsT * 0.35) * (1 - chronoW * 0.25);
+        if (airborne) baseSpread += ((weaponId === 'awp' && adsT < 0.6) ? 0.018 : (0.0042 * (1 - adsT * 0.35))) * chronoAirMul;
+        baseSpread += state.spreadBloom;
+        state.spreadBloom = Math.min(0.026, state.spreadBloom + (build.auto ? 0.0028 : 0.0052));
+      }
     }
 
     // Collect shootable meshes once for all pellets

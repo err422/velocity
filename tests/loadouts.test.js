@@ -13,10 +13,10 @@ function createMockStorage() {
   };
 }
 
-test('expanded 6-weapon roster separates Primary (4) and Secondary (2) cleanly', () => {
+test('expanded 7-weapon roster separates Primary (4) and Secondary (3) cleanly', () => {
   assert.deepEqual(LoadoutsSystem.PRIMARY_WEAPON_IDS, ['rifle', 'smg', 'shotgun', 'awp']);
-  assert.deepEqual(LoadoutsSystem.SECONDARY_WEAPON_IDS, ['deagle', 'pistol']);
-  assert.equal(LoadoutsSystem.WEAPON_IDS.length, 6);
+  assert.deepEqual(LoadoutsSystem.SECONDARY_WEAPON_IDS, ['deagle', 'revolver', 'pistol']);
+  assert.equal(LoadoutsSystem.WEAPON_IDS.length, 7);
   assert.equal(LoadoutsSystem.ATTACHMENT_SLOT_IDS.length, 9);
   assert.equal(LoadoutsSystem.MAX_ATTACHMENTS, 5);
   assert.equal(LoadoutsSystem.LOADOUT_COUNT, 5);
@@ -30,6 +30,24 @@ test('expanded 6-weapon roster separates Primary (4) and Secondary (2) cleanly',
     const lv1Unlocks = LoadoutsSystem.getUnlockedAttachmentsAtLevel(wid, 1);
     assert.ok(lv1Unlocks.length >= 3, `Expected at least 3 starter Lv. 1 attachments on ${wid}`);
   }
+});
+
+
+test('R-8 Sovereign resolves as a six-shot, full-range, one-body-hit secondary', () => {
+  const spec = LoadoutsSystem.getWeaponSpec('revolver');
+  const build = LoadoutsSystem.resolveWeaponBuild('revolver', {});
+  assert.equal(spec.slotCategory, 'secondary');
+  assert.equal(spec.triggerDelaySec, 0.20);
+  assert.equal(build.damageBody, 100);
+  assert.equal(build.damageHead, 100);
+  assert.equal(build.magSize, 6);
+  assert.equal(build.fireInterval, 0.5);
+  assert.equal(build.reloadTime, 2.8);
+  assert.equal(build.range, 999999);
+  assert.equal(build.falloffStart, 999999);
+  assert.equal(build.minFalloffMul, 1);
+  assert.equal(LoadoutsSystem.computeDistanceDamage(build, 1000000, false), 100);
+  assert.equal(LoadoutsSystem.computeDistanceDamage(build, 1000000, true), 100);
 });
 
 test('weapon level progress exposes the fields used by the Gunsmith XP display', () => {
@@ -222,12 +240,12 @@ test('localStorage persistence self-heals from backup and cloud merge preserves 
   assert.equal(typeof payload.equippedWeaponSkins, 'object');
 });
 
-test('firestore.rules defines hardened /userLoadouts/{uid} rules and expanded 6-weapon + Apex slot allowlists', () => {
+test('firestore.rules defines hardened /userLoadouts/{uid} rules and expanded 7-weapon + Apex slot allowlists', () => {
   const rulesText = fs.readFileSync(path.join(__dirname, '..', 'firestore.rules'), 'utf8');
   assert.ok(rulesText.includes('match /userLoadouts/{uid}'));
   assert.ok(rulesText.includes('isValidUserLoadoutsCreate'));
   assert.ok(rulesText.includes('isValidUserLoadoutsUpdate'));
-  assert.ok(rulesText.includes("'smg'") && rulesText.includes("'shotgun'") && rulesText.includes("'pistol'"));
+  assert.ok(rulesText.includes("'smg'") && rulesText.includes("'shotgun'") && rulesText.includes("'pistol'") && rulesText.includes("'revolver'"));
   for (const slotId of LoadoutsSystem.ATTACHMENT_SLOT_IDS) {
     assert.ok(rulesText.includes(`'${slotId}'`), `Expected attachment slot '${slotId}' to be allowlisted in firestore.rules`);
   }

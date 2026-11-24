@@ -199,6 +199,28 @@
       inspectName: 'Slide Spin & Balance',
       description: 'Heavy .50 cal semi-auto hand cannon built for mid-air flicks and 1-tap headshots.'
     },
+    revolver: {
+      id: 'revolver',
+      name: 'R-8 Sovereign',
+      shortName: 'R-8',
+      slot: 2,
+      magSize: 6,
+      rpm: 120,
+      fireInterval: 0.50,
+      damageBody: 100,
+      damageHead: 100,
+      reloadTime: 2.8,
+      auto: false,
+      scoped: false,
+      range: 999999,
+      spreadBase: 0,
+      spreadHip: 0,
+      spreadMove: 0,
+      recoilPitch: 0.072,
+      recoilYaw: 0.012,
+      inspectName: 'Cylinder Spin & Mechanical Check',
+      description: 'Six-shot precision revolver with a deliberate trigger pull and devastating full-range body damage.'
+    },
     pistol: {
       id: 'pistol',
       name: 'USP-9 Tactical',
@@ -788,7 +810,8 @@
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'ultraviolet' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'ultraviolet' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'ultraviolet' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'damascus' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'damascus' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'ultraviolet' }
         ],
         restricted: [
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'redline' },
@@ -797,7 +820,8 @@
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'damascus' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'redline' },
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'damascus' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'crimson_web' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'crimson_web' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'case_hardened' }
         ],
         classified: [
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'vulcan' },
@@ -805,6 +829,7 @@
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'blaze' },
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'redline' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'blaze' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'blaze' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'crimson_web' }
         ],
         covert: [
@@ -862,7 +887,8 @@
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'hyper_chroma' },
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'hyper_chroma' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'hyper_chroma' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'hyper_chroma' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'hyper_chroma' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'printstream' }
         ],
         covert: [
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'printstream' },
@@ -1034,6 +1060,7 @@
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'voidglass' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'nitro' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'solarflare' },
           { itemKind: 'weapon', weaponType: 'smg', skinId: 'redshift' }
         ],
         gold: [
@@ -1532,7 +1559,8 @@
       createStarterWeapon('shotgun'),
       createStarterWeapon('awp'),
       createStarterWeapon('deagle'),
-      createStarterWeapon('pistol')
+      createStarterWeapon('pistol'),
+      createStarterWeapon('revolver')
     ];
   }
 
@@ -1550,6 +1578,7 @@
       equippedAwpId: 'starter_awp_slate',
       equippedDeagleId: 'starter_deagle_slate',
       equippedPistolId: 'starter_pistol_slate',
+      equippedRevolverId: 'starter_revolver_slate',
       caseCounts: Object.fromEntries(CASE_IDS.map((id) => [id, 0])),
       totalOpened: 0,
       lastDailyDropDate: '',
@@ -1753,6 +1782,7 @@
     const equippedAwpId = findValidWeaponId(raw.equippedAwpId, 'awp');
     const equippedDeagleId = findValidWeaponId(raw.equippedDeagleId, 'deagle');
     const equippedPistolId = findValidWeaponId(raw.equippedPistolId, 'pistol');
+    const equippedRevolverId = findValidWeaponId(raw.equippedRevolverId, 'revolver');
 
     return {
       coins,
@@ -1764,6 +1794,7 @@
       equippedAwpId,
       equippedDeagleId,
       equippedPistolId,
+      equippedRevolverId,
       caseCounts,
       totalOpened,
       lastDailyDropDate,
@@ -1792,7 +1823,8 @@
       shotgun: inv.equippedShotgunId,
       awp: inv.equippedAwpId,
       deagle: inv.equippedDeagleId,
-      pistol: inv.equippedPistolId
+      pistol: inv.equippedPistolId,
+      revolver: inv.equippedRevolverId
     };
     const eqId = keyMap[wt] || inv.equippedRifleId;
     return inv.weapons.find((w) => w.id === eqId && w.weaponType === wt)
@@ -1834,6 +1866,7 @@
       if (item.weaponType === 'awp') return inventory.equippedAwpId === item.id;
       if (item.weaponType === 'deagle') return inventory.equippedDeagleId === item.id;
       if (item.weaponType === 'pistol') return inventory.equippedPistolId === item.id;
+      if (item.weaponType === 'revolver') return inventory.equippedRevolverId === item.id;
       return inventory.equippedRifleId === item.id;
     }
     if (isGloveItem(item)) return inventory.equippedGloveId === item.id;
@@ -2186,6 +2219,7 @@
       equippedRifleId: clean.equippedRifleId,
       equippedAwpId: clean.equippedAwpId,
       equippedDeagleId: clean.equippedDeagleId,
+      equippedRevolverId: clean.equippedRevolverId,
       caseCounts: Object.fromEntries(CASE_IDS.map((id) => [id, clean.caseCounts[id]])),
       totalOpened: clean.totalOpened,
       lastDailyDropDate: clean.lastDailyDropDate
@@ -2447,6 +2481,7 @@
     const equippedAwpId = pickEquipped(local.equippedAwpId, cloud.equippedAwpId, wMerge.merged, (w) => w.weaponType === 'awp');
     const equippedDeagleId = pickEquipped(local.equippedDeagleId, cloud.equippedDeagleId, wMerge.merged, (w) => w.weaponType === 'deagle');
     const equippedPistolId = pickEquipped(local.equippedPistolId, cloud.equippedPistolId, wMerge.merged, (w) => w.weaponType === 'pistol');
+    const equippedRevolverId = pickEquipped(local.equippedRevolverId, cloud.equippedRevolverId, wMerge.merged, (w) => w.weaponType === 'revolver');
 
     const totalOpened = Math.max(local.totalOpened, cloud.totalOpened);
     const lastDailyDropDate = local.lastDailyDropDate >= cloud.lastDailyDropDate
@@ -2473,6 +2508,7 @@
       equippedAwpId,
       equippedDeagleId,
       equippedPistolId,
+      equippedRevolverId,
       caseCounts,
       totalOpened,
       lastDailyDropDate,
@@ -2490,6 +2526,7 @@
       inventory.equippedRifleId !== cloud.equippedRifleId ||
       inventory.equippedAwpId !== cloud.equippedAwpId ||
       inventory.equippedDeagleId !== cloud.equippedDeagleId ||
+      inventory.equippedRevolverId !== cloud.equippedRevolverId ||
       CASE_IDS.some((id) => inventory.caseCounts[id] !== cloud.caseCounts[id]);
 
     return {
