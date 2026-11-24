@@ -7236,7 +7236,7 @@
       mesh.userData.hammerGroup.rotation.x = -((wOut ? wOut.hammerBack : 0) + hammerKick * 0.95);
     }
     if (wt === 'revolver' && mesh.userData.revolverCylinderPivot) {
-      mesh.userData.revolverCylinderPivot.rotation.z = (wOut ? wOut.revolverOpen : 0) * 0.92;
+      mesh.userData.revolverCylinderPivot.rotation.y = (wOut ? wOut.revolverOpen : 0) * 0.92;
       if (mesh.userData.revolverCylinderGroup) mesh.userData.revolverCylinderGroup.rotation.x = wOut ? wOut.revolverSpin : 0;
       if (mesh.userData.revolverShellGroup) mesh.userData.revolverShellGroup.visible = !(wOut && wOut.revolverEject > 0.45);
     }
