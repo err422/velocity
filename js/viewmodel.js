@@ -3776,10 +3776,10 @@
       // Keep the karambit's hooked-index ring grip, but use the same natural
       // wrist orientation as the other first-person melee models. The old
       // near-vertical wrist roll made the knife look twisted across the palm.
-      // Raise and slightly cant the whole forearm/hand so it clears the
-      // lower edge of the view without changing the knife's local direction.
+      // Keep the arm's position, but pitch the wrist down so the hand
+      // hangs more naturally, closer to the relaxed left-hand angle.
       out.rx = 0.205; out.ry = -0.125; out.rz = -0.35;
-      out.rRotX = -0.20; out.rRotY = 0.28; out.rRotZ = -0.68;
+      out.rRotX = -0.08; out.rRotY = 0.16; out.rRotZ = -0.34;
     } else if (kt === 'skeleton') {
       out.rx = 0.205; out.ry = -0.165; out.rz = -0.35;
       out.rRotX = -0.22; out.rRotY = 0.26; out.rRotZ = -0.82;
