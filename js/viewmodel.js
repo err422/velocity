@@ -3771,8 +3771,11 @@
   function evaluateViewmodelChoreography(kt, animState, out, playAudio) {
     // 1) Authentic CS Surf Per-Knife Rest Poses
     if (kt === 'karambit') {
-      out.rx = 0.215; out.ry = -0.175; out.rz = -0.35;
-      out.rRotX = 0.14; out.rRotY = 0.68; out.rRotZ = 1.66;
+      // Keep the karambit's hooked-index ring grip, but use the same natural
+      // wrist orientation as the other first-person melee models. The old
+      // near-vertical wrist roll made the knife look twisted across the palm.
+      out.rx = 0.205; out.ry = -0.165; out.rz = -0.35;
+      out.rRotX = -0.20; out.rRotY = 0.28; out.rRotZ = -0.86;
     } else if (kt === 'skeleton') {
       out.rx = 0.205; out.ry = -0.165; out.rz = -0.35;
       out.rRotX = -0.22; out.rRotY = 0.26; out.rRotZ = -0.82;
