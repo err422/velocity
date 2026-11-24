@@ -1137,7 +1137,8 @@
     const speed = Math.hypot(bot.velocity.x, bot.velocity.z);
     const abilitiesAllowed = !movementContext || movementContext.abilitiesAllowed !== false;
     const maxSpeed = Math.max(profile.moveSpeed, 8.5);
-    const wish = desiredDir.lengthSq() > 0.001 ? desiredDir.clone().normalize() : new THREE.Vector3();
+    const wish = desiredDir;
+    if (wish.lengthSq() > 0.001) wish.normalize();
     const grounded = bot.grounded !== false && bot.verticalVelocity <= 0.1;
 
     // Quake-style ground acceleration and air-strafe acceleration.
@@ -1257,7 +1258,8 @@
     if (abilitiesAllowed && !grounded && horizontalSpeed > 8 && bot.wallrunTimer <= 0) {
       _botAimRight.set(-forward.z, 0, forward.x);
       for (const side of [-1, 1]) {
-        _botShotRay.set(origin, _botAimRight.clone().multiplyScalar(side));
+        _botCandidateDir.copy(_botAimRight).multiplyScalar(side);
+        _botShotRay.set(origin, _botCandidateDir);
         _botShotRay.near = 0.2;
         _botShotRay.far = 1.15;
         const wallHits = solidList && solidList.length ? _botShotRay.intersectObjects(solidList, false) : [];
