@@ -3732,10 +3732,10 @@
   function applyContactGripSocket(knifeMesh, kt) {
     knifeMesh.rotation.order = 'XYZ';
     if (kt === 'karambit') {
-      // Keep the hooked blade clear of the forearm by giving its screen-right
-      // presentation a little more upward angle.
-      knifeMesh.position.set(-0.0205, -0.0045, -0.043);
-      knifeMesh.rotation.set(1.05, 0.04, 1.08);
+      // Keep the blade extending to screen-right; arm clearance is handled
+      // by the hand/forearm rest pose below, not by twisting the knife socket.
+      knifeMesh.position.set(-0.0205, -0.0085, -0.043);
+      knifeMesh.rotation.set(1.05, 0.04, 0.80);
       knifeMesh.scale.setScalar(1.10);
     } else if (kt === 'skeleton') {
       knifeMesh.position.set(-0.0255, -0.0215, -0.041);
@@ -3776,8 +3776,10 @@
       // Keep the karambit's hooked-index ring grip, but use the same natural
       // wrist orientation as the other first-person melee models. The old
       // near-vertical wrist roll made the knife look twisted across the palm.
-      out.rx = 0.205; out.ry = -0.165; out.rz = -0.35;
-      out.rRotX = -0.20; out.rRotY = 0.28; out.rRotZ = -0.86;
+      // Raise and slightly cant the whole forearm/hand so it clears the
+      // lower edge of the view without changing the knife's local direction.
+      out.rx = 0.205; out.ry = -0.125; out.rz = -0.35;
+      out.rRotX = -0.20; out.rRotY = 0.28; out.rRotZ = -0.68;
     } else if (kt === 'skeleton') {
       out.rx = 0.205; out.ry = -0.165; out.rz = -0.35;
       out.rRotX = -0.22; out.rRotY = 0.26; out.rRotZ = -0.82;
