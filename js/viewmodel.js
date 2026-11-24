@@ -8724,7 +8724,7 @@
         }
         evaluateWeaponChoreography(wt, comboAnimState, _comboWeaponOut, true);
 
-        const isPistol = wt === 'deagle' || wt === 'pistol';
+        const isPistol = wt === 'deagle' || wt === 'pistol' || wt === 'revolver';
         const zCenter = isPistol ? -0.26 : wt === 'awp' ? -0.09 : -0.13;
         const yCenter = isPistol ? -0.182 : -0.198;
         comboRig.rightHandPivot.position.set(
