@@ -197,16 +197,32 @@ function render(dt){
   let combatFrameState=null;
   if(inLevel){
     const botTargetState=NetcodeSystem.getState();
+    const arenaCourseMeta=window.CourseCatalog&&typeof window.CourseCatalog.getCourseMeta==='function'
+      ?window.CourseCatalog.getCourseMeta(level.id):null;
+    const botMovementContext={
+      config:CFG,
+      solids,
+      solidMeshes,
+      pads,
+      boosters,
+      teleporters,
+      mapId:botTargetState.mapId||level.id,
+      abilitiesAllowed:!(arenaCourseMeta&&arenaCourseMeta.category==='surf'),
+      arenaSpawns:botTargetState.players
+    };
     CombatSystem.update(dt,{
       uid:botTargetState.localUid,
       position:_rp,
       yaw:p.yaw,
       eye:p.eye,
       velocity:p.vel,
+      hp:botTargetState.localHp,
       alive:botTargetState.localAlive!==false,
       isHost:botTargetState.role==='host',
-      phase:botTargetState.phase
-    },solidMeshes);
+      phase:botTargetState.phase,
+      mode:botTargetState.mode,
+      players:botTargetState.players
+    },solidMeshes,botMovementContext);
     combatFrameState=CombatSystem.getState();
   }
   const baseFov=(window.activeSettings&&window.activeSettings.baseFov)||C.fovBase;
