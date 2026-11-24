@@ -450,7 +450,8 @@ function step(dt){
     if(isActionDown('fire')&&fireState.activeBuild&&fireState.activeBuild.weaponId==='revolver'){
       if(revolverChargeTimer>=0){
         revolverChargeTimer+=dt;
-        if(revolverChargeTimer>=0.20){
+        const triggerDelaySec=Number(fireState.activeBuild.triggerDelaySec)||0.20;
+        if(revolverChargeTimer>=triggerDelaySec){
           performFire(false);
           revolverChargeTimer=-1;
         }
