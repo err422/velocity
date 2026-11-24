@@ -4263,58 +4263,6 @@
         // A soft latch click as the blade is presented; no repeated spin SFX.
         if (t > 0.46) cue(1, () => CaseAudio.balisongClack(0.92));
       } else {
-          // Reference-matched CS butterfly inspect: a deliberate two-part
-          // sequence. First a quick wrist lift and handle flick, then a pause,
-          // followed by the slower, wider handle fan and final presentation.
-          const lift = smoothstep(0.015, 0.20, t);
-          const firstFlick = bell(t, 0.22, 0.43);
-          const reset = smoothstep(0.43, 0.57, t);
-          const secondFlick = smoothstep(0.60, 0.78, t);
-          const finish = smoothstep(0.88, 0.98, t);
-
-          // The hand rises into frame and turns edge-on, then rolls back
-          // toward the viewer as the first handle sequence completes.
-          out.rx -= lift * 0.050;
-          out.ry += lift * 0.018;
-          out.rRotX += lift * 0.18 + firstFlick * 0.20 - reset * 0.10;
-          out.rRotY += lift * 0.14 + firstFlick * 0.26 - reset * 0.12;
-          out.rRotZ += lift * 0.22 + firstFlick * 0.38 - reset * 0.20;
-          out.kPosX += lift * 0.020 - reset * 0.012;
-          out.kPosY += lift * 0.032 + firstFlick * 0.010;
-
-          // First quick flick: handles separate, whip past the blade, and
-          // return close to the grip. No full-knife helicopter spin.
-          const firstOpen = smoothstep(0.18, 0.29, t) * (1 - smoothstep(0.37, 0.49, t));
-          out.baliBladeAngle = firstOpen * 2.55;
-          out.baliBiteAngle = firstOpen * 3.10;
-          out.kRotZ -= firstFlick * Math.PI * 0.72;
-
-          // Second, slower flourish: the handles fan wide around the pivot,
-          // the wrist presents the curved blade, and the pose is held.
-          const fan = secondFlick * (1 - finish * 0.12);
-          out.baliBladeAngle += fan * 2.72;
-          out.baliBiteAngle += fan * 3.18;
-          out.kRotZ -= secondFlick * Math.PI * 0.34;
-          out.rRotX += secondFlick * 0.13;
-          out.rRotY += secondFlick * 0.16;
-          out.rRotZ += secondFlick * 0.22;
-          out.kPosY += secondFlick * 0.014;
-
-          // Fingers loosen for the flick and close around the handle at the end.
-          const release = Math.max(firstOpen, fan * 0.82) * (1 - finish * 0.88);
-          rp.index = THREE.MathUtils.lerp(0.96, 0.74, release);
-          rp.middle = THREE.MathUtils.lerp(0.98, 0.62, release);
-          rp.ring = THREE.MathUtils.lerp(0.98, 0.58, release);
-          rp.pinky = THREE.MathUtils.lerp(0.96, 0.62, release);
-          rp.thumb = THREE.MathUtils.lerp(0.88, 0.48, release);
-
-          // Distinct mechanical beats follow the two handle movements.
-          if (t > 0.20) cue(1, () => CaseAudio.spinWhoosh(0.92));
-          if (t > 0.40) cue(2, () => CaseAudio.balisongClack(1.08));
-          if (t > 0.66) cue(4, () => CaseAudio.spinWhoosh(1.02));
-          if (t > 0.88) cue(8, () => CaseAudio.balisongClack(1.12));
-        }
-      } else {
         if (isUncommon) {
           const openAmt = bell(t, 0.12, 0.66);
           rp.index = THREE.MathUtils.lerp(0.96, 0.14, openAmt);
