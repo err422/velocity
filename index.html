@@ -171,6 +171,19 @@
   .case-pool-item{font-size:10px;letter-spacing:.06em;color:#cfe7f5;background:rgba(12,26,40,.9);border:1px solid rgba(111,210,238,.14);border-left:3px solid var(--rar-col,#4b69ff);padding:4px 8px}
   .case-open-col{display:flex;flex-direction:column;gap:6px;min-width:210px}
   .case-open-btn{padding:13px 18px;font-size:12px;letter-spacing:.14em}
+  .bulk-case-buy{margin-top:8px;padding:10px;background:rgba(6,15,24,.78);border:1px solid rgba(245,197,66,.22);display:flex;flex-direction:column;gap:8px}
+  .bulk-case-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .bulk-case-label{font-size:9px;font-weight:900;letter-spacing:.18em;color:#f5c542}
+  .bulk-case-total{font-size:10px;font-weight:800;letter-spacing:.06em;color:#f0e1af;font-variant-numeric:tabular-nums}
+  .bulk-case-controls{display:flex;align-items:end;gap:8px}
+  .bulk-case-qty-wrap{display:flex;flex-direction:column;gap:4px;flex:0 0 82px;font-size:8px;font-weight:800;letter-spacing:.12em;color:#8faabc}
+  .bulk-case-qty-input{width:100%;min-width:0;padding:7px 8px;background:#07121e;border:1px solid #395467;color:#f2fbff;font:800 13px inherit;font-variant-numeric:tabular-nums}
+  .bulk-case-presets{display:flex;flex:1;gap:4px;flex-wrap:wrap}
+  .bulk-case-presets button{flex:1;min-width:30px;padding:7px 5px;font-size:9px;font-weight:800;background:rgba(16,31,44,.9);border:1px solid #2c4659;color:#a9c2d2}
+  .bulk-case-presets button.active{background:rgba(71,52,13,.8);border-color:#f5c542;color:#ffe28a}
+  .bulk-case-hint{font-size:8px;letter-spacing:.07em;color:#7793a7;text-align:center}
+  .bulk-case-buy-btn{width:100%;padding:10px 12px;font-size:10px;font-weight:900;letter-spacing:.1em}
+
   .case-open-btn:disabled{opacity:.42;cursor:not-allowed;filter:none;transform:none}
   .arm-earn-note{margin-top:10px;font-size:10.5px;color:#7d9cb0;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;letter-spacing:.04em}
 
@@ -560,6 +573,9 @@
   }
   @media(max-width:760px){
     .hub-grid,.set-grid,.kb-grid,.arm-case-grid,.arm-reveal-grid,.arm-inv-grid,.case-detail-bar,.srv-grid{grid-template-columns:1fr}
+    .case-open-col{min-width:0;width:100%}
+    .bulk-case-controls{flex-wrap:wrap}
+    .bulk-case-presets{min-width:100%}
     .archive-list{max-height:200px}
     .lb-list{max-height:180px}
     .cb-table-head,.cb-row{grid-template-columns:minmax(140px,1fr) 68px 36px 72px}
@@ -2369,6 +2385,27 @@
             <div class="case-open-col">
               <button type="button" class="case-open-btn" id="openCaseBtn">BUY &amp; OPEN · 150 COINS</button>
               <button type="button" class="alt arm-btn-coin" id="buyCaseBtn" style="display:none;margin-top:0;padding:9px 14px;font-size:10.5px;letter-spacing:.12em">BUY +1 CASE · 150C</button>
+              <div class="bulk-case-buy">
+                <div class="bulk-case-head">
+                  <span class="bulk-case-label">BULK BUY</span>
+                  <span class="bulk-case-total" id="bulkCaseTotal">10 CASES · 1,000 COINS TOTAL</span>
+                </div>
+                <div class="bulk-case-controls">
+                  <label class="bulk-case-qty-wrap">
+                    <span>QUANTITY</span>
+                    <input id="bulkCaseQuantity" class="bulk-case-qty-input" type="number" min="1" max="999" step="1" value="10" inputmode="numeric" aria-label="Number of cases to buy">
+                  </label>
+                  <div class="bulk-case-presets" aria-label="Quick quantities">
+                    <button type="button" data-case-qty="5">5</button>
+                    <button type="button" data-case-qty="10" class="active">10</button>
+                    <button type="button" data-case-qty="25">25</button>
+                    <button type="button" data-case-qty="50">50</button>
+                    <button type="button" data-case-qty="100">100</button>
+                  </div>
+                </div>
+                <div class="bulk-case-hint" id="bulkCaseHint">100 COINS EACH · 999 INVENTORY SLOTS AVAILABLE</div>
+                <button type="button" class="arm-btn-coin bulk-case-buy-btn" id="bulkBuyCaseBtn">BUY 10 CASES · 1,000C</button>
+              </div>
               <div style="font-size:10px;color:#7fa1b8;text-align:center" id="openCaseHint">Deducts coins &amp; unlocks container immediately</div>
             </div>
           </div>

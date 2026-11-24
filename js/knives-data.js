@@ -1852,6 +1852,65 @@
     return { sellable: true, reason: '', value };
   }
 
+
+  function buyCases(inventory, caseId, quantity) {
+    const inv = sanitizeInventory(inventory);
+    const validId = CASES[caseId] ? caseId : 'velocity';
+    const price = getCasePrice(validId);
+    const qty = Number(quantity);
+    const owned = inv.caseCounts[validId] || 0;
+    const available = Math.max(0, 999 - owned);
+
+    if (!Number.isSafeInteger(qty) || qty < 1) {
+      return {
+        purchased: false,
+        reason: 'INVALID_QUANTITY',
+        price,
+        quantity: 0,
+        available,
+        totalCost: 0,
+        inventory: inv
+      };
+    }
+
+    if (qty > available) {
+      return {
+        purchased: false,
+        reason: 'CASE_CAPACITY',
+        price,
+        quantity: qty,
+        available,
+        totalCost: price * qty,
+        inventory: inv
+      };
+    }
+
+    const totalCost = price * qty;
+    if (inv.coins < totalCost) {
+      return {
+        purchased: false,
+        reason: 'INSUFFICIENT_COINS',
+        price,
+        quantity: qty,
+        totalCost,
+        deficit: totalCost - inv.coins,
+        available,
+        inventory: inv
+      };
+    }
+
+    inv.coins -= totalCost;
+    inv.caseCounts[validId] = owned + qty;
+    return {
+      purchased: true,
+      caseId: validId,
+      quantity: qty,
+      price,
+      totalCost,
+      inventory: inv
+    };
+  }
+
   function buyCase(inventory, caseId) {
     const inv = sanitizeInventory(inventory);
     const validId = CASES[caseId] ? caseId : 'velocity';
@@ -2509,6 +2568,7 @@
     isItemEquippedInInventory,
     isItemSellable,
     buyCase,
+    buyCases,
     sellItems,
     findDuplicateSellableIds,
     rollItemFromPool,
