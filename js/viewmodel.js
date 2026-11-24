@@ -3734,10 +3734,10 @@
     if (kt === 'karambit') {
       // Keep the blade extending to screen-right; arm clearance is handled
       // by the hand/forearm rest pose below, not by twisting the knife socket.
-      knifeMesh.position.set(-0.0205, -0.0085, -0.043);
-      // Tilt the blade's spine/back downward around its local Z axis,
-      // while keeping the lowered wrist pose unchanged.
-      knifeMesh.rotation.set(1.05, 0.04, -0.24);
+      // Drop the handle slightly in the hand, then pitch the curved blade
+      // upward relative to it so the blade clears the forearm.
+      knifeMesh.position.set(-0.0205, -0.0145, -0.043);
+      knifeMesh.rotation.set(1.05, 0.04, 0.18);
       knifeMesh.scale.setScalar(1.10);
     } else if (kt === 'skeleton') {
       knifeMesh.position.set(-0.0255, -0.0215, -0.041);
