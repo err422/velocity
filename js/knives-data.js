@@ -2219,6 +2219,7 @@
       equippedRifleId: clean.equippedRifleId,
       equippedAwpId: clean.equippedAwpId,
       equippedDeagleId: clean.equippedDeagleId,
+      equippedRevolverId: clean.equippedRevolverId,
       caseCounts: Object.fromEntries(CASE_IDS.map((id) => [id, clean.caseCounts[id]])),
       totalOpened: clean.totalOpened,
       lastDailyDropDate: clean.lastDailyDropDate
