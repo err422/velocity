@@ -2480,6 +2480,7 @@
     const equippedAwpId = pickEquipped(local.equippedAwpId, cloud.equippedAwpId, wMerge.merged, (w) => w.weaponType === 'awp');
     const equippedDeagleId = pickEquipped(local.equippedDeagleId, cloud.equippedDeagleId, wMerge.merged, (w) => w.weaponType === 'deagle');
     const equippedPistolId = pickEquipped(local.equippedPistolId, cloud.equippedPistolId, wMerge.merged, (w) => w.weaponType === 'pistol');
+    const equippedRevolverId = pickEquipped(local.equippedRevolverId, cloud.equippedRevolverId, wMerge.merged, (w) => w.weaponType === 'revolver');
 
     const totalOpened = Math.max(local.totalOpened, cloud.totalOpened);
     const lastDailyDropDate = local.lastDailyDropDate >= cloud.lastDailyDropDate
@@ -2506,6 +2507,7 @@
       equippedAwpId,
       equippedDeagleId,
       equippedPistolId,
+      equippedRevolverId,
       caseCounts,
       totalOpened,
       lastDailyDropDate,
@@ -2523,6 +2525,7 @@
       inventory.equippedRifleId !== cloud.equippedRifleId ||
       inventory.equippedAwpId !== cloud.equippedAwpId ||
       inventory.equippedDeagleId !== cloud.equippedDeagleId ||
+      inventory.equippedRevolverId !== cloud.equippedRevolverId ||
       CASE_IDS.some((id) => inventory.caseCounts[id] !== cloud.caseCounts[id]);
 
     return {
