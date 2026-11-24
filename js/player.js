@@ -426,10 +426,14 @@ function toCheckpoint(customLabel){
 function step(dt){
   const p=player,v=p.vel,C=CFG;
   p.prev.copy(p.pos);
-  jumpBuffer=Math.max(0,jumpBuffer-dt);coyote=Math.max(0,coyote-dt);burstCd=Math.max(0,burstCd-dt);padCd=Math.max(0,padCd-dt);
+  const chrono=window.CombatSystem&&typeof window.CombatSystem.getChronoState==='function'?window.CombatSystem.getChronoState():null;
+  const chronoScale=chrono&&chrono.scale>0&&chrono.scale<1?chrono.scale:1;
+  const moveDt=dt*chronoScale;
+
+  jumpBuffer=Math.max(0,jumpBuffer-dt);coyote=Math.max(0,coyote-moveDt);burstCd=Math.max(0,burstCd-dt);padCd=Math.max(0,padCd-dt);
   boosterCd=Math.max(0,boosterCd-dt);teleCd=Math.max(0,teleCd-dt);
-  p.slideCd=Math.max(0,p.slideCd-dt);p.wallCd=Math.max(0,p.wallCd-dt);p.noGround=Math.max(0,p.noGround-dt);
-  p.surfGrace=Math.max(0,p.surfGrace-dt);
+  p.slideCd=Math.max(0,p.slideCd-dt);p.wallCd=Math.max(0,p.wallCd-dt);p.noGround=Math.max(0,p.noGround-moveDt);
+  p.surfGrace=Math.max(0,p.surfGrace-moveDt);
 
   // Full-auto firing for any automatic equipped weapon (V-47 Rifle, VX-9 Vector SMG)
   if(isActionDown('fire')&&window.CombatSystem&&window.CombatSystem.getState().auto){
@@ -471,15 +475,15 @@ function step(dt){
   const hs=Math.hypot(v.x,v.z);
   if(grounded){
     const fast=p.low&&hs>C.slideMinSpeed;
-    if(hs>0){const ns=Math.max(0,hs-Math.max(hs,C.stopSpeed)*(fast?C.slideFriction:C.friction)*dt);v.x*=ns/hs;v.z*=ns/hs;}
+    if(hs>0){const ns=Math.max(0,hs-Math.max(hs,C.stopSpeed)*(fast?C.slideFriction:C.friction)*moveDt);v.x*=ns/hs;v.z*=ns/hs;}
     if(hasWish){
-      if(fast)accelerate(wish,C.airWishCap,C.airAccel,dt,effGroundSpeed);       // carve while sliding
-      else if(p.low)accelerate(wish,effGroundSpeed*.5,C.slideAccel,dt);         // slow crouch-walk
-      else accelerate(wish,effGroundSpeed,C.groundAccel,dt);
+      if(fast)accelerate(wish,C.airWishCap,C.airAccel,moveDt,effGroundSpeed);       // carve while sliding
+      else if(p.low)accelerate(wish,effGroundSpeed*.5,C.slideAccel,moveDt);         // slow crouch-walk
+      else accelerate(wish,effGroundSpeed,C.groundAccel,moveDt);
     }
   }else if(hasWish){
     const surfMode=p.surfing||p.surfGrace>0;
-    const d=SurfEngine.computeAirStrafeDelta(v,wish,dt,C,surfMode);
+    const d=SurfEngine.computeAirStrafeDelta(v,wish,moveDt,C,surfMode);
     v.x+=d.dx*mob.surfAirMult;v.z+=d.dz*mob.surfAirMult;
   }
 
@@ -487,16 +491,16 @@ function step(dt){
   if(p.grapple){
     const to=p.grapple.clone().sub(V3(p.pos.x,p.pos.y+1,p.pos.z)),dist=to.length();
     if(dist<C.grappleRelease){p.grapple=null;grappleEl.textContent='GRAPPLE READY';}
-    else{to.divideScalar(dist);const along=v.dot(to);if(along<C.grapplePullSpeed)v.addScaledVector(to,Math.min(C.grapplePullAccel*dt,C.grapplePullSpeed-along));grappleEl.textContent='TETHER '+Math.round(dist)+'M';}
+    else{to.divideScalar(dist);const along=v.dot(to);if(along<C.grapplePullSpeed)v.addScaledVector(to,Math.min(C.grapplePullAccel*moveDt,C.grapplePullSpeed-along));grappleEl.textContent='TETHER '+Math.round(dist)+'M';}
   }
 
   // Gravity (none while standing on ground, so slopes don't drag you; sliding & surfing use full gravity)
   let gs=1;if(p.wallrun)gs=C.wallGravityScale;if(p.grapple)gs=Math.min(gs,C.grappleGravityScale);
-  if(!(grounded&&!p.low))v.y-=C.gravity*gs*dt;
-  if(p.wallrun){v.y=Math.max(v.y,-C.wallMaxFall);v.addScaledVector(p.wallN,-C.wallStick*dt);}
+  if(!(grounded&&!p.low))v.y-=C.gravity*gs*moveDt;
+  if(p.wallrun){v.y=Math.max(v.y,-C.wallMaxFall);v.addScaledVector(p.wallN,-C.wallStick*moveDt);}
 
-  // Move + collide
-  p.pos.addScaledVector(v,dt);
+  // Move + collide (uses moveDt so velocity vector & surf momentum remain 100% preserved on exit!)
+  p.pos.addScaledVector(v,moveDt);
   collide();
   p.grounded=contact.ground&&p.noGround<=0;
   if(!p.grounded&&grounded&&v.y<=.01&&p.noGround<=0&&!contact.surf){      // ground snap for running down slopes
@@ -505,14 +509,14 @@ function step(dt){
   }
   if(p.grounded){coyote=C.coyote;p.wallTimer=0;p.surfing=false;p.surfGrace=0;}
   else if(contact.surf){
-    p.surfing=true;p.surfN.copy(contact.sn);p.surfGrace=C.surfGrace;p.surfTime+=dt;
+    p.surfing=true;p.surfN.copy(contact.sn);p.surfGrace=C.surfGrace;p.surfTime+=moveDt;
   }else{
     p.surfing=false;
   }
 
   // Wall-run attach (never hijacks a surf slope; needs near-vertical contact, speed, input, and budget)
   if(!p.grounded&&!p.surfing&&contact.wall&&Math.hypot(v.x,v.z)>C.wallMinSpeed&&hasWish&&p.wallTimer<C.wallMaxTime&&p.wallCd<=0){
-    p.wallN.copy(contact.wn);p.wallrun=true;p.wallTimer+=dt;
+    p.wallN.copy(contact.wn);p.wallrun=true;p.wallTimer+=moveDt;
   }else p.wallrun=false;
 
   // Launch pads

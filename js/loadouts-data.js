@@ -14,14 +14,15 @@
   const MAX_WEAPON_LEVEL = 12;
 
   const ATTACHMENT_SLOTS = Object.freeze([
-    { id: 'optic', label: 'Optic', shortLabel: 'OPTIC', cameraFocus: 'optic' },
-    { id: 'muzzle', label: 'Muzzle', shortLabel: 'MUZZLE', cameraFocus: 'muzzle' },
-    { id: 'barrel', label: 'Barrel', shortLabel: 'BARREL', cameraFocus: 'barrel' },
-    { id: 'underbarrel', label: 'Underbarrel', shortLabel: 'UNDER', cameraFocus: 'underbarrel' },
-    { id: 'magazine', label: 'Magazine', shortLabel: 'MAG', cameraFocus: 'magazine' },
-    { id: 'ammo', label: 'Ammunition', shortLabel: 'AMMO', cameraFocus: 'magazine' },
-    { id: 'rearGrip', label: 'Rear Grip', shortLabel: 'GRIP', cameraFocus: 'rearGrip' },
-    { id: 'stock', label: 'Stock', shortLabel: 'STOCK', cameraFocus: 'stock' }
+    { id: 'optic', label: 'Optic', shortLabel: 'OPTIC', cameraFocus: 'optic', desc: 'Sights, holos & variable sniper scopes' },
+    { id: 'muzzle', label: 'Muzzle', shortLabel: 'MUZZLE', cameraFocus: 'muzzle', desc: 'Suppressors, brakes & chokes' },
+    { id: 'barrel', label: 'Barrel', shortLabel: 'BARREL', cameraFocus: 'barrel', desc: 'Range, velocity & chassis balance' },
+    { id: 'underbarrel', label: 'Underbarrel', shortLabel: 'UNDER', cameraFocus: 'underbarrel', desc: 'Foregrips & tactical lasers' },
+    { id: 'magazine', label: 'Magazine', shortLabel: 'MAG', cameraFocus: 'magazine', desc: 'Capacity & reload speed' },
+    { id: 'ammo', label: 'Ammunition', shortLabel: 'AMMO', cameraFocus: 'magazine', desc: 'Tactical rounds & shell loads' },
+    { id: 'rearGrip', label: 'Rear Grip', shortLabel: 'GRIP', cameraFocus: 'rearGrip', desc: 'ADS snap & recoil stability' },
+    { id: 'stock', label: 'Stock', shortLabel: 'STOCK', cameraFocus: 'stock', desc: 'Surf weight & aim steadiness' },
+    { id: 'apex', label: 'Apex Kit', shortLabel: 'APEX', cameraFocus: 'apex', desc: 'Signature temporal hangtime modules', isApex: true }
   ]);
   const ATTACHMENT_SLOT_IDS = Object.freeze(ATTACHMENT_SLOTS.map((s) => s.id));
 
@@ -81,7 +82,7 @@
       baseWeightKg: 3.4,
       defaultOptic: 'iron',
       ammoClass: 'bullet',
-      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock']),
+      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex']),
       allowedOptics: Object.freeze(['reflex_dot', 'holo_eotech', 'acog_25'])
     },
     smg: {
@@ -114,7 +115,7 @@
       baseWeightKg: 2.35,
       defaultOptic: 'iron',
       ammoClass: 'bullet',
-      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock']),
+      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex']),
       allowedOptics: Object.freeze(['reflex_dot', 'holo_eotech'])
     },
     shotgun: {
@@ -147,7 +148,7 @@
       baseWeightKg: 3.55,
       defaultOptic: 'iron',
       ammoClass: 'shell',
-      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock']),
+      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex']),
       allowedOptics: Object.freeze(['reflex_dot', 'holo_eotech'])
     },
     awp: {
@@ -180,7 +181,7 @@
       baseWeightKg: 5.6,
       defaultOptic: 'sniper_var',
       ammoClass: 'bullet',
-      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock']),
+      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex']),
       allowedOptics: Object.freeze(['iron_snipe', 'acog_25', 'sniper_4x', 'sniper_var'])
     },
     deagle: {
@@ -213,7 +214,7 @@
       baseWeightKg: 1.85,
       defaultOptic: 'iron',
       ammoClass: 'bullet',
-      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'magazine', 'ammo', 'rearGrip']),
+      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'magazine', 'ammo', 'rearGrip', 'apex']),
       allowedOptics: Object.freeze(['reflex_dot'])
     },
     pistol: {
@@ -246,7 +247,7 @@
       baseWeightKg: 1.05,
       defaultOptic: 'iron',
       ammoClass: 'bullet',
-      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'magazine', 'ammo', 'rearGrip']),
+      allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'magazine', 'ammo', 'rearGrip', 'apex']),
       allowedOptics: Object.freeze(['reflex_dot'])
     }
   });
@@ -714,6 +715,45 @@
         cons: ['Heavy (+0.52kg) reduces surf mobility', 'Slower ADS (+24ms)'],
         mods: { recoilPitchMul: 0.80, recoilYawMul: 0.82, adsSpreadMul: 0.80, adsTimeAdd: 0.024, weightKg: 0.52, adsMoveAdd: -0.06 }
       }
+    }),
+
+    apex: Object.freeze({
+      chrono_gyro: {
+        id: 'chrono_gyro',
+        slot: 'apex',
+        name: 'APEX Chrono Stabilizer',
+        shortName: 'Chrono 0.28×',
+        unlockLevel: 1,
+        visual: 'chrono_gyro',
+        isApex: true,
+        chronoTimeScale: 0.28,
+        chronoTier: 1,
+        chronoRampIn: 0.14,
+        chronoRampOut: 0.16,
+        chronoAirSpreadMul: 0.85,
+        chronoLabel: 'CHRONO HANG',
+        pros: ['ADS slows your movement to 0.28× hangtime while keeping surf velocity', '-15% airborne ADS spread & 1:1 mouse aim'],
+        cons: ['Glows cyan & hangs slow in mid-air for enemies to punish', '+0.38kg gyro mass & +22ms ADS'],
+        mods: { adsTimeAdd: 0.022, weightKg: 0.38 }
+      },
+      chrono_overclock: {
+        id: 'chrono_overclock',
+        slot: 'apex',
+        name: 'APEX Phase Anchor',
+        shortName: 'Phase 0.18×',
+        unlockLevel: 7,
+        visual: 'chrono_overclock',
+        isApex: true,
+        chronoTimeScale: 0.18,
+        chronoTier: 2,
+        chronoRampIn: 0.17,
+        chronoRampOut: 0.22,
+        chronoAirSpreadMul: 0.72,
+        chronoLabel: 'PHASE ANCHOR',
+        pros: ['Deep 0.18× personal slow-mo hangtime on ADS (preserves momentum)', '-28% airborne ADS spread for surgical flicks'],
+        cons: ['High-visibility amber stasis beacon & slower unscope ramp', '+0.55kg mass & +38ms ADS'],
+        mods: { adsTimeAdd: 0.038, weightKg: 0.55, adsSpreadMul: 0.90 }
+      }
     })
   });
 
@@ -872,6 +912,12 @@
     let suppressed = false;
     let tracerStyle = 'standard';
     let ammoType = spec.ammoClass === 'shell' ? 'buckshot' : 'standard';
+    let chronoTimeScale = 1.0;
+    let chronoTier = 0;
+    let chronoRampIn = 0.14;
+    let chronoRampOut = 0.16;
+    let chronoAirSpreadMul = 1.0;
+    let chronoLabel = '';
 
     let damageBodyMul = 1;
     let damageHeadMul = 1;
@@ -934,6 +980,14 @@
       if (att.suppressed) suppressed = true;
       if (att.tracerStyle) tracerStyle = att.tracerStyle;
       if (att.ammoType) ammoType = att.ammoType;
+      if (typeof att.chronoTimeScale === 'number' && att.chronoTimeScale > 0 && att.chronoTimeScale < 1) {
+        chronoTimeScale = att.chronoTimeScale;
+        chronoTier = att.chronoTier || 1;
+        chronoRampIn = att.chronoRampIn || 0.14;
+        chronoRampOut = att.chronoRampOut || 0.16;
+        chronoAirSpreadMul = att.chronoAirSpreadMul || 1.0;
+        chronoLabel = att.chronoLabel || 'CHRONO HANG';
+      }
     }
 
     damageBody = Math.max(8, Math.round(damageBody * damageBodyMul));
@@ -1020,6 +1074,13 @@
       suppressed,
       tracerStyle,
       ammoType,
+      hasChronoKit: chronoTier > 0,
+      chronoTimeScale,
+      chronoTier,
+      chronoRampIn,
+      chronoRampOut,
+      chronoAirSpreadMul,
+      chronoLabel,
       isScopedOptic: opticType === 'acog' || opticType === 'sniper_4x' || opticType === 'sniper_var',
       bars: {
         damage: damageBar,
@@ -1062,7 +1123,8 @@
       weightDelta: Number((pre.weightKg - cur.weightKg).toFixed(2)),
       mobilityPctDelta: Math.round((pre.mobilityMult - cur.mobilityMult) * 100),
       surfPctDelta: Math.round((pre.surfAirMult - cur.surfAirMult) * 100),
-      magDelta: pre.magSize - cur.magSize
+      magDelta: pre.magSize - cur.magSize,
+      chronoDelta: Number(((pre.chronoTimeScale || 1) - (cur.chronoTimeScale || 1)).toFixed(2))
     };
   }
 
@@ -1119,7 +1181,7 @@
         name: 'Marksman AWP',
         primary: {
           weaponId: 'awp',
-          attachments: { optic: 'sniper_var', magazine: 'fast_mag', rearGrip: 'stippled_grip' },
+          attachments: { optic: 'sniper_var', magazine: 'fast_mag', rearGrip: 'stippled_grip', apex: 'chrono_gyro' },
           skinItemId: ''
         },
         secondary: {

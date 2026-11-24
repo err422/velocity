@@ -26,6 +26,16 @@
       : Math.max(0, current - step * 1.25);
   }
 
+  function advanceChronoState(weight, targetActive, dt, rampIn, rampOut) {
+    const current = Math.max(0, Math.min(1, Number(weight) || 0));
+    const deltaTime = Math.max(0, Number(dt) || 0);
+    const inDur = Math.max(0.04, Number(rampIn) || 0.14);
+    const outDur = Math.max(0.04, Number(rampOut) || 0.14);
+    return targetActive
+      ? Math.min(1, current + deltaTime / inDur)
+      : Math.max(0, current - deltaTime / outDur);
+  }
+
   function computeGauntletSummary(rawTime, targetsHit, targetsTotal) {
     const cleanRaw = Math.max(0, Number(rawTime) || 0);
     const total = Math.max(0, Math.floor(Number(targetsTotal) || 0));
@@ -74,6 +84,22 @@
     return { scoreboard: list, matchWinner, isMatchOver: matchWinner !== null };
   }
 
+  function chooseBotMovementIntent(distance, preferredRange, lowAmmo, roll) {
+    if (root.BotAISystem && typeof root.BotAISystem.chooseBotMovementIntent === 'function') {
+      return root.BotAISystem.chooseBotMovementIntent(distance, preferredRange, lowAmmo, roll);
+    }
+    const d = Math.max(0, Number(distance) || 0);
+    const preferred = Math.max(1, Number(preferredRange) || 1);
+    const r = Math.max(0, Math.min(0.999999, Number(roll) || 0));
+    if (lowAmmo) return 'reload';
+    if (d > preferred * 1.25) return 'advance';
+    if (d < preferred * 0.62) return 'disengage';
+    if (r < 0.14) return 'hold';
+    if (r < 0.62) return 'strafe';
+    if (r < 0.84) return 'reposition';
+    return 'advance';
+  }
+
   // If running in Node unit tests without THREE, return pure helpers
   if (!root.THREE || typeof document === 'undefined') {
     return {
@@ -82,9 +108,11 @@
       FFA_WIN_KILLS,
       SLOTS,
       advanceAdsProgress,
+      advanceChronoState,
       computeGauntletSummary,
       evaluateDuelRoundResult,
-      evaluateFfaScoreboard
+      evaluateFfaScoreboard,
+      chooseBotMovementIntent
     };
   }
 
@@ -147,7 +175,14 @@
       suppressed: false,
       tracerStyle: 'standard',
       ammoType: 'standard',
-      isScopedOptic: weaponId === 'awp'
+      isScopedOptic: weaponId === 'awp',
+      hasChronoKit: false,
+      chronoTimeScale: 1.0,
+      chronoTier: 0,
+      chronoRampIn: 0.14,
+      chronoRampOut: 0.14,
+      chronoAirSpreadMul: 1.0,
+      chronoLabel: ''
     };
   }
 
@@ -168,6 +203,11 @@
     adsProgress: 0,
     scopeAltZoom: false,
     scopeStage: 0, // 0 = hip, 1 = ADS/Scope primary, 2 = Variable 8x zoom
+    chronoWeight: 0,
+    chronoTimeScale: 1.0,
+    chronoTier: 0,
+    chronoActive: false,
+    chronoLabel: '',
     spreadBloom: 0,
     hitmarkerTimer: 0,
     hitmarkerHeadshot: false,
@@ -204,49 +244,11 @@
   const _botSteerBest = new THREE.Vector3();
   const _botEndPoint = new THREE.Vector3();
   const BOT_STEER_ANGLES = [0, 0.42, -0.42, 0.86, -0.86, 1.32, -1.32, Math.PI];
-  const _botFloorOrigin = new THREE.Vector3();
-  const _botDown = new THREE.Vector3(0, -1, 0);
-  const _botSightRay = new THREE.Raycaster();
-  const _botShotRay = new THREE.Raycaster();
-  const _botNavRay = new THREE.Raycaster();
-  const _botFloorRay = new THREE.Raycaster();
-
-  const WARMUP_BOT_ARCHETYPES = [
-    {
-      role: 'RUSHER', weapon: 'smg', preferredRange: 12, sightRange: 44, moveSpeed: 8.4,
-      damage: 5, shotInterval: 0.22, magSize: 30, reloadTime: 1.45, aimSpread: 0.040,
-      reaction: 0.12, aimSpeed: 8.2, fireAlignment: 0.972, aimSway: 0.008, leadTime: 0.14,
-      strafeBias: 1.08, decisionMin: 0.48, decisionMax: 0.92, burstMin: 4, burstMax: 8,
-      burstPause: 0.18, color: 0xff8b47, tracer: 0xff9c62
-    },
-    {
-      role: 'RIFLE', weapon: 'rifle', preferredRange: 19, sightRange: 54, moveSpeed: 7.0,
-      damage: 7, shotInterval: 0.30, magSize: 24, reloadTime: 1.75, aimSpread: 0.032,
-      reaction: 0.20, aimSpeed: 7.2, fireAlignment: 0.978, aimSway: 0.006, leadTime: 0.17,
-      strafeBias: 0.92, decisionMin: 0.62, decisionMax: 1.20, burstMin: 2, burstMax: 5,
-      burstPause: 0.28, color: 0xffbd42, tracer: 0xffc36b
-    },
-    {
-      role: 'SKIRMISHER', weapon: 'deagle', preferredRange: 24, sightRange: 58, moveSpeed: 6.4,
-      damage: 10, shotInterval: 0.62, magSize: 10, reloadTime: 1.95, aimSpread: 0.025,
-      reaction: 0.28, aimSpeed: 6.2, fireAlignment: 0.984, aimSway: 0.004, leadTime: 0.19,
-      strafeBias: 0.78, decisionMin: 0.82, decisionMax: 1.42, burstMin: 1, burstMax: 2,
-      burstPause: 0.46, color: 0x9b78ff, tracer: 0xb79aff
+  function getBotArchetypes() {
+    if (root.BotAISystem && Array.isArray(root.BotAISystem.BOT_ARCHETYPES) && root.BotAISystem.BOT_ARCHETYPES.length) {
+      return root.BotAISystem.BOT_ARCHETYPES;
     }
-  ];
-
-  // Pure, deterministic decision bands keep the bot's game behavior testable.
-  function chooseBotMovementIntent(distance, preferredRange, lowAmmo, roll) {
-    const d = Math.max(0, Number(distance) || 0);
-    const preferred = Math.max(1, Number(preferredRange) || 1);
-    const r = Math.max(0, Math.min(0.999999, Number(roll) || 0));
-    if (lowAmmo) return 'reload';
-    if (d > preferred * 1.25) return 'advance';
-    if (d < preferred * 0.62) return 'disengage';
-    if (r < 0.14) return 'hold';
-    if (r < 0.62) return 'strafe';
-    if (r < 0.84) return 'reposition';
-    return 'advance';
+    return [{ role: 'ENTRY', name: 'AI · VEX', weapon: 'rifle', color: 0xff6b55 }];
   }
 
   // Pooled bullet tracers
@@ -422,14 +424,33 @@
   }
 
   function clearScope() {
+    const wasChrono = state.chronoActive;
     state.adsHeld = false;
     state.adsProgress = 0;
     state.scopeAltZoom = false;
     state.scopeStage = 0;
+    state.chronoWeight = 0;
+    state.chronoTimeScale = 1.0;
+    state.chronoTier = 0;
+    state.chronoActive = false;
+    state.chronoLabel = '';
+    if (wasChrono && root.WeaponAudio && typeof root.WeaponAudio.chronoExit === 'function') {
+      root.WeaponAudio.chronoExit();
+    }
     if (root.ViewmodelSystem) {
       root.ViewmodelSystem.setAdsState(false, 0.16, false);
       root.ViewmodelSystem.setScoped(false);
     }
+  }
+
+  function getChronoState() {
+    return {
+      active: state.chronoActive,
+      weight: state.chronoWeight,
+      scale: state.chronoTimeScale,
+      tier: state.chronoTier,
+      label: state.chronoLabel
+    };
   }
 
   function switchSlot(slot, playDraw = true) {
@@ -882,33 +903,196 @@
     label.position.y = 2.46;
     g.add(label);
 
-    return { group: g, headMesh: head, bodyMesh: torso, hpFill, hpBg, label, legL, legR, gunBar };
+    // Pre-allocated Chrono Stasis Shell (hidden unless player is hanging in Apex Chrono ADS)
+    const noopRaycast = () => {};
+    const chronoGroup = new THREE.Group();
+    chronoGroup.visible = false;
+    const shellMat = new THREE.MeshBasicMaterial({
+      color: 0x4eeeff,
+      transparent: true,
+      opacity: 0.22,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const shellMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.60, 0.54, 2.04, 16, 1, true), shellMat);
+    shellMesh.position.y = 1.04;
+    shellMesh.raycast = noopRaycast;
+    chronoGroup.add(shellMesh);
+
+    const ringAMat = new THREE.MeshBasicMaterial({
+      color: 0x9df7ff,
+      transparent: true,
+      opacity: 0.84,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const ringA = new THREE.Mesh(new THREE.TorusGeometry(0.74, 0.026, 8, 28), ringAMat);
+    ringA.position.y = 1.12;
+    ringA.rotation.x = Math.PI * 0.34;
+    ringA.raycast = noopRaycast;
+    chronoGroup.add(ringA);
+
+    const ringBMat = new THREE.MeshBasicMaterial({
+      color: 0x4eeeff,
+      transparent: true,
+      opacity: 0.68,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const ringB = new THREE.Mesh(new THREE.TorusGeometry(0.64, 0.020, 8, 24), ringBMat);
+    ringB.position.y = 1.12;
+    ringB.rotation.x = -Math.PI * 0.38;
+    ringB.rotation.y = Math.PI * 0.28;
+    ringB.raycast = noopRaycast;
+    chronoGroup.add(ringB);
+
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: 0x9df7ff,
+      transparent: true,
+      opacity: 0.72,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const haloMesh = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.018, 8, 20), haloMat);
+    haloMesh.position.y = 1.98;
+    haloMesh.rotation.x = Math.PI * 0.5;
+    haloMesh.raycast = noopRaycast;
+    chronoGroup.add(haloMesh);
+    g.add(chronoGroup);
+
+    const chronoShell = {
+      group: chronoGroup,
+      shellMat,
+      ringAMat,
+      ringBMat,
+      haloMat,
+      ringA,
+      ringB,
+      haloMesh,
+      clock: 0,
+      tier: 0
+    };
+
+    // Pre-allocated world-space 3D Grapple Tether line (zero per-frame GC allocations)
+    const grapplePositions = new Float32Array(6);
+    const grappleGeo = new THREE.BufferGeometry();
+    grappleGeo.setAttribute('position', new THREE.BufferAttribute(grapplePositions, 3));
+    const grappleMat = new THREE.LineBasicMaterial({
+      color: 0x5ef0ff,
+      transparent: true,
+      opacity: 0.92,
+      depthWrite: false
+    });
+    const grappleLine = new THREE.Line(grappleGeo, grappleMat);
+    grappleLine.visible = false;
+    grappleLine.frustumCulled = false;
+    grappleLine.raycast = noopRaycast;
+    if (fxGroup) fxGroup.add(grappleLine);
+
+    return {
+      group: g,
+      headMesh: head,
+      bodyMesh: torso,
+      hpFill,
+      hpBg,
+      label,
+      legL,
+      legR,
+      gunBar,
+      chronoShell,
+      grappleLine,
+      grapplePositions
+    };
   }
 
-  // ---------- Solo Arena Warmup Hologram Bots ----------
+  function updateAvatarGrappleVisual(visual, originPos, grapplePoint) {
+    if (!visual || !visual.grappleLine || !visual.grapplePositions) return;
+    const line = visual.grappleLine;
+    if (!originPos || !grapplePoint) {
+      if (line.visible) line.visible = false;
+      return;
+    }
+    if (!line.parent && fxGroup) fxGroup.add(line);
+    const pos = visual.grapplePositions;
+    pos[0] = originPos.x;
+    pos[1] = originPos.y + 1.24;
+    pos[2] = originPos.z;
+    pos[3] = grapplePoint.x;
+    pos[4] = grapplePoint.y;
+    pos[5] = grapplePoint.z;
+    line.geometry.attributes.position.needsUpdate = true;
+    line.visible = true;
+  }
+
+  function disposeAvatarAuxVisuals(visual) {
+    if (!visual) return;
+    if (visual.grappleLine) {
+      if (visual.grappleLine.parent) visual.grappleLine.parent.remove(visual.grappleLine);
+      if (visual.grappleLine.geometry) visual.grappleLine.geometry.dispose();
+      if (visual.grappleLine.material) visual.grappleLine.material.dispose();
+    }
+  }
+
+  function updateAvatarChronoVisual(visual, tier, dt) {
+    if (!visual || !visual.chronoShell) return;
+    const cs = visual.chronoShell;
+    const cleanTier = Number(tier) || 0;
+    if (cleanTier <= 0) {
+      if (cs.group.visible) cs.group.visible = false;
+      cs.tier = 0;
+      return;
+    }
+    cs.group.visible = true;
+    if (cs.tier !== cleanTier) {
+      const isPhase = cleanTier >= 2;
+      cs.shellMat.color.setHex(isPhase ? 0xffa838 : 0x48ecff);
+      cs.ringAMat.color.setHex(isPhase ? 0xffe08a : 0xaef9ff);
+      cs.ringBMat.color.setHex(isPhase ? 0xff9d36 : 0x3de4ff);
+      cs.haloMat.color.setHex(isPhase ? 0xffe08a : 0xaef9ff);
+      cs.tier = cleanTier;
+    }
+    const stepDt = Math.max(0, Number(dt) || 0);
+    cs.clock += stepDt;
+    const spinMul = cleanTier >= 2 ? 1.55 : 1.0;
+    cs.ringA.rotation.z += stepDt * 3.1 * spinMul;
+    cs.ringB.rotation.z -= stepDt * 2.4 * spinMul;
+    cs.ringB.rotation.y += stepDt * 1.4 * spinMul;
+    const pulse = 0.5 + 0.5 * Math.sin(cs.clock * (cleanTier >= 2 ? 9.5 : 6.5));
+    cs.shellMat.opacity = (cleanTier >= 2 ? 0.20 : 0.16) + pulse * 0.11;
+    cs.haloMesh.scale.setScalar(0.95 + pulse * 0.10);
+  }
+
+  // ---------- Solo Warmup & Sandbox Adaptive Player-Grade AI Bots ----------
   function clearWarmupBots() {
     for (const bot of warmupBots) {
-      if (bot.visual && bot.visual.group.parent) {
-        bot.visual.group.parent.remove(bot.visual.group);
+      if (bot.visual) {
+        if (bot.visual.group.parent) bot.visual.group.parent.remove(bot.visual.group);
+        disposeAvatarAuxVisuals(bot.visual);
       }
     }
     warmupBots = [];
     warmupEnabled = false;
   }
 
+  function hasActiveWarmupBots() {
+    return warmupEnabled && warmupBots.length > 0;
+  }
+
   function setupWarmupBots(spawns, count = 3) {
     clearWarmupBots();
     if (!avatarGroup || !Array.isArray(spawns) || spawns.length === 0) return;
+    const BAI = root.BotAISystem;
     warmupSpawns = spawns.slice();
     warmupEnabled = true;
     warmupKills = 0;
-    const names = ['HOLO-ALPHA', 'HOLO-BRAVO', 'HOLO-CHARLIE', 'HOLO-DELTA'];
+    const archetypes = getBotArchetypes();
     const playerSpawn = spawns[0];
     const n = Math.min(count, spawns.length);
     for (let i = 0; i < n; i++) {
       const sp = spawns[(i + 1) % spawns.length];
-      const profile = WARMUP_BOT_ARCHETYPES[i % WARMUP_BOT_ARCHETYPES.length];
-      const visual = createAvatarMesh({ name: names[i % names.length], accentColor: profile.color, isBot: true });
+      const profile = archetypes[i % archetypes.length];
+      const visual = createAvatarMesh({ name: profile.name || `AI · ${profile.role}`, accentColor: profile.color, isBot: true });
       visual.headMesh.userData.botIndex = i;
       visual.headMesh.userData.hitbox = 'head';
       visual.bodyMesh.userData.botIndex = i;
@@ -917,712 +1101,20 @@
       visual.group.position.set(sp.x, sp.y, sp.z);
       visual.group.rotation.y = yaw;
       avatarGroup.add(visual.group);
-      warmupBots.push({
-        index: i,
-        name: names[i % names.length],
-        profile,
-        visual,
-        hp: 100,
-        alive: true,
-        respawnTimer: 0,
-        anchor: new THREE.Vector3(sp.x, sp.y, sp.z),
-        wanderPoint: new THREE.Vector3(sp.x, sp.y, sp.z),
-        lastKnownPlayer: new THREE.Vector3(playerSpawn.x, playerSpawn.y, playerSpawn.z),
-        velocity: new THREE.Vector3(),
-        verticalVelocity: 0,
-        yaw,
-        orbitDir: i % 2 === 0 ? 1 : -1,
-        decisionTimer: 0.8 + i * 0.35,
-        wanderTimer: 0,
-        aimTimer: 0,
-        alertTimer: 0,
-        alertOnNextUpdate: false,
-        magazine: profile.magSize,
-        reloadTimer: 0,
-        fireCooldown: 0.45 + i * 0.17,
-        strafePhase: i * 1.9,
-        combatIntent: 'strafe',
-        combatIntentTimer: 0,
-        strafeSign: i % 2 === 0 ? 1 : -1,
-        aimDirection: new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)),
-        aimDriftTimer: 0.08 + i * 0.04,
-        aimDriftYaw: 0,
-        aimDriftPitch: 0,
-        targetVelocity: new THREE.Vector3(),
-        lastTargetPosition: new THREE.Vector3(playerSpawn.x, playerSpawn.y, playerSpawn.z),
-        trackedTargetUid: 'local',
-        targetSampleValid: false,
-        burstShotsRemaining: 0,
-        burstPause: 0,
-        searchAngle: i * 1.7
-      });
-    }
-  }
 
-  function warmupBotFloorAt(x, z, currentY, solidList) {
-    if (!solidList || solidList.length === 0) return currentY;
-    _botFloorOrigin.set(x, currentY + 2.7, z);
-    _botFloorRay.set(_botFloorOrigin, _botDown);
-    _botFloorRay.near = 0.05;
-    // A long downward probe lets bots step off elevated platforms and continue
-    // fighting on the arena floor instead of treating every drop as a wall.
-    _botFloorRay.far = 24.0;
-    const hits = _botFloorRay.intersectObjects(solidList, false);
-    for (const hit of hits) {
-      const floorY = hit.point.y;
-      // Follow ramps and ledges, while allowing a controlled drop of up to 20m.
-      if (floorY <= currentY + 0.9 && floorY >= currentY - 20.4) return floorY;
-    }
-    return null;
-  }
-
-  function warmupBotCanSeePlayer(bot, playerPos, targetPos, solidList, distance) {
-    const profile = bot.profile;
-    if (distance > profile.sightRange) return false;
-    const dx = playerPos.x - bot.visual.group.position.x;
-    const dz = playerPos.z - bot.visual.group.position.z;
-    const horizontalLen = Math.max(0.001, Math.hypot(dx, dz));
-    _botForward.set(-Math.sin(bot.yaw), 0, -Math.cos(bot.yaw));
-    _botDirection.set(dx / horizontalLen, 0, dz / horizontalLen);
-    const facingDot = _botForward.dot(_botDirection);
-    if (facingDot < (bot.alertTimer > 0 ? -0.58 : -0.08)) return false;
-
-    _botOrigin.set(
-      bot.visual.group.position.x,
-      bot.visual.group.position.y + 1.22,
-      bot.visual.group.position.z
-    );
-    _botDirection.subVectors(targetPos, _botOrigin);
-    const rayDistance = _botDirection.length();
-    if (rayDistance < 0.1) return true;
-    _botDirection.divideScalar(rayDistance);
-    _botSightRay.set(_botOrigin, _botDirection);
-    _botSightRay.near = 0.08;
-    _botSightRay.far = Math.max(0.08, rayDistance - 0.45);
-    if (!solidList || solidList.length === 0) return true;
-    return _botSightRay.intersectObjects(solidList, false).length === 0;
-  }
-
-  function warmupBotClearance(origin, direction, solidList) {
-    if (!solidList || solidList.length === 0) return 2.5;
-    _botNavRay.set(origin, direction);
-    _botNavRay.near = 0.08;
-    _botNavRay.far = 2.5;
-    const hits = _botNavRay.intersectObjects(solidList, false);
-    return hits.length > 0 ? hits[0].distance : 2.5;
-  }
-
-  function steerWarmupBotAroundWalls(bot, direction, solidList) {
-    if (direction.lengthSq() < 0.001) return;
-    _botOrigin.set(
-      bot.visual.group.position.x,
-      bot.visual.group.position.y + 0.95,
-      bot.visual.group.position.z
-    );
-    if (warmupBotClearance(_botOrigin, direction, solidList) > 1.55) return;
-
-    // Try several game-space steering arcs instead of always turning the same way.
-    const baseX = direction.x;
-    const baseZ = direction.z;
-    let bestScore = -Infinity;
-    _botSteerBest.set(0, 0, 0);
-    for (const angle of BOT_STEER_ANGLES) {
-      const c = Math.cos(angle);
-      const s = Math.sin(angle);
-      _botCandidateDir.set(baseX * c - baseZ * s, 0, baseX * s + baseZ * c).normalize();
-      const clearance = warmupBotClearance(_botOrigin, _botCandidateDir, solidList);
-      if (clearance < 0.38) continue;
-
-      const probeDistance = Math.min(1.8, Math.max(0.55, clearance));
-      const floorY = warmupBotFloorAt(
-        bot.visual.group.position.x + _botCandidateDir.x * probeDistance,
-        bot.visual.group.position.z + _botCandidateDir.z * probeDistance,
-        bot.visual.group.position.y,
-        solidList
-      );
-      if (floorY == null) continue;
-
-      const alignment = _botCandidateDir.x * baseX + _botCandidateDir.z * baseZ;
-      const heightPenalty = floorY < bot.visual.group.position.y - 4 ? 0.65 : 0;
-      const score = Math.min(clearance, 2.5) * 0.82 + alignment * 1.05 - heightPenalty;
-      if (score > bestScore) {
-        bestScore = score;
-        _botSteerBest.copy(_botCandidateDir);
-      }
-    }
-
-    if (bestScore > -Infinity) direction.copy(_botSteerBest);
-    else direction.set(0, 0, 0);
-  }
-
-  function fireWarmupBot(bot, targetPos, solidList, onDamage, onShot) {
-    const profile = bot.profile;
-    if (bot.reloadTimer > 0 || bot.magazine <= 0) return false;
-    _botOrigin.set(
-      bot.visual.group.position.x,
-      bot.visual.group.position.y + 1.22,
-      bot.visual.group.position.z
-    );
-    _botToTarget.subVectors(targetPos, _botOrigin);
-    const targetDistance = _botToTarget.length();
-    if (targetDistance < 0.1 || targetDistance > profile.sightRange) return false;
-
-    // The shot follows the bot's gradually acquired aim, not a fresh perfect
-    // snap to the target every time a round is fired.
-    if (bot.aimDirection && bot.aimDirection.lengthSq() > 0.001) {
-      _botDirection.copy(bot.aimDirection).normalize();
-    } else {
-      _botDirection.copy(_botToTarget).divideScalar(targetDistance);
-    }
-
-    _botRight.crossVectors(_botDirection, _worldUp).normalize();
-    if (_botRight.lengthSq() < 0.001) _botRight.set(1, 0, 0);
-    _botUp.crossVectors(_botRight, _botDirection).normalize();
-
-    const settle = Math.min(1, bot.aimTimer / 0.8);
-    const moveSpeed = bot.velocity.length();
-    const movingPenalty = moveSpeed > 4.2 ? 0.012 : moveSpeed > 2.2 ? 0.007 : 0.003;
-    const spread = profile.aimSpread * (1.25 - settle * 0.48) + movingPenalty;
-    const angle = Math.random() * Math.PI * 2;
-    const radius = Math.sqrt(Math.random()) * spread;
-    _botDirection
-      .addScaledVector(_botRight, Math.cos(angle) * radius)
-      .addScaledVector(_botUp, Math.sin(angle) * radius)
-      .normalize();
-
-    _botShotRay.set(_botOrigin, _botDirection);
-    _botShotRay.near = 0.08;
-    _botShotRay.far = profile.sightRange;
-    const blockers = solidList && solidList.length
-      ? _botShotRay.intersectObjects(solidList, false)
-      : [];
-    const wallDistance = blockers.length > 0 ? blockers[0].distance : Infinity;
-    const alongRay = _botToTarget.dot(_botDirection);
-    const missDistanceSq = Math.max(0, _botToTarget.lengthSq() - alongRay * alongRay);
-    const hitsPlayer = alongRay > 0 &&
-      alongRay <= profile.sightRange &&
-      missDistanceSq <= 0.46 * 0.46 &&
-      wallDistance >= alongRay - 0.28;
-
-    let endDistance = Math.min(profile.sightRange, wallDistance);
-    if (hitsPlayer) endDistance = Math.min(endDistance, alongRay);
-    _botEndPoint.copy(_botOrigin).addScaledVector(_botDirection, endDistance);
-    spawnTracer(_botOrigin, _botEndPoint, profile.tracer);
-    if (typeof onShot === 'function') onShot(bot, _botOrigin, _botEndPoint, profile.weapon);
-
-    bot.magazine -= 1;
-    bot.fireCooldown = profile.shotInterval * (0.92 + Math.random() * 0.16);
-    if (root.WeaponAudio) root.WeaponAudio.fireWeapon(profile.weapon, { suppressed: false });
-
-    if (hitsPlayer) {
-      const falloff = Math.max(0.82, 1 - (targetDistance / profile.sightRange) * 0.18);
-      const damage = Math.max(3, Math.round(profile.damage * falloff));
-      if (typeof onDamage === 'function') {
-        onDamage(damage, profile.weapon);
-      } else if (root.NetcodeSystem && typeof root.NetcodeSystem.applyWarmupDamage === 'function') {
-        root.NetcodeSystem.applyWarmupDamage(damage, bot.name, profile.weapon, false);
-      }
-      spawnBurst(_botEndPoint, 0xff5e78, 4, 2.8);
-    } else if (blockers.length > 0 && blockers[0].distance < profile.sightRange) {
-      spawnBurst(_botEndPoint, 0xffb347, 2, 2.2);
-    }
-    return hitsPlayer;
-  }
-
-  function updateBotTraversal(bot, dt, desiredDir, solidList, movementContext, seesTarget) {
-    const cfg = movementContext && movementContext.config;
-    const stepDt = Math.min(0.05, Math.max(0, dt));
-    const profile = bot.profile;
-    const group = bot.visual.group;
-    const speed = Math.hypot(bot.velocity.x, bot.velocity.z);
-    const grappleBurstAllowed = !movementContext || movementContext.abilitiesAllowed !== false;
-    const maxSpeed = Math.max(profile.moveSpeed, 8.5);
-    const wish = desiredDir;
-    if (wish.lengthSq() > 0.001) wish.normalize();
-    const grounded = bot.grounded !== false && bot.verticalVelocity <= 0.1;
-
-    // Quake-style ground acceleration and air-strafe acceleration.
-    if (wish.lengthSq() > 0.001) {
-      if (grounded) {
-        const current = bot.velocity.x * wish.x + bot.velocity.z * wish.z;
-        const add = maxSpeed - current;
-        if (add > 0) {
-          const accel = Math.min(add, (cfg && cfg.groundAccel || 38) * maxSpeed * stepDt);
-          bot.velocity.x += wish.x * accel;
-          bot.velocity.z += wish.z * accel;
-        }
-      } else if (root.SurfEngine && cfg) {
-        const surfDelta = root.SurfEngine.computeAirStrafeDelta(
-          bot.velocity, wish, stepDt, cfg, bot.surfing === true
-        );
-        bot.velocity.x += surfDelta.dx;
-        bot.velocity.z += surfDelta.dz;
-      } else {
-        bot.velocity.x += wish.x * 14 * stepDt;
-        bot.velocity.z += wish.z * 14 * stepDt;
-      }
-    }
-
-    // Momentum-preserving drag, with active counter-steering instead of snapping to a speed.
-    const drag = grounded ? 2.7 : 0.18;
-    bot.velocity.x *= Math.max(0, 1 - drag * stepDt);
-    bot.velocity.z *= Math.max(0, 1 - drag * stepDt);
-    const horizontalSpeed = Math.hypot(bot.velocity.x, bot.velocity.z);
-
-    bot.jumpCooldown = Math.max(0, (bot.jumpCooldown || 0) - stepDt);
-    bot.burstCooldown = Math.max(0, (bot.burstCooldown || 0) - stepDt);
-    bot.grappleCooldown = Math.max(0, (bot.grappleCooldown || 0) - stepDt);
-    bot.wallrunTimer = Math.max(0, (bot.wallrunTimer || 0) - stepDt);
-
-    const origin = _botOrigin.set(group.position.x, group.position.y + 1.0, group.position.z);
-    const forward = horizontalSpeed > 1.5
-      ? _botForward.set(bot.velocity.x, 0, bot.velocity.z).normalize()
-      : wish.lengthSq() > 0.001 ? wish : _botForward.set(-Math.sin(bot.yaw), 0, -Math.cos(bot.yaw));
-
-    // Read nearby geometry: obstacles can be jumped, walls can be wall-run, and
-    // overhead/forward anchors can be used for a grapple swing.
-    let obstacleDistance = Infinity;
-    _botShotRay.set(origin, forward);
-    _botShotRay.near = 0.25;
-    _botShotRay.far = 3.4;
-    const obstacleHits = solidList && solidList.length ? _botShotRay.intersectObjects(solidList, false) : [];
-    if (obstacleHits.length) obstacleDistance = obstacleHits[0].distance;
-
-    if (grounded && bot.jumpCooldown <= 0 &&
-        (obstacleDistance < 2.3 || (seesTarget && horizontalSpeed > 12 && Math.random() < 0.025))) {
-      bot.verticalVelocity = Math.max(bot.verticalVelocity, cfg && cfg.jumpSpeed || 9.2);
-      bot.grounded = false;
-      bot.jumpCooldown = 0.72 + Math.random() * 0.38;
-    }
-
-    if (grappleBurstAllowed && bot.burstCooldown <= 0 && seesTarget &&
-        horizontalSpeed > 5 && horizontalSpeed < 30 && Math.random() < stepDt * 0.72) {
-      const burstDir = wish.lengthSq() > 0.001 ? wish : forward;
-      bot.velocity.x += burstDir.x * (cfg && cfg.burstImpulse || 13);
-      bot.velocity.z += burstDir.z * (cfg && cfg.burstImpulse || 13);
-      bot.burstCooldown = cfg && cfg.burstCooldown || 3.2;
-    }
-
-    // A grapple is only fired at a real collision mesh in the bot's forward arc.
-    if (grappleBurstAllowed && !bot.grapplePoint && bot.grappleCooldown <= 0 &&
-        seesTarget && obstacleDistance > 5 && Math.random() < stepDt * 0.26) {
-      _botShotRay.set(origin, forward);
-      _botShotRay.near = 2;
-      _botShotRay.far = Math.min(22, cfg && cfg.grappleRange || 22);
-      const anchorHits = solidList && solidList.length ? _botShotRay.intersectObjects(solidList, false) : [];
-      if (anchorHits.length) bot.grapplePoint = anchorHits[0].point.clone();
-    }
-    if (bot.grapplePoint) {
-      _botToTarget.subVectors(bot.grapplePoint, origin);
-      const ropeDistance = _botToTarget.length();
-      if (ropeDistance < 2.6 || ropeDistance > 26) {
-        bot.grapplePoint = null;
-        bot.grappleCooldown = 2.0;
-      } else {
-        _botToTarget.normalize();
-        const along = bot.velocity.x * _botToTarget.x + bot.verticalVelocity * _botToTarget.y + bot.velocity.z * _botToTarget.z;
-        const pull = Math.min(24 * stepDt, Math.max(0, 18 - along));
-        bot.velocity.x += _botToTarget.x * pull;
-        bot.verticalVelocity += _botToTarget.y * pull;
-        bot.velocity.z += _botToTarget.z * pull;
-      }
-    }
-
-    // Detect and ride actual surf faces using their collision normals.
-    bot.surfing = false;
-    if (root.SurfEngine && solidList && solidList.length) {
-      _botFloorOrigin.set(group.position.x, group.position.y + 1.3, group.position.z);
-      _botFloorRay.set(_botFloorOrigin, _botDown);
-      _botFloorRay.near = 0.05;
-      _botFloorRay.far = 2.1;
-      const surfHits = _botFloorRay.intersectObjects(solidList, false);
-      for (const hit of surfHits) {
-        if (!hit.face) continue;
-        const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
-        if (root.SurfEngine.classifySurfaceNormal(normal.y, cfg || {}, Boolean(hit.object.userData && hit.object.userData.isSurf)) === 'surf') {
-          bot.surfing = true;
-          if (horizontalSpeed > 5) {
-            const tangent = new THREE.Vector3(-normal.z, 0, normal.x).normalize();
-            if (tangent.dot(forward) < 0) tangent.negate();
-            const delta = root.SurfEngine.computeAirStrafeDelta(bot.velocity, tangent, stepDt, cfg || {}, true);
-            bot.velocity.x += delta.dx;
-            bot.velocity.z += delta.dz;
-          }
-          break;
-        }
-      }
-    }
-
-    // Wall-run on vertical geometry, then wall-jump out into the fight.
-    bot.wallrunning = false;
-    if (!grounded && horizontalSpeed > 8 && bot.wallrunTimer <= 0) {
-      _botAimRight.set(-forward.z, 0, forward.x);
-      for (const side of [-1, 1]) {
-        _botCandidateDir.copy(_botAimRight).multiplyScalar(side);
-        _botShotRay.set(origin, _botCandidateDir);
-        _botShotRay.near = 0.2;
-        _botShotRay.far = 1.15;
-        const wallHits = solidList && solidList.length ? _botShotRay.intersectObjects(solidList, false) : [];
-        if (wallHits.length && wallHits[0].face) {
-          const normal = wallHits[0].face.normal.clone().transformDirection(wallHits[0].object.matrixWorld);
-          if (Math.abs(normal.y) < 0.3) {
-            bot.wallNormal = normal;
-            bot.wallrunning = true;
-            bot.wallrunTimer = 0.45;
-            bot.verticalVelocity = Math.max(bot.verticalVelocity, -2.5);
-            if (bot.jumpCooldown <= 0 && Math.random() < 0.08) {
-              bot.velocity.x += normal.x * 8;
-              bot.velocity.z += normal.z * 8;
-              bot.verticalVelocity = 8.5;
-              bot.jumpCooldown = 0.8;
-            }
-            break;
-          }
-        }
-      }
-    }
-
-    // Map-authored pads and boost rings are first-class traversal routes.
-    if (movementContext) {
-      for (const pad of movementContext.pads || []) {
-        const dx = group.position.x - pad.position.x;
-        const dz = group.position.z - pad.position.z;
-        if (Math.hypot(dx, dz) < 2.5 && Math.abs(group.position.y - pad.position.y) < 1.25 && (bot.padCooldown || 0) <= 0) {
-          bot.verticalVelocity = Math.max(bot.verticalVelocity, cfg && cfg.padUp || 16);
-          bot.velocity.x *= cfg && cfg.padBoost || 1.18;
-          bot.velocity.z *= cfg && cfg.padBoost || 1.18;
-          bot.padCooldown = 0.6;
-        }
-      }
-      bot.padCooldown = Math.max(0, (bot.padCooldown || 0) - stepDt);
-      for (const booster of movementContext.boosters || []) {
-        const dx = group.position.x - booster.pos.x;
-        const dy = group.position.y + 1 - booster.pos.y;
-        const dz = group.position.z - booster.pos.z;
-        if (dx*dx + dy*dy + dz*dz < booster.radius*booster.radius) {
-          const boostSpeed = Math.max(Math.hypot(bot.velocity.x, bot.velocity.z) + booster.speedBoost * 0.45, booster.minSpeed);
-          bot.velocity.x = booster.dir.x * boostSpeed;
-          bot.velocity.z = booster.dir.z * boostSpeed;
-          bot.verticalVelocity = Math.max(bot.verticalVelocity + booster.upBoost * 0.45, booster.dir.y * boostSpeed + booster.upBoost);
-          break;
-        }
-      }
-      for (const portal of movementContext.teleporters || []) {
-        if (group.position.x >= portal.min.x && group.position.x <= portal.max.x &&
-            group.position.y + 1 >= portal.min.y && group.position.y <= portal.max.y &&
-            group.position.z >= portal.min.z && group.position.z <= portal.max.z) {
-          group.position.copy(portal.dest);
-          if (portal.preserveSpeed) {
-            const spd = Math.min(Math.hypot(bot.velocity.x, bot.velocity.z), portal.maxSpeed);
-            bot.velocity.set(-Math.sin(portal.destYaw) * spd, 0, -Math.cos(portal.destYaw) * spd);
-          } else {
-            bot.velocity.set(0, 0, 0);
-          }
-          bot.verticalVelocity = 0;
-          break;
-        }
-      }
-    }
-
-    bot.verticalVelocity -= (cfg && cfg.gravity || 26) * (bot.grapplePoint ? 0.28 : bot.wallrunning ? 0.55 : 1) * stepDt;
-    if (bot.surfing) bot.verticalVelocity = Math.max(bot.verticalVelocity, -4.5);
-    const nextX = group.position.x + bot.velocity.x * stepDt;
-    const nextZ = group.position.z + bot.velocity.z * stepDt;
-    const nextY = group.position.y + bot.verticalVelocity * stepDt;
-    const floorY = warmupBotFloorAt(nextX, nextZ, nextY, solidList);
-    if (floorY != null && nextY <= floorY + 0.15 && bot.verticalVelocity <= 0) {
-      group.position.set(nextX, floorY, nextZ);
-      bot.verticalVelocity = 0;
-      bot.grounded = true;
-      bot.grapplePoint = null;
-    } else {
-      group.position.set(nextX, nextY, nextZ);
-      bot.grounded = false;
-    }
-
-    // Cap runaway velocity but preserve the game's high-speed movement identity.
-    const finalSpeed = Math.hypot(bot.velocity.x, bot.velocity.z);
-    if (finalSpeed > 58) {
-      bot.velocity.x *= 58 / finalSpeed;
-      bot.velocity.z *= 58 / finalSpeed;
-    }
-  }
-
-  function updateWarmupBot(bot, dt, playerState, playerPos, targetPos, solidList, onDamage, onShot, movementContext) {
-    const profile = bot.profile;
-    const group = bot.visual.group;
-    const stepDt = Math.min(0.05, Math.max(0, dt));
-    bot.alertTimer = Math.max(0, bot.alertTimer - stepDt);
-    bot.decisionTimer -= stepDt;
-    bot.wanderTimer -= stepDt;
-    bot.combatIntentTimer = Math.max(0, bot.combatIntentTimer - stepDt);
-    bot.burstPause = Math.max(0, bot.burstPause - stepDt);
-    bot.aimDriftTimer -= stepDt;
-
-    if (bot.decisionTimer <= 0) {
-      if (Math.random() < 0.42) bot.orbitDir *= -1;
-      bot.decisionTimer = 1.8 + Math.random() * 2.2;
-    }
-    if (bot.alertOnNextUpdate && playerPos) {
-      bot.lastKnownPlayer.copy(playerPos);
-      bot.alertOnNextUpdate = false;
-    }
-
-    const observedUid = playerState && playerState.uid ? playerState.uid : 'local';
-    let horizontalDistance = Infinity;
-    let seesPlayer = false;
-    if (playerPos && targetPos && playerState.alive !== false) {
-      const dx = playerPos.x - group.position.x;
-      const dz = playerPos.z - group.position.z;
-      horizontalDistance = Math.hypot(dx, dz);
-      const verticalDistance = targetPos.y - (group.position.y + 1.22);
-      const distance3d = Math.hypot(horizontalDistance, verticalDistance);
-      seesPlayer = warmupBotCanSeePlayer(bot, playerPos, targetPos, solidList, distance3d);
-
-      if (seesPlayer) {
-        if (bot.trackedTargetUid !== observedUid) {
-          bot.trackedTargetUid = observedUid;
-          bot.targetSampleValid = false;
-          bot.targetVelocity.set(0, 0, 0);
-          bot.aimTimer = 0;
-        }
-
-        if (bot.targetSampleValid && stepDt > 0.001) {
-          _botVelocityEstimate.set(
-            (playerPos.x - bot.lastTargetPosition.x) / stepDt,
-            0,
-            (playerPos.z - bot.lastTargetPosition.z) / stepDt
-          );
-          const estimatedSpeedSq = _botVelocityEstimate.lengthSq();
-          if (estimatedSpeedSq > 18 * 18) _botVelocityEstimate.setLength(18);
-          bot.targetVelocity.lerp(_botVelocityEstimate, Math.min(1, stepDt * 7.5));
-        } else {
-          bot.targetVelocity.set(0, 0, 0);
-        }
-        bot.lastTargetPosition.copy(playerPos);
-        bot.targetSampleValid = true;
-        bot.lastKnownPlayer.copy(playerPos);
-        bot.alertTimer = 5.2;
-        bot.aimTimer = Math.min(2.0, bot.aimTimer + stepDt);
-      }
-    }
-
-    // Acquire a small amount of target movement information only while visible.
-    // This is deliberately bounded so fast movement never creates perfect tracking.
-    if (seesPlayer && targetPos) {
-      const leadTime = Math.max(0.035, Math.min(0.20, profile.leadTime));
-      _botPredictedTarget.copy(targetPos).addScaledVector(bot.targetVelocity, leadTime);
-      _botOrigin.set(group.position.x, group.position.y + 1.22, group.position.z);
-      _botToTarget.subVectors(_botPredictedTarget, _botOrigin);
-      if (_botToTarget.lengthSq() > 0.001) {
-        _botAimTarget.copy(_botToTarget).normalize();
-        _botAimRight.crossVectors(_botAimTarget, _worldUp).normalize();
-        if (_botAimRight.lengthSq() < 0.001) _botAimRight.set(1, 0, 0);
-        _botAimUp.crossVectors(_botAimRight, _botAimTarget).normalize();
-
-        if (bot.aimDriftTimer <= 0) {
-          bot.aimDriftYaw = (Math.random() - 0.5) * profile.aimSway * 2;
-          bot.aimDriftPitch = (Math.random() - 0.5) * profile.aimSway * 1.25;
-          bot.aimDriftTimer = 0.12 + Math.random() * 0.22;
-        }
-        _botAimTarget
-          .addScaledVector(_botAimRight, bot.aimDriftYaw)
-          .addScaledVector(_botAimUp, bot.aimDriftPitch)
-          .normalize();
-        bot.aimDirection.lerp(
-          _botAimTarget,
-          Math.min(1, stepDt * profile.aimSpeed)
-        ).normalize();
-      }
-    } else {
-      bot.aimTimer = Math.max(0, bot.aimTimer - stepDt * 1.9);
-      bot.aimDriftYaw *= Math.max(0, 1 - stepDt * 2.2);
-      bot.aimDriftPitch *= Math.max(0, 1 - stepDt * 2.2);
-    }
-
-    _botDesiredDir.set(0, 0, 0);
-    if (seesPlayer && horizontalDistance > 0.1) {
-      const dx = playerPos.x - group.position.x;
-      const dz = playerPos.z - group.position.z;
-      const towardX = dx / horizontalDistance;
-      const towardZ = dz / horizontalDistance;
-      const lowAmmo = bot.magazine <= Math.max(2, Math.ceil(profile.magSize * 0.16));
-
-      if (bot.combatIntentTimer <= 0) {
-        bot.combatIntent = chooseBotMovementIntent(
-          horizontalDistance,
-          profile.preferredRange,
-          lowAmmo,
-          Math.random()
-        );
-        bot.combatIntentTimer = profile.decisionMin +
-          Math.random() * (profile.decisionMax - profile.decisionMin);
-        if (Math.random() < 0.34) bot.strafeSign *= -1;
-      }
-
-      const finishingTarget = Number.isFinite(playerState.hp) && playerState.hp <= 35;
-      let radial = 0;
-      let tangent = profile.strafeBias;
-      if (finishingTarget) {
-        // Close distance decisively and keep pressure through reloads.
-        radial = horizontalDistance > 3.2 ? 1.18 : 0.32;
-        tangent *= horizontalDistance > 7 ? 0.34 : 0.62;
-        bot.combatIntent = 'finish';
-        bot.combatIntentTimer = Math.max(bot.combatIntentTimer, 0.32);
-      } else switch (bot.combatIntent) {
-        case 'advance':
-          radial = horizontalDistance > profile.preferredRange ? 0.88 : 0.22;
-          tangent *= 0.42;
-          break;
-        case 'disengage':
-          radial = -0.92;
-          tangent *= 0.58;
-          break;
-        case 'hold':
-          radial = 0;
-          tangent *= 0.20;
-          break;
-        case 'reposition':
-          radial = horizontalDistance > profile.preferredRange ? 0.36 : -0.22;
-          tangent *= 1.22;
-          break;
-        case 'reload':
-          radial = -0.34;
-          tangent *= 0.86;
-          break;
-        case 'strafe':
-        default:
-          radial = horizontalDistance > profile.preferredRange * 1.12 ? 0.24 : 0;
-          tangent *= 1.0;
-          break;
-      }
-
-      const lateral = tangent * bot.strafeSign;
-      _botDesiredDir.set(
-        towardX * radial - towardZ * lateral,
-        0,
-        towardZ * radial + towardX * lateral
-      );
-    } else if (bot.alertTimer > 0) {
-      // The bot investigates the last place it actually saw the player.
-      // It does not keep following a live position through walls.
-      const dx = bot.lastKnownPlayer.x - group.position.x;
-      const dz = bot.lastKnownPlayer.z - group.position.z;
-      const len = Math.hypot(dx, dz);
-      if (len > 2.0) {
-        _botDesiredDir.set(dx / len, 0, dz / len);
-      } else {
-        bot.searchAngle += stepDt * bot.orbitDir * 0.95;
-        _botDesiredDir.set(Math.cos(bot.searchAngle), 0, Math.sin(bot.searchAngle)).multiplyScalar(0.62);
-      }
-    } else {
-      const wx = bot.wanderPoint.x - group.position.x;
-      const wz = bot.wanderPoint.z - group.position.z;
-      const wanderDistance = Math.hypot(wx, wz);
-      if (bot.wanderTimer <= 0 || wanderDistance < 1.8) {
-        const angle = Math.random() * Math.PI * 2;
-        const radius = 2.5 + Math.random() * 5.0;
-        bot.wanderPoint.set(
-          bot.anchor.x + Math.cos(angle) * radius,
-          bot.anchor.y,
-          bot.anchor.z + Math.sin(angle) * radius
-        );
-        bot.wanderTimer = 2.0 + Math.random() * 2.6;
-      }
-      const wx2 = bot.wanderPoint.x - group.position.x;
-      const wz2 = bot.wanderPoint.z - group.position.z;
-      const len = Math.hypot(wx2, wz2);
-      if (len > 0.5) _botDesiredDir.set(wx2 / len, 0, wz2 / len);
-    }
-
-    // Gentle separation prevents bots from stacking into one moving hitbox.
-    for (const other of warmupBots) {
-      if (other === bot || !other.alive) continue;
-      const sx = group.position.x - other.visual.group.position.x;
-      const sz = group.position.z - other.visual.group.position.z;
-      const separationSq = sx * sx + sz * sz;
-      if (separationSq > 0.001 && separationSq < 7.0) {
-        const distance = Math.sqrt(separationSq);
-        const strength = (Math.sqrt(7.0) - distance) / Math.sqrt(7.0);
-        _botDesiredDir.x += (sx / distance) * strength * 1.25;
-        _botDesiredDir.z += (sz / distance) * strength * 1.25;
-      }
-    }
-
-    if (_botDesiredDir.lengthSq() > 0.001) {
-      _botDesiredDir.normalize();
-      steerWarmupBotAroundWalls(bot, _botDesiredDir, solidList);
-    }
-    if (bot.reloadTimer > 0) _botDesiredDir.multiplyScalar(0.82);
-    updateBotTraversal(bot, stepDt, _botDesiredDir, solidList, movementContext, seesPlayer);
-
-    let faceX = bot.velocity.x;
-    let faceZ = bot.velocity.z;
-    if (seesPlayer && playerPos) {
-      faceX = playerPos.x - group.position.x;
-      faceZ = playerPos.z - group.position.z;
-    } else if (bot.alertTimer > 0) {
-      faceX = bot.lastKnownPlayer.x - group.position.x;
-      faceZ = bot.lastKnownPlayer.z - group.position.z;
-    }
-    if (Math.hypot(faceX, faceZ) > 0.12) {
-      const targetYaw = Math.atan2(-faceX, -faceZ);
-      let yawDelta = targetYaw - bot.yaw;
-      while (yawDelta > Math.PI) yawDelta -= Math.PI * 2;
-      while (yawDelta < -Math.PI) yawDelta += Math.PI * 2;
-      const turnRate = seesPlayer ? profile.aimSpeed * 0.78 : 3.8;
-      bot.yaw += yawDelta * Math.min(1, stepDt * turnRate);
-      group.rotation.y = bot.yaw;
-    }
-
-    const strideSpeed = Math.hypot(bot.velocity.x, bot.velocity.z);
-    const stride = Math.sin(animClock * (7.2 + strideSpeed * 0.35) + bot.strafePhase) *
-      Math.min(0.42, strideSpeed * 0.055);
-    bot.visual.legL.rotation.x = stride;
-    bot.visual.legR.rotation.x = -stride;
-    bot.visual.hpBg.lookAt(
-      playerPos ? playerPos.x : group.position.x,
-      group.position.y + 2.16,
-      playerPos ? playerPos.z : group.position.z + 1
-    );
-    bot.visual.hpFill.lookAt(
-      playerPos ? playerPos.x : group.position.x,
-      group.position.y + 2.16,
-      playerPos ? playerPos.z : group.position.z + 1
-    );
-
-    bot.fireCooldown = Math.max(0, bot.fireCooldown - stepDt);
-    if (bot.reloadTimer > 0) {
-      bot.reloadTimer = Math.max(0, bot.reloadTimer - stepDt);
-      if (bot.reloadTimer === 0) bot.magazine = profile.magSize;
-    } else if (bot.magazine <= 0 ||
-        (!seesPlayer && bot.magazine <= Math.max(2, Math.ceil(profile.magSize * 0.20)))) {
-      bot.reloadTimer = profile.reloadTime;
-      bot.burstShotsRemaining = 0;
-    }
-
-    if (seesPlayer && playerState.alive !== false && bot.fireCooldown <= 0 &&
-        bot.reloadTimer <= 0 && bot.magazine > 0 && bot.aimTimer >= profile.reaction) {
-      _botDirection.copy(bot.aimDirection).normalize();
-      _botToTarget.subVectors(targetPos, _botOrigin.set(
-        group.position.x,
-        group.position.y + 1.22,
-        group.position.z
-      ));
-      const targetDirLength = Math.max(0.001, _botToTarget.length());
-      _botToTarget.divideScalar(targetDirLength);
-      const aimAlignment = _botDirection.dot(_botToTarget);
-      if (aimAlignment >= profile.fireAlignment && bot.burstPause <= 0) {
-        if (bot.burstShotsRemaining <= 0) {
-          bot.burstShotsRemaining = profile.burstMin +
-            Math.floor(Math.random() * (profile.burstMax - profile.burstMin + 1));
-        }
-        fireWarmupBot(bot, targetPos, solidList, onDamage, onShot);
-        bot.burstShotsRemaining -= 1;
-        if (bot.burstShotsRemaining <= 0) {
-          bot.burstPause = profile.burstPause + Math.random() * 0.22;
-        }
-      }
+      const bot = BAI && typeof BAI.createBotState === 'function'
+        ? BAI.createBotState({
+            index: i,
+            uid: `warmup_bot_${i}`,
+            name: profile.name || `AI · ${profile.role}`,
+            profile,
+            profileIndex: i,
+            visual,
+            pos: sp,
+            yaw
+          })
+        : { index: i, name: profile.name, profile, visual, hp: 100, alive: true, respawnTimer: 0, pos: new THREE.Vector3(sp.x, sp.y, sp.z), yaw };
+      warmupBots.push(bot);
     }
   }
 
@@ -1630,14 +1122,19 @@
     warmupEnabled = Boolean(visible);
     for (const bot of warmupBots) {
       bot.visual.group.visible = warmupEnabled && bot.alive;
+      if (!warmupEnabled || !bot.alive) {
+        updateAvatarChronoVisual(bot.visual, 0, 0);
+        updateAvatarGrappleVisual(bot.visual, null, null);
+      }
     }
   }
 
   // ---------- Remote WebRTC Player Avatars ----------
   function clearRemoteAvatars() {
     for (const [, av] of remoteAvatars) {
-      if (av.visual && av.visual.group.parent) {
-        av.visual.group.parent.remove(av.visual.group);
+      if (av.visual) {
+        if (av.visual.group.parent) av.visual.group.parent.remove(av.visual.group);
+        disposeAvatarAuxVisuals(av.visual);
       }
     }
     remoteAvatars.clear();
@@ -1645,55 +1142,35 @@
   }
 
   function resetArenaBotBrain(bot) {
-    const pos = bot.visual.group.position;
-    bot.anchor.copy(pos);
-    bot.wanderPoint.copy(pos);
-    bot.velocity.set(0, 0, 0);
-    bot.verticalVelocity = 0;
-    bot.grounded = true;
-    bot.surfing = false;
-    bot.wallrunning = false;
-    bot.grapplePoint = null;
-    bot.jumpCooldown = 0;
-    bot.burstCooldown = 0;
-    bot.grappleCooldown = 0;
-    bot.padCooldown = 0;
-    bot.aimTimer = 0;
-    bot.alertTimer = 0;
-    bot.alertOnNextUpdate = false;
-    bot.magazine = bot.profile.magSize;
-    bot.reloadTimer = 0;
-    bot.fireCooldown = 0.65;
-    bot.wanderTimer = 0;
-    bot.decisionTimer = 0.8;
-    bot.combatIntent = 'strafe';
-    bot.combatIntentTimer = 0;
-    bot.burstShotsRemaining = 0;
-    bot.burstPause = 0;
-    bot.targetVelocity.set(0, 0, 0);
-    bot.targetSampleValid = false;
-    bot.aimDriftTimer = 0.1;
-    bot.aimDriftYaw = 0;
-    bot.aimDriftPitch = 0;
-    bot.aimDirection.set(-Math.sin(bot.yaw), 0, -Math.cos(bot.yaw));
-    bot.trackedTargetUid = '';
+    if (!bot) return;
+    const BAI = root.BotAISystem;
+    const pos = bot.visual ? bot.visual.group.position : bot.pos;
+    if (BAI && typeof BAI.resetBotState === 'function') {
+      BAI.resetBotState(bot, pos, bot.yaw);
+    }
+    if (bot.visual) {
+      updateAvatarChronoVisual(bot.visual, 0, 0);
+      updateAvatarGrappleVisual(bot.visual, null, null);
+    }
     bot.poseTimer = 0;
   }
 
   function syncArenaBots(players, resetBrains) {
     const wanted = new Set();
     if (!Array.isArray(players)) players = [];
+    const BAI = root.BotAISystem;
+    const archetypes = getBotArchetypes();
 
     for (const player of players) {
       if (!player || !player.uid || !player.isBot) continue;
       wanted.add(player.uid);
-      const profileIndex = Math.max(0, Number(player.botType) || 0) % WARMUP_BOT_ARCHETYPES.length;
-      const profile = WARMUP_BOT_ARCHETYPES[profileIndex];
+      const profileIndex = Math.max(0, Number(player.botType) || 0) % archetypes.length;
+      const profile = archetypes[profileIndex];
       const spawn = warmupSpawns[player.spawnIdx] || warmupSpawns[0] || { x: 0, y: 0.05, z: 0, yaw: 0 };
       const existed = remoteAvatars.has(player.uid);
       const snap = !existed || Boolean(resetBrains);
       const avatar = upsertRemoteAvatar(player.uid, {
-        name: player.name || `BOT · ${profile.role}`,
+        name: player.name || profile.name || `AI · ${profile.role}`,
         isBot: true,
         botType: profileIndex,
         ...(snap ? {
@@ -1715,48 +1192,20 @@
 
       let bot = arenaBotAi.get(player.uid);
       if (!bot) {
-        const pos = avatar.pos;
-        bot = {
-          uid: player.uid,
-          name: player.name || `BOT · ${profile.role}`,
-          profile,
-          visual: avatar.visual,
-          hp: avatar.hp,
-          alive: avatar.alive,
-          respawnTimer: 0,
-          anchor: pos.clone(),
-          wanderPoint: pos.clone(),
-          lastKnownPlayer: pos.clone(),
-          velocity: new THREE.Vector3(),
-          verticalVelocity: 0,
-          yaw: avatar.yaw,
-          orbitDir: profileIndex % 2 === 0 ? 1 : -1,
-          decisionTimer: 0.8 + profileIndex * 0.3,
-          wanderTimer: 0,
-          aimTimer: 0,
-          alertTimer: 0,
-          alertOnNextUpdate: false,
-          magazine: profile.magSize,
-          reloadTimer: 0,
-          fireCooldown: 0.65 + profileIndex * 0.16,
-          strafePhase: profileIndex * 1.9,
-          targetUid: '',
-          combatIntent: 'strafe',
-          combatIntentTimer: 0,
-          strafeSign: profileIndex % 2 === 0 ? 1 : -1,
-          aimDirection: new THREE.Vector3(-Math.sin(avatar.yaw), 0, -Math.cos(avatar.yaw)),
-          aimDriftTimer: 0.1,
-          aimDriftYaw: 0,
-          aimDriftPitch: 0,
-          targetVelocity: new THREE.Vector3(),
-          lastTargetPosition: pos.clone(),
-          trackedTargetUid: '',
-          targetSampleValid: false,
-          burstShotsRemaining: 0,
-          burstPause: 0,
-          searchAngle: profileIndex * 1.7,
-          poseTimer: 0
-        };
+        bot = BAI && typeof BAI.createBotState === 'function'
+          ? BAI.createBotState({
+              index: profileIndex,
+              uid: player.uid,
+              name: player.name || profile.name || `AI · ${profile.role}`,
+              profile,
+              profileIndex,
+              visual: avatar.visual,
+              pos: avatar.pos,
+              yaw: avatar.yaw,
+              hp: avatar.hp,
+              alive: avatar.alive
+            })
+          : { uid: player.uid, name: player.name, profile, visual: avatar.visual, pos: avatar.pos.clone(), yaw: avatar.yaw, hp: avatar.hp, alive: avatar.alive, poseTimer: 0 };
         arenaBotAi.set(player.uid, bot);
       } else {
         const wasAlive = bot.alive;
@@ -1765,8 +1214,16 @@
         bot.visual = avatar.visual;
         bot.hp = avatar.hp;
         bot.alive = avatar.alive;
-        bot.yaw = avatar.yaw;
-        if (resetBrains || (!wasAlive && bot.alive)) resetArenaBotBrain(bot);
+        if (!bot.alive) {
+          bot.chronoTier = 0;
+          bot.grapplePoint = null;
+          updateAvatarChronoVisual(avatar.visual, 0, 0);
+          updateAvatarGrappleVisual(avatar.visual, null, null);
+        }
+        if (resetBrains || (!wasAlive && bot.alive)) {
+          bot.yaw = avatar.yaw;
+          resetArenaBotBrain(bot);
+        }
       }
     }
 
@@ -1780,28 +1237,39 @@
 
   function updateArenaBots(dt, playerState, solidList, movementContext) {
     if (!playerState || !playerState.isHost || playerState.phase !== 'live' || arenaBotAi.size === 0) return;
+    const BAI = root.BotAISystem;
+    if (!BAI || typeof BAI.stepBot !== 'function') return;
 
     const roster = Array.isArray(playerState.players) ? playerState.players : [];
     const rosterByUid = new Map(roster.map((p) => [p.uid, p]));
+
     for (const bot of arenaBotAi.values()) {
       if (!bot.alive) continue;
       let target = null;
       let targetScore = Infinity;
 
-      const consider = (uid, position, hp, eye, isAlive, isBot) => {
+      const consider = (uid, position, velocity, hp, eye, isAlive, isBot, chronoTier) => {
         if (!uid || uid === bot.uid || !position || !isAlive) return;
-        const dx = position.x - bot.visual.group.position.x;
-        const dy = position.y - bot.visual.group.position.y;
-        const dz = position.z - bot.visual.group.position.z;
+        const dx = position.x - bot.pos.x;
+        const dy = position.y - bot.pos.y;
+        const dz = position.z - bot.pos.z;
         const distance = Math.hypot(dx, dy * 0.65, dz);
-        // Prefer weakened opponents, but distance still matters enough to avoid
-        // irrational cross-map target swaps.
-        const finishBonus = Number.isFinite(hp) && hp <= 35 ? Math.min(15, (36 - hp) * 0.42) : 0;
-        const currentTargetBonus = bot.targetUid === uid ? 2.2 : 0;
-        const score = distance - finishBonus - currentTargetBonus;
+        const finishBonus = Number.isFinite(hp) && hp <= 40 ? Math.min(16, (41 - hp) * 0.42) : 0;
+        const chronoBonus = chronoTier > 0 ? 11.0 : 0;
+        const currentTargetBonus = bot.targetUid === uid ? 2.5 : 0;
+        const score = distance - finishBonus - chronoBonus - currentTargetBonus;
         if (score < targetScore) {
           targetScore = score;
-          target = { uid, position, hp: Number.isFinite(hp) ? hp : 100, eye: eye || 1.6, isBot: Boolean(isBot) };
+          target = {
+            uid,
+            position,
+            velocity: velocity || null,
+            hp: Number.isFinite(hp) ? hp : 100,
+            eye: eye || 1.6,
+            alive: true,
+            isBot: Boolean(isBot),
+            chronoTier: Number(chronoTier) || 0
+          };
         }
       };
 
@@ -1809,63 +1277,92 @@
         consider(
           playerState.uid,
           playerState.position,
+          playerState.velocity || null,
           playerState.hp,
           playerState.eye,
           playerState.alive !== false,
-          false
+          false,
+          state.chronoTier || 0
         );
       }
 
       for (const [uid, avatar] of remoteAvatars) {
         if (!avatar || !avatar.alive || uid === bot.uid) continue;
         const record = rosterByUid.get(uid);
-        consider(uid, avatar.pos, record && Number.isFinite(record.hp) ? record.hp : avatar.hp,
-          1.6, true, avatar.isBot);
+        const otherBrain = arenaBotAi.get(uid);
+        consider(
+          uid,
+          avatar.pos,
+          otherBrain ? otherBrain.vel : null,
+          record && Number.isFinite(record.hp) ? record.hp : avatar.hp,
+          1.6,
+          true,
+          avatar.isBot,
+          avatar.chronoTier || 0
+        );
       }
 
       bot.targetUid = target ? target.uid : '';
-      const targetAim = target
-        ? _botTargetPos.set(target.position.x, target.position.y + Math.min(1.2, target.eye * 0.72), target.position.z)
-        : null;
 
-      updateWarmupBot(
-        bot,
-        dt,
-        { alive: Boolean(target), eye: target ? target.eye : 1.6, uid: target ? target.uid : '', hp: target ? target.hp : 100 },
-        target ? target.position : null,
-        targetAim,
-        solidList,
-        (damage, weapon) => {
-          if (target && root.NetcodeSystem && typeof root.NetcodeSystem.applyBotDamage === 'function') {
-            root.NetcodeSystem.applyBotDamage(bot.uid, target.uid, damage, weapon, false);
+      BAI.stepBot(bot, dt, {
+        config: movementContext && movementContext.config,
+        solids: movementContext && movementContext.solids,
+        solidMeshes: solidList,
+        pads: movementContext && movementContext.pads,
+        boosters: movementContext && movementContext.boosters,
+        teleporters: movementContext && movementContext.teleporters,
+        abilitiesAllowed: !movementContext || movementContext.abilitiesAllowed !== false,
+        viewerPos: playerState.position,
+        target,
+        callbacks: {
+          spawnTracer,
+          spawnBurst,
+          updateChronoVisual: updateAvatarChronoVisual,
+          updateGrappleVisual: updateAvatarGrappleVisual,
+          onDamage: (damage, weapon, isHeadshot) => {
+            if (target && root.NetcodeSystem && typeof root.NetcodeSystem.applyBotDamage === 'function') {
+              root.NetcodeSystem.applyBotDamage(bot.uid, target.uid, damage, weapon, Boolean(isHeadshot));
+            }
+          },
+          onShot: (firingBot, origin, endPoint, weapon) => {
+            if (root.NetcodeSystem && typeof root.NetcodeSystem.reportBotShot === 'function') {
+              root.NetcodeSystem.reportBotShot(firingBot.uid, origin, endPoint, weapon);
+            }
           }
-        },
-        (firingBot, origin, endPoint, weapon) => {
-          if (root.NetcodeSystem && typeof root.NetcodeSystem.reportBotShot === 'function') {
-            root.NetcodeSystem.reportBotShot(firingBot.uid, origin, endPoint, weapon);
-          }
-        },
-        movementContext
-      );
+        }
+      });
 
       const avatar = remoteAvatars.get(bot.uid);
       if (avatar) {
-        avatar.pos.copy(bot.visual.group.position);
-        avatar.targetPos.copy(bot.visual.group.position);
+        avatar.pos.copy(bot.pos);
+        avatar.targetPos.copy(bot.pos);
         avatar.yaw = bot.yaw;
         avatar.targetYaw = bot.yaw;
+        avatar.chronoTier = bot.chronoTier || 0;
+        avatar.grapplePoint = bot.grapplePoint ? bot.grapplePoint : null;
       }
+
       bot.poseTimer -= dt;
       if (bot.poseTimer <= 0) {
-        bot.poseTimer = 1 / 12;
+        bot.poseTimer = 1 / 15;
         if (root.NetcodeSystem && typeof root.NetcodeSystem.reportBotPose === 'function') {
-          root.NetcodeSystem.reportBotPose(bot.uid, {
-            x: bot.visual.group.position.x,
-            y: bot.visual.group.position.y,
-            z: bot.visual.group.position.z,
+          const activeSlotWep = bot.activeWeaponSlot === 'secondary' && bot.secondaryBuild
+            ? bot.secondaryBuild.weaponId
+            : bot.profile.weapon;
+          const posePayload = {
+            x: bot.pos.x,
+            y: bot.pos.y,
+            z: bot.pos.z,
             yaw: bot.yaw,
-            slot: bot.profile.weapon
-          });
+            slot: activeSlotWep,
+            ct: bot.chronoTier || 0
+          };
+          if (bot.grapplePoint) {
+            posePayload.gx = bot.grapplePoint.x;
+            posePayload.gy = bot.grapplePoint.y;
+            posePayload.gz = bot.grapplePoint.z;
+          }
+          root.NetcodeSystem.reportBotPose(bot.uid, posePayload);
         }
       }
     }
@@ -1876,7 +1373,7 @@
     let entry = remoteAvatars.get(uid);
     if (!entry) {
       const palette = [0xff5277, 0x56e8ff, 0xffbd42, 0x9b6bff];
-      const botPalette = WARMUP_BOT_ARCHETYPES.map((p) => p.color);
+      const botPalette = getBotArchetypes().map((p) => p.color);
       const isBot = Boolean(info && info.isBot);
       const botType = info && Number.isFinite(info.botType) ? info.botType : 0;
       const color = isBot ? botPalette[botType % botPalette.length] : palette[remoteAvatars.size % palette.length];
@@ -1898,7 +1395,9 @@
         alive: true,
         isBot: Boolean(info && info.isBot),
         botType: info && Number.isFinite(info.botType) ? info.botType : null,
-        activeSlot: 'rifle'
+        activeSlot: 'rifle',
+        chronoTier: Number(info && info.ct) || 0,
+        grapplePoint: null
       };
       remoteAvatars.set(uid, entry);
     }
@@ -1923,10 +1422,25 @@
       if (typeof info.alive === 'boolean') {
         entry.alive = info.alive;
         entry.visual.group.visible = entry.alive;
+        if (!entry.alive) {
+          entry.chronoTier = 0;
+          entry.grapplePoint = null;
+          updateAvatarChronoVisual(entry.visual, 0, 0);
+          updateAvatarGrappleVisual(entry.visual, null, null);
+        }
       }
       if (typeof info.slot === 'string') {
         entry.activeSlot = info.slot;
         entry.visual.gunBar.visible = info.slot !== 'knife' && info.slot !== 'melee';
+      }
+      if (typeof info.ct === 'number') {
+        entry.chronoTier = info.ct;
+      }
+      if (typeof info.gx === 'number' && typeof info.gy === 'number' && typeof info.gz === 'number') {
+        if (!entry.grapplePoint) entry.grapplePoint = new THREE.Vector3();
+        entry.grapplePoint.set(info.gx, info.gy, info.gz);
+      } else if ('gx' in info || info.clearGrapple) {
+        entry.grapplePoint = null;
       }
     }
     const botBrain = arenaBotAi.get(uid);
@@ -1947,8 +1461,9 @@
   function removeRemoteAvatar(uid) {
     const entry = remoteAvatars.get(uid);
     if (!entry) return;
-    if (entry.visual && entry.visual.group.parent) {
-      entry.visual.group.parent.remove(entry.visual.group);
+    if (entry.visual) {
+      if (entry.visual.group.parent) entry.visual.group.parent.remove(entry.visual.group);
+      disposeAvatarAuxVisuals(entry.visual);
     }
     remoteAvatars.delete(uid);
     arenaBotAi.delete(uid);
@@ -2000,9 +1515,13 @@
       const moveSpeed = Number(o.moveSpeed) || 0;
       const airborne = Boolean(o.airborne);
       const adsT = state.adsProgress;
+      const chronoW = state.chronoActive ? state.chronoWeight : 0;
+      const chronoAirMul = chronoW > 0 && build.chronoAirSpreadMul
+        ? (1 + (build.chronoAirSpreadMul - 1) * chronoW)
+        : 1;
       baseSpread = build.spreadHip + (build.spreadAds - build.spreadHip) * adsT;
-      if (moveSpeed > 3.5) baseSpread += Math.min(build.spreadMove, (moveSpeed - 3.5) * 0.00075) * (1 - adsT * 0.35);
-      if (airborne) baseSpread += (weaponId === 'awp' && adsT < 0.6) ? 0.018 : (0.0042 * (1 - adsT * 0.35));
+      if (moveSpeed > 3.5) baseSpread += Math.min(build.spreadMove, (moveSpeed - 3.5) * 0.00075) * (1 - adsT * 0.35) * (1 - chronoW * 0.25);
+      if (airborne) baseSpread += ((weaponId === 'awp' && adsT < 0.6) ? 0.018 : (0.0042 * (1 - adsT * 0.35))) * chronoAirMul;
       baseSpread += state.spreadBloom;
       state.spreadBloom = Math.min(0.026, state.spreadBloom + (build.auto ? 0.0028 : 0.0052));
     }
@@ -2169,7 +1688,7 @@
         continue;
       }
 
-      // Case C: Solo Arena Warmup Bot (aggregate pellet damage cleanly!)
+      // Case C: Solo Arena / Sandbox Adaptive Bot (aggregate pellet damage cleanly!)
       if (typeof ud.botIndex === 'number') {
         const bot = warmupBots[ud.botIndex];
         if (bot && bot.alive) {
@@ -2177,9 +1696,9 @@
           const dmg = isKnife
             ? (o.heavy ? 100 : 55)
             : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, true) : (isHead ? build.damageHead : build.damageBody));
-          bot.alertTimer = Math.max(bot.alertTimer, 4.2);
-          bot.alertOnNextUpdate = true;
-          bot.aimTimer = 0;
+          if (root.BotAISystem && typeof root.BotAISystem.alertBotDamage === 'function') {
+            root.BotAISystem.alertBotDamage(bot, origin);
+          }
           const prev = botDmgMap.get(ud.botIndex) || { bot, dmg: 0, isHead: false, point: bestHit.point };
           prev.dmg += dmg;
           prev.isHead = prev.isHead || isHead;
@@ -2197,6 +1716,10 @@
           const dmg = isKnife
             ? (o.heavy ? 100 : 55)
             : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, false) : (isHead ? build.damageHead : build.damageBody));
+          const hostBot = arenaBotAi.get(ud.remoteUid);
+          if (hostBot && root.BotAISystem && typeof root.BotAISystem.alertBotDamage === 'function') {
+            root.BotAISystem.alertBotDamage(hostBot, origin);
+          }
           const prev = playerDmgMap.get(ud.remoteUid) || { uid: ud.remoteUid, dmg: 0, isHead: false, point: bestHit.point };
           prev.dmg += dmg;
           prev.isHead = prev.isHead || isHead;
@@ -2223,15 +1746,26 @@
       if (bot.hp <= 0) {
         bot.alive = false;
         bot.respawnTimer = 2.4;
+        bot.chronoTier = 0;
+        bot.grapplePoint = null;
         bot.visual.group.visible = false;
+        updateAvatarChronoVisual(bot.visual, 0, 0);
+        updateAvatarGrappleVisual(bot.visual, null, null);
         result.killed = true;
         warmupKills += 1;
+        if (root.BotAISystem && typeof root.BotAISystem.recordPlayerKill === 'function') {
+          root.BotAISystem.recordPlayerKill();
+        }
         triggerHitmarker(isHead, true);
         if (!isKnife && onWeaponXpCb && LS) {
+          const baseXp = isHead ? LS.XP_REWARDS.botHeadshot : LS.XP_REWARDS.botKill;
+          const amount = (root.BotAISystem && typeof root.BotAISystem.computeBotXpReward === 'function')
+            ? root.BotAISystem.computeBotXpReward(baseXp)
+            : baseXp;
           onWeaponXpCb({
             weaponId,
             source: isHead ? 'bot_headshot' : 'bot_kill',
-            amount: isHead ? LS.XP_REWARDS.botHeadshot : LS.XP_REWARDS.botKill,
+            amount,
             isHeadshot: isHead
           });
         }
@@ -2302,6 +1836,23 @@
     const adsDur = activeBuild ? activeBuild.adsTimeSec : 0.18;
     state.adsProgress = advanceAdsProgress(state.adsProgress, adsTarget, dt, adsDur);
 
+    // Apex Chrono Hangtime personal temporal dilation (meter-free, activates on ADS when equipped)
+    const wasChronoActive = state.chronoActive;
+    const chronoTarget = Boolean(activeBuild && activeBuild.hasChronoKit && adsTarget && state.adsProgress >= 0.18);
+    const rampIn = activeBuild && activeBuild.chronoRampIn ? activeBuild.chronoRampIn : 0.14;
+    const rampOut = activeBuild && activeBuild.chronoRampOut ? activeBuild.chronoRampOut : 0.14;
+    state.chronoWeight = advanceChronoState(state.chronoWeight, chronoTarget, dt, rampIn, rampOut);
+    const targetChronoScale = activeBuild && activeBuild.hasChronoKit ? activeBuild.chronoTimeScale : 1.0;
+    state.chronoTimeScale = 1.0 + (targetChronoScale - 1.0) * state.chronoWeight;
+    state.chronoActive = state.chronoWeight > 0.08;
+    state.chronoTier = state.chronoActive && activeBuild ? (activeBuild.chronoTier || 1) : 0;
+    state.chronoLabel = state.chronoActive && activeBuild ? (activeBuild.chronoLabel || 'CHRONO HANG') : '';
+    if (!wasChronoActive && state.chronoActive && root.WeaponAudio && typeof root.WeaponAudio.chronoEnter === 'function') {
+      root.WeaponAudio.chronoEnter(state.chronoTier);
+    } else if (wasChronoActive && !state.chronoActive && root.WeaponAudio && typeof root.WeaponAudio.chronoExit === 'function') {
+      root.WeaponAudio.chronoExit();
+    }
+
     if (state.reloading) {
       state.reloadTimer -= dt;
       if (state.reloadTimer <= 0) {
@@ -2357,8 +1908,19 @@
       updateRangeScoreboard();
     }
 
-    // Update Solo Warmup Hologram Bots: movement, awareness, cover steering and combat.
-    if (warmupEnabled) {
+    // Update Solo Warmup & Sandbox Adaptive AI Bots via BotAISystem
+    if (warmupEnabled && root.BotAISystem && typeof root.BotAISystem.stepBot === 'function') {
+      const BAI = root.BotAISystem;
+      const localTarget = playerPos ? {
+        uid: 'local',
+        position: playerPos,
+        velocity: (playerState && playerState.velocity) || null,
+        eye: playerEye,
+        hp: playerState && Number.isFinite(playerState.hp) ? playerState.hp : 100,
+        alive: playerAlive,
+        chronoTier: state.chronoTier || 0
+      } : null;
+
       for (let i = 0; i < warmupBots.length; i++) {
         const bot = warmupBots[i];
         if (!bot.alive) {
@@ -2377,37 +1939,12 @@
                 }
               }
             }
-            bot.anchor.set(spawn.x, spawn.y, spawn.z);
-            bot.wanderPoint.set(spawn.x, spawn.y, spawn.z);
-            bot.lastKnownPlayer.set(playerPos ? playerPos.x : spawn.x, playerPos ? playerPos.y : spawn.y, playerPos ? playerPos.z : spawn.z);
-            bot.velocity.set(0, 0, 0);
-            bot.verticalVelocity = 0;
-            bot.yaw = playerPos
+            const spawnYaw = playerPos
               ? Math.atan2(-(playerPos.x - spawn.x), -(playerPos.z - spawn.z))
               : (spawn.yaw || 0);
-            bot.visual.group.position.set(spawn.x, spawn.y, spawn.z);
-            bot.visual.group.rotation.y = bot.yaw;
+            BAI.resetBotState(bot, spawn, spawnYaw);
             bot.hp = 100;
             bot.alive = true;
-            bot.alertTimer = 0;
-            bot.alertOnNextUpdate = false;
-            bot.aimTimer = 0;
-            bot.magazine = bot.profile.magSize;
-            bot.reloadTimer = 0;
-            bot.fireCooldown = 0.7;
-            bot.decisionTimer = 0.8 + Math.random() * 1.2;
-            bot.wanderTimer = 0;
-            bot.combatIntent = 'strafe';
-            bot.combatIntentTimer = 0;
-            bot.burstShotsRemaining = 0;
-            bot.burstPause = 0;
-            bot.targetVelocity.set(0, 0, 0);
-            bot.targetSampleValid = false;
-            bot.trackedTargetUid = 'local';
-            bot.aimDirection.set(-Math.sin(bot.yaw), 0, -Math.cos(bot.yaw));
-            bot.aimDriftTimer = 0.1;
-            bot.aimDriftYaw = 0;
-            bot.aimDriftPitch = 0;
             bot.visual.hpFill.scale.x = 1;
             bot.visual.hpFill.position.x = 0;
             bot.visual.hpFill.material.color.setHex(0x62f58a);
@@ -2415,17 +1952,28 @@
           }
           continue;
         }
-        updateWarmupBot(
-          bot,
-          dt,
-          botPlayerState,
-          playerPos,
-          botTargetPos,
-          botSolids,
-          null,
-          null,
-          movementContext
-        );
+        BAI.stepBot(bot, dt, {
+          config: movementContext && movementContext.config,
+          solids: movementContext && movementContext.solids,
+          solidMeshes: botSolids,
+          pads: movementContext && movementContext.pads,
+          boosters: movementContext && movementContext.boosters,
+          teleporters: movementContext && movementContext.teleporters,
+          abilitiesAllowed: !movementContext || movementContext.abilitiesAllowed !== false,
+          viewerPos: playerPos,
+          target: localTarget,
+          callbacks: {
+            spawnTracer,
+            spawnBurst,
+            updateChronoVisual: updateAvatarChronoVisual,
+            updateGrappleVisual: updateAvatarGrappleVisual,
+            onDamage: (damage, weapon, isHeadshot) => {
+              if (root.NetcodeSystem && typeof root.NetcodeSystem.applyWarmupDamage === 'function') {
+                root.NetcodeSystem.applyWarmupDamage(damage, bot.name, weapon, Boolean(isHeadshot));
+              }
+            }
+          }
+        });
       }
     }
 
@@ -2434,6 +1982,7 @@
     updateArenaBots(dt, {
       uid: playerState && playerState.uid,
       position: playerPos,
+      velocity: playerState && playerState.velocity,
       eye: playerEye,
       alive: playerAlive,
       isHost: Boolean(playerState && playerState.isHost),
@@ -2449,7 +1998,6 @@
       if (!av.alive) continue;
       av.pos.lerp(av.targetPos, lerpK);
       av.visual.group.position.copy(av.pos);
-      // Shortest-angle yaw interpolation
       let dyaw = av.targetYaw - av.yaw;
       while (dyaw > Math.PI) dyaw -= Math.PI * 2;
       while (dyaw < -Math.PI) dyaw += Math.PI * 2;
@@ -2459,6 +2007,8 @@
         av.visual.hpBg.lookAt(playerPos.x, av.pos.y + 2.16, playerPos.z);
         av.visual.hpFill.lookAt(playerPos.x, av.pos.y + 2.16, playerPos.z);
       }
+      updateAvatarChronoVisual(av.visual, av.alive ? av.chronoTier : 0, dt);
+      updateAvatarGrappleVisual(av.visual, av.pos, av.alive ? av.grapplePoint : null);
     }
   }
 
@@ -2468,6 +2018,7 @@
     FFA_WIN_KILLS,
     SLOTS,
     advanceAdsProgress,
+    advanceChronoState,
     computeGauntletSummary,
     evaluateDuelRoundResult,
     evaluateFfaScoreboard,
@@ -2485,6 +2036,7 @@
     getScopeFovMultiplier,
     getScopeSensMultiplier,
     getScopeOverlayState,
+    getChronoState,
     getActiveMobilityProfile,
     getActiveBuild,
     getActiveWeaponType,
@@ -2501,10 +2053,13 @@
     setOnWeaponXp: (cb) => { onWeaponXpCb = cb; },
     setupWarmupBots,
     clearWarmupBots,
+    hasActiveWarmupBots,
     chooseBotMovementIntent,
     setWarmupBotsVisible,
     setOnWarmupKill: (cb) => { onWarmupKillCb = cb; },
     upsertRemoteAvatar,
+    updateAvatarChronoVisual,
+    updateAvatarGrappleVisual,
     createPauseAvatar: () => createAvatarMesh({ name: 'RUNNER', accentColor: 0x65e7ff, isBot: false }),
     syncArenaBots,
     removeRemoteAvatar,
@@ -2530,6 +2085,11 @@
         adsProgress: state.adsProgress,
         scopeStage: state.scopeStage,
         scopeOverlay: getScopeOverlayState(),
+        chronoWeight: state.chronoWeight,
+        chronoTimeScale: state.chronoTimeScale,
+        chronoTier: state.chronoTier,
+        chronoActive: state.chronoActive,
+        chronoLabel: state.chronoLabel,
         mobility: getActiveMobilityProfile(),
         hitmarkerTimer: state.hitmarkerTimer,
         hitmarkerHeadshot: state.hitmarkerHeadshot,

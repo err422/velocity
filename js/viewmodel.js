@@ -585,6 +585,57 @@
         osc.stop(t0 + 0.36);
       });
     }
+    let lastChronoAudioMs = 0;
+    function chronoEnter(tier) {
+      const c = getCtx();
+      if (!c) return;
+      const tMs = performance.now();
+      if (tMs - lastChronoAudioMs < 110) return;
+      lastChronoAudioMs = tMs;
+      const now = c.currentTime;
+      const isPhase = tier >= 2;
+      // Deep temporal bass drop swoop
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(isPhase ? 210 : 185, now);
+      sub.frequency.exponentialRampToValueAtTime(isPhase ? 42 : 52, now + 0.19);
+      sg.gain.setValueAtTime(0.001, now);
+      sg.gain.linearRampToValueAtTime(0.15, now + 0.025);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.24);
+      // Crystalline gyro lock harmonic shimmer
+      const shim = c.createOscillator();
+      const hg = c.createGain();
+      shim.type = 'triangle';
+      shim.frequency.setValueAtTime(isPhase ? 1320 : 1140, now);
+      shim.frequency.exponentialRampToValueAtTime(isPhase ? 495 : 580, now + 0.17);
+      hg.gain.setValueAtTime(0.048, now);
+      hg.gain.exponentialRampToValueAtTime(0.0001, now + 0.19);
+      shim.connect(hg);
+      hg.connect(c.destination);
+      shim.start(now);
+      shim.stop(now + 0.20);
+    }
+    function chronoExit() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(115, now);
+      osc.frequency.exponentialRampToValueAtTime(520, now + 0.11);
+      g.gain.setValueAtTime(0.075, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.14);
+    }
     return {
       fireRifle,
       fireAwp,
@@ -601,7 +652,9 @@
       hitmarker,
       targetShatter,
       killConfirm,
-      roundHorn
+      roundHorn,
+      chronoEnter,
+      chronoExit
     };
   })();
 
@@ -3619,20 +3672,41 @@
       const f = handGroup.userData.fingers;
       const side = handGroup.userData.side;
       const names = ['index', 'middle', 'ring', 'pinky'];
+      const wrapW = pose.wrapGrip || 0;
       for (const nm of names) {
         const c = pose[nm] !== undefined ? pose[nm] : 0.85;
         const j = f[nm];
         const spread = nm === 'index' ? -0.06 : nm === 'ring' ? 0.05 : nm === 'pinky' ? 0.12 : 0.0;
-        j.mcp.rotation.x = -0.08 - c * 1.06;
+        let mcpX = -0.08 - c * 1.06;
+        let pipX = -0.06 - c * 1.28;
+        let dipX = -0.04 - c * 0.82;
+        if (wrapW > 0 && nm !== 'index') {
+          // Surface-accurate C-wrap around knife handle seated in fist pocket (y=-0.0325, z=-0.0453):
+          // proximal stays ABOVE handle, middle passes cleanly IN FRONT of handle (clearing finger radius),
+          // distal curls cleanly BENEATH/OUTSIDE the handle with zero mesh penetration!
+          const w = wrapW * c;
+          const wrapMcp = nm === 'pinky' ? -0.04 : nm === 'ring' ? -0.30 : -0.36;
+          const wrapPip = nm === 'pinky' ? -1.26 : nm === 'ring' ? -1.26 : -1.24;
+          const wrapDip = nm === 'pinky' ? -0.26 : nm === 'ring' ? -0.54 : -0.62;
+          mcpX = THREE.MathUtils.lerp(mcpX, wrapMcp, w);
+          pipX = THREE.MathUtils.lerp(pipX, wrapPip, w);
+          dipX = THREE.MathUtils.lerp(dipX, wrapDip, w);
+        }
+        j.mcp.rotation.x = mcpX;
         j.mcp.rotation.y = side * spread * (1 - c * 0.7);
-        j.pip.rotation.x = -0.06 - c * 1.28;
-        j.dip.rotation.x = -0.04 - c * 0.82;
+        j.pip.rotation.x = pipX;
+        j.dip.rotation.x = dipX;
       }
       if (pose.indexRingHook) {
         const h = pose.indexRingHook;
-        f.index.mcp.rotation.x = THREE.MathUtils.lerp(f.index.mcp.rotation.x, -0.68, h);
-        f.index.pip.rotation.x = THREE.MathUtils.lerp(f.index.pip.rotation.x, -0.82, h);
-        f.index.dip.rotation.x = THREE.MathUtils.lerp(f.index.dip.rotation.x, -0.45, h);
+        // Exact fist-pocket spindle lock: at h=1, mcp(-1.50) + pip(-0.0708) = -PI/2 so
+        // the index middle phalanx runs dead-vertical along -Y at (-0.0270, -0.0309..-0.0529, -0.0453),
+        // threading squarely through the Karambit ring & Skeleton hole while middle/ring/pinky
+        // wrap cleanly AROUND the outside of the handle with zero clipping!
+        f.index.mcp.rotation.x = THREE.MathUtils.lerp(f.index.mcp.rotation.x, -1.50, h);
+        f.index.mcp.rotation.y = THREE.MathUtils.lerp(f.index.mcp.rotation.y, 0.0, h);
+        f.index.pip.rotation.x = THREE.MathUtils.lerp(f.index.pip.rotation.x, -0.0708, h);
+        f.index.dip.rotation.x = THREE.MathUtils.lerp(f.index.dip.rotation.x, -0.32, h);
       }
       if (pose.indexPoint) {
         const p = pose.indexPoint;
@@ -3641,13 +3715,32 @@
         f.index.dip.rotation.x = THREE.MathUtils.lerp(f.index.dip.rotation.x, 0.02, p);
       }
       const tc = pose.thumb !== undefined ? pose.thumb : 0.8;
-      f.thumb.cmc.rotation.set(
-        -0.18 - tc * 0.34,
-        -side * (0.28 + tc * 0.42),
-        side * (0.35 + tc * 0.48)
-      );
-      f.thumb.mcp.rotation.set(-0.08 - tc * 0.56, -side * tc * 0.18, 0);
-      f.thumb.ip.rotation.set(-0.06 - tc * 0.58, 0, 0);
+      if (wrapW > 0) {
+        // CS2 Karambit / Skeleton thumb sits cleanly along the outside left flank of the fist
+        // (resting beside the index knuckle/ring, never stabbing inside the knife handle)
+        const baseCmcX = -0.18 - tc * 0.34;
+        const baseCmcY = -side * (0.28 + tc * 0.42);
+        const baseCmcZ = side * (0.35 + tc * 0.48);
+        f.thumb.cmc.rotation.set(
+          THREE.MathUtils.lerp(baseCmcX, -0.20, wrapW),
+          THREE.MathUtils.lerp(baseCmcY, -side * 0.04, wrapW),
+          THREE.MathUtils.lerp(baseCmcZ, side * 0.22, wrapW)
+        );
+        f.thumb.mcp.rotation.set(
+          THREE.MathUtils.lerp(-0.08 - tc * 0.56, -0.16, wrapW),
+          THREE.MathUtils.lerp(-side * tc * 0.18, -side * 0.04, wrapW),
+          0
+        );
+        f.thumb.ip.rotation.set(THREE.MathUtils.lerp(-0.06 - tc * 0.58, -0.22, wrapW), 0, 0);
+      } else {
+        f.thumb.cmc.rotation.set(
+          -0.18 - tc * 0.34,
+          -side * (0.28 + tc * 0.42),
+          side * (0.35 + tc * 0.48)
+        );
+        f.thumb.mcp.rotation.set(-0.08 - tc * 0.56, -side * tc * 0.18, 0);
+        f.thumb.ip.rotation.set(-0.06 - tc * 0.58, 0, 0);
+      }
     }
 
     let activeGloveMap = null;
@@ -3816,21 +3909,25 @@
   function applyContactGripSocket(knifeMesh, kt) {
     knifeMesh.rotation.order = 'XYZ';
     if (kt === 'karambit') {
-      // Iconic CS2 reverse-grip karambit socket:
-      // Ring (0,0,0) centers on the hooked right index finger; handle runs across
-      // the supinated palm toward pinky (+X) while the curved hawkbill blade sweeps
-      // boldly forward, upward, and inward across the lower-right viewport.
-      knifeMesh.position.set(-0.025, -0.021, -0.047);
-      knifeMesh.rotation.set(1.42, 0.22, -0.18);
-      knifeMesh.scale.setScalar(1.08);
+      // Exact CS2 Karambit fist-pocket ring-spindle socket:
+      // Ring center (0,0,0) locks dead-center onto the right index finger at (-0.0270, -0.0325, -0.0453)
+      // with local +Z hole/spin axis collinear with -Y; handle runs underneath the pronated palm
+      // toward pinky (+X) and the curved hawkbill blade sweeps boldly OUT TO THE RIGHT & UP!
+      knifeMesh.position.set(-0.0270, -0.0325, -0.0453);
+      knifeMesh.rotation.set(Math.PI * 0.5, 0.0, 0.0);
+      knifeMesh.scale.setScalar(1.04);
     } else if (kt === 'skeleton') {
-      knifeMesh.position.set(-0.0255, -0.0215, -0.041);
-      knifeMesh.rotation.set(Math.PI * 0.5 - 0.16, Math.PI - 0.24, 0.08);
+      // Exact CS2 Skeleton center-hole spindle socket inside the fist pocket:
+      // Center hole (0,0,0) locks dead-center onto the right index finger (-0.0270, -0.0325, -0.0453);
+      // paracord handle (-X -> rightHand +X) sits cleanly inside the curled middle/ring/pinky wrap
+      // with zero finger-through-handle clipping, and local +Z spin axis aligns dead-vertical (-Y)!
+      knifeMesh.position.set(-0.0270, -0.0325, -0.0453);
+      knifeMesh.rotation.set(-Math.PI * 0.5, Math.PI, 0.0);
       knifeMesh.scale.setScalar(1.03);
     } else if (kt === 'butterfly') {
-      knifeMesh.position.set(-0.002, -0.0215, -0.037);
-      knifeMesh.rotation.set(Math.PI * 0.5 - 0.14, Math.PI - 0.26, 0.06);
-      knifeMesh.scale.setScalar(1.03);
+      knifeMesh.position.set(-0.004, -0.0240, -0.056);
+      knifeMesh.rotation.set(Math.PI * 0.5 - 0.08, Math.PI - 0.14, 0.04);
+      knifeMesh.scale.setScalar(1.04);
     } else if (kt === 'm9') {
       knifeMesh.position.set(0.002, -0.0215, -0.037);
       knifeMesh.rotation.set(Math.PI * 0.5 - 0.12, Math.PI - 0.24, 0.05);
@@ -3849,8 +3946,8 @@
       kPosX: 0, kPosY: 0, kPosZ: 0,
       kRotX: 0, kRotY: 0, kRotZ: 0,
       baliBladeAngle: 0, baliBiteAngle: 0,
-      rPose: { index: 1, middle: 1, ring: 1, pinky: 1, thumb: 0.9, indexRingHook: 0, indexPoint: 0 },
-      lPose: { index: 0.64, middle: 0.74, ring: 0.82, pinky: 0.88, thumb: 0.56, indexRingHook: 0, indexPoint: 0 }
+      rPose: { index: 1, middle: 1, ring: 1, pinky: 1, thumb: 0.9, indexRingHook: 0, indexPoint: 0, wrapGrip: 0 },
+      lPose: { index: 0.64, middle: 0.74, ring: 0.82, pinky: 0.88, thumb: 0.56, indexRingHook: 0, indexPoint: 0, wrapGrip: 0 }
     };
   }
 
@@ -3859,16 +3956,20 @@
   function evaluateViewmodelChoreography(kt, animState, out, playAudio) {
     // 1) Authentic CS2 Per-Knife Rest Poses
     if (kt === 'karambit') {
-      // Supinated CS2 Karambit stance: index ring sits lower-right while the
-      // curved hawkbill blade sweeps boldly upward and left into full camera view.
-      out.rx = 0.205; out.ry = -0.155; out.rz = -0.355;
-      out.rRotX = 0.22; out.rRotY = 0.34; out.rRotZ = 2.18;
+      // Exact CS2 pronated Karambit stance:
+      // Top/back of right gloved hand faces UP toward camera, pommel ring sits on the
+      // LEFT with the index finger inside it, and the curved tiger-claw blade sweeps
+      // boldly OUT TO THE RIGHT and curves UPWARD into full viewport visibility!
+      out.rx = 0.086; out.ry = -0.128; out.rz = -0.340;
+      out.rRotX = 0.42; out.rRotY = -0.08; out.rRotZ = -0.06;
     } else if (kt === 'skeleton') {
-      out.rx = 0.205; out.ry = -0.165; out.rz = -0.35;
-      out.rRotX = -0.22; out.rRotY = 0.26; out.rRotZ = -0.82;
+      out.rx = 0.188; out.ry = -0.132; out.rz = -0.335;
+      out.rRotX = 0.04; out.rRotY = 0.36; out.rRotZ = -0.80;
     } else if (kt === 'butterfly') {
-      out.rx = 0.205; out.ry = -0.168; out.rz = -0.35;
-      out.rRotX = -0.20; out.rRotY = 0.28; out.rRotZ = -0.86;
+      // Turned cleanly inward so the curved blade's broad painted face and slotted
+      // U-channel handles catch studio light instead of appearing edge-on.
+      out.rx = 0.210; out.ry = -0.188; out.rz = -0.345;
+      out.rRotX = -0.24; out.rRotY = 0.50; out.rRotZ = -1.16;
     } else if (kt === 'm9') {
       out.rx = 0.215; out.ry = -0.172; out.rz = -0.36;
       out.rRotX = -0.24; out.rRotY = 0.30; out.rRotZ = -0.84;
@@ -3877,22 +3978,34 @@
       out.rRotX = -0.22; out.rRotY = 0.28; out.rRotZ = -0.85;
     }
 
-    out.lx = -0.270; out.ly = -0.235; out.lz = -0.38;
-    out.lRotX = 0.14; out.lRotY = -0.44; out.lRotZ = 0.18;
+    if (kt === 'karambit') {
+      // Matching CS2 balanced pronated left hand (back of glove facing up on lower-left)
+      out.lx = -0.150; out.ly = -0.142; out.lz = -0.350;
+      out.lRotX = 0.26; out.lRotY = -0.38; out.lRotZ = 0.08;
+    } else {
+      out.lx = -0.270; out.ly = -0.235; out.lz = -0.38;
+      out.lRotX = 0.14; out.lRotY = -0.44; out.lRotZ = 0.18;
+    }
 
     const rp = out.rPose;
     rp.indexRingHook = 0;
     rp.indexPoint = 0;
+    rp.wrapGrip = 0;
     if (kt === 'karambit') {
-      rp.index = 0.56; rp.middle = 0.96; rp.ring = 0.98; rp.pinky = 0.96; rp.thumb = 0.84; rp.indexRingHook = 0.82;
+      rp.index = 0.56; rp.middle = 0.94; rp.ring = 0.96; rp.pinky = 0.96; rp.thumb = 0.34; rp.indexRingHook = 1.0; rp.wrapGrip = 1.0;
     } else if (kt === 'skeleton') {
-      rp.index = 0.62; rp.middle = 0.96; rp.ring = 0.98; rp.pinky = 0.96; rp.thumb = 0.84; rp.indexRingHook = 0.55;
+      rp.index = 0.56; rp.middle = 0.94; rp.ring = 0.96; rp.pinky = 0.96; rp.thumb = 0.34; rp.indexRingHook = 1.0; rp.wrapGrip = 1.0;
     } else {
       rp.index = 0.96; rp.middle = 0.98; rp.ring = 0.98; rp.pinky = 0.96; rp.thumb = 0.88;
     }
 
     const lp = out.lPose;
-    lp.index = 0.64; lp.middle = 0.74; lp.ring = 0.82; lp.pinky = 0.88; lp.thumb = 0.56; lp.indexRingHook = 0; lp.indexPoint = 0;
+    lp.index = kt === 'karambit' ? 0.28 : 0.64;
+    lp.middle = kt === 'karambit' ? 0.34 : 0.74;
+    lp.ring = kt === 'karambit' ? 0.42 : 0.82;
+    lp.pinky = kt === 'karambit' ? 0.48 : 0.88;
+    lp.thumb = kt === 'karambit' ? 0.36 : 0.56;
+    lp.indexRingHook = 0; lp.indexPoint = 0; lp.wrapGrip = 0;
 
     out.kPosX = 0; out.kPosY = 0; out.kPosZ = 0;
     out.kRotX = 0; out.kRotY = 0; out.kRotZ = 0;
@@ -3957,16 +4070,18 @@
         }
       } else if (kt === 'karambit') {
         out.kRotZ -= inv * Math.PI * 2;
-        rp.middle = THREE.MathUtils.lerp(0.22, 0.96, smoothstep(0.5, 0.9, t));
-        rp.ring = THREE.MathUtils.lerp(0.20, 0.98, smoothstep(0.5, 0.9, t));
-        rp.pinky = THREE.MathUtils.lerp(0.18, 0.96, smoothstep(0.5, 0.9, t));
+        rp.middle = THREE.MathUtils.lerp(0.16, 0.94, smoothstep(0.5, 0.9, t));
+        rp.ring = THREE.MathUtils.lerp(0.14, 0.96, smoothstep(0.5, 0.9, t));
+        rp.pinky = THREE.MathUtils.lerp(0.12, 0.96, smoothstep(0.5, 0.9, t));
+        rp.thumb = THREE.MathUtils.lerp(0.18, 0.34, smoothstep(0.5, 0.9, t));
         rp.indexRingHook = 1.0;
       } else if (kt === 'skeleton') {
-        out.kRotZ -= inv * Math.PI * 2;
-        rp.middle = THREE.MathUtils.lerp(0.24, 0.96, smoothstep(0.5, 0.9, t));
-        rp.ring = THREE.MathUtils.lerp(0.22, 0.98, smoothstep(0.5, 0.9, t));
-        rp.pinky = THREE.MathUtils.lerp(0.20, 0.96, smoothstep(0.5, 0.9, t));
-        rp.indexRingHook = 0.95;
+        out.kRotZ += inv * Math.PI * 2;
+        rp.middle = THREE.MathUtils.lerp(0.16, 0.94, smoothstep(0.5, 0.9, t));
+        rp.ring = THREE.MathUtils.lerp(0.14, 0.96, smoothstep(0.5, 0.9, t));
+        rp.pinky = THREE.MathUtils.lerp(0.12, 0.96, smoothstep(0.5, 0.9, t));
+        rp.thumb = THREE.MathUtils.lerp(0.18, 0.34, smoothstep(0.5, 0.9, t));
+        rp.indexRingHook = 1.0;
       } else {
         out.rRotY -= inv * 0.45;
         out.kRotX -= inv * 0.35;
@@ -4269,10 +4384,10 @@
           const totalSpin = Math.PI * 6 + animState.spinBonus;
           out.kRotZ -= easeOutCubic(t) * totalSpin;
           const openAmt = smoothstep(0.02, 0.12, t) * (1 - smoothstep(0.82, 0.96, t));
-          rp.middle = THREE.MathUtils.lerp(0.96, 0.16, openAmt);
-          rp.ring = THREE.MathUtils.lerp(0.98, 0.14, openAmt);
-          rp.pinky = THREE.MathUtils.lerp(0.95, 0.12, openAmt);
-          rp.thumb = THREE.MathUtils.lerp(0.86, 0.24, openAmt);
+          rp.middle = THREE.MathUtils.lerp(0.94, 0.12, openAmt);
+          rp.ring = THREE.MathUtils.lerp(0.96, 0.10, openAmt);
+          rp.pinky = THREE.MathUtils.lerp(0.96, 0.10, openAmt);
+          rp.thumb = THREE.MathUtils.lerp(0.34, 0.18, openAmt);
           rp.indexRingHook = 1.0;
           out.rRotY += env * 0.34;
           out.rRotX += env * 0.14;
@@ -4281,41 +4396,42 @@
           const spinA = smoothstep(0.0, 0.28, t) * Math.PI * 2;
           const openA = bell(t, 0.0, 0.32);
           out.kRotZ -= spinA;
-          rp.middle = THREE.MathUtils.lerp(0.96, 0.20, openA);
-          rp.ring = THREE.MathUtils.lerp(0.98, 0.18, openA);
-          rp.pinky = THREE.MathUtils.lerp(0.95, 0.16, openA);
-          rp.thumb = THREE.MathUtils.lerp(0.86, 0.30, openA);
+          rp.middle = THREE.MathUtils.lerp(0.94, 0.16, openA);
+          rp.ring = THREE.MathUtils.lerp(0.96, 0.14, openA);
+          rp.pinky = THREE.MathUtils.lerp(0.96, 0.12, openA);
+          rp.thumb = THREE.MathUtils.lerp(0.34, 0.18, openA);
           rp.indexRingHook = 1.0;
-          out.rRotY += env * 0.55;
-          out.rRotX += bell(t, 0.25, 0.85) * 0.24;
-          out.rRotZ += Math.sin(smoothstep(0.24, 0.86, t) * Math.PI * 2) * 0.55;
+          out.rRotY += env * 0.45;
+          out.rRotX += bell(t, 0.25, 0.85) * 0.22;
+          out.rRotZ += Math.sin(smoothstep(0.24, 0.86, t) * Math.PI * 2) * 0.42;
         }
       } else if (kt === 'skeleton') {
         if (isUncommon || animState.spinBonus > 0) {
+          // Pure finger-in-hole CS2 Skeleton Knife spin: zero free-floating lift,
+          // index finger stays locked dead-center inside the hole for the full 1080°+ whirl!
           const totalSpin = Math.PI * 6 + animState.spinBonus;
           out.kRotZ += easeOutCubic(t) * totalSpin;
           const openAmt = smoothstep(0.02, 0.12, t) * (1 - smoothstep(0.84, 0.96, t));
-          rp.middle = THREE.MathUtils.lerp(0.96, 0.15, openAmt);
-          rp.ring = THREE.MathUtils.lerp(0.98, 0.14, openAmt);
-          rp.pinky = THREE.MathUtils.lerp(0.96, 0.12, openAmt);
-          rp.thumb = THREE.MathUtils.lerp(0.84, 0.22, openAmt);
-          rp.index = 0.42;
+          rp.middle = THREE.MathUtils.lerp(0.94, 0.12, openAmt);
+          rp.ring = THREE.MathUtils.lerp(0.96, 0.10, openAmt);
+          rp.pinky = THREE.MathUtils.lerp(0.96, 0.10, openAmt);
+          rp.thumb = THREE.MathUtils.lerp(0.34, 0.16, openAmt);
           rp.indexRingHook = 1.0;
-          out.kPosY += bell(t, 0.62, 0.88) * 0.045;
-          out.rRotY += env * 0.38;
-          out.rRotZ += env * 0.42;
+          out.rRotY += env * 0.34;
+          out.rRotZ += env * 0.36;
           if (t > 0.32) cue(1, () => CaseAudio.spinWhoosh(1.08));
           if (t > 0.85) cue(2, () => CaseAudio.balisongClack(0.84));
         } else {
           const spinA = smoothstep(0.0, 0.30, t) * Math.PI * 2;
           const openA = bell(t, 0.0, 0.34);
           out.kRotZ += spinA;
-          rp.middle = THREE.MathUtils.lerp(0.96, 0.18, openA);
-          rp.ring = THREE.MathUtils.lerp(0.98, 0.16, openA);
-          rp.pinky = THREE.MathUtils.lerp(0.96, 0.16, openA);
-          rp.indexRingHook = THREE.MathUtils.lerp(0.55, 1.0, openA);
-          out.rRotY += env * 0.52;
-          out.rRotZ += Math.sin(smoothstep(0.28, 0.86, t) * Math.PI * 2) * 0.65;
+          rp.middle = THREE.MathUtils.lerp(0.94, 0.14, openA);
+          rp.ring = THREE.MathUtils.lerp(0.96, 0.12, openA);
+          rp.pinky = THREE.MathUtils.lerp(0.96, 0.12, openA);
+          rp.thumb = THREE.MathUtils.lerp(0.34, 0.18, openA);
+          rp.indexRingHook = 1.0;
+          out.rRotY += env * 0.48;
+          out.rRotZ += Math.sin(smoothstep(0.28, 0.86, t) * Math.PI * 2) * 0.58;
         }
       } else if (kt === 'butterfly') {
         if (isUncommon) {
@@ -4739,6 +4855,7 @@
       wpn.magWell = { x: 0, y: -0.022, z: -0.072, rotX: 0, width: 0.030, depth: 0.074, bottomY: -0.084, bottomZ: -0.072 };
       wpn.stockMount = { x: 0, y: 0.006, z: 0.092, faceW: 0.038, faceH: 0.074 };
       wpn.gripSpec = { isPanel: true, pos: [0, -0.052, 0.058], size: [0.046, 0.068, 0.035], rotX: 0.24 };
+      wpn.apexMount = { x: -0.022, y: 0.028, z: -0.205, parent: g, scale: 1.0 };
       wpn.ironEyePoint = [0, 0.094, 0.128];
 
     } else if (wt === 'deagle') {
@@ -4943,6 +5060,7 @@
       wpn.magWell = { x: 0, y: -0.098, z: 0.042, rotX: 0.24, width: 0.027, depth: 0.040, bottomY: -0.104, bottomZ: 0.045, isPistolMag: true };
       wpn.stockMount = null;
       wpn.gripSpec = { isPanel: true, pos: [0, -0.052, 0.032], size: [0.037, 0.086, 0.045], rotX: 0.24 };
+      wpn.apexMount = { x: -0.017, y: 0.012, z: -0.105, parent: modelRoot, scale: 0.72 };
       wpn.ironEyePoint = [0, 0.071, 0.044];
 
     } else if (wt === 'smg') {
@@ -5074,6 +5192,7 @@
       wpn.magWell = { x: 0, y: -0.054, z: -0.118, rotX: 0.24, width: 0.024, depth: 0.032, bottomY: -0.165, bottomZ: -0.148, isCantMag: true };
       wpn.stockMount = { x: 0, y: 0.014, z: 0.085, faceW: 0.036, faceH: 0.048 };
       wpn.gripSpec = { shape: gripShape, thickness: 0.029 };
+      wpn.apexMount = { x: -0.021, y: 0.022, z: -0.068, parent: g, scale: 0.88 };
       wpn.ironEyePoint = [0, 0.062, 0.055];
 
     } else if (wt === 'shotgun') {
@@ -5207,6 +5326,7 @@
       wpn.magWell = { isShotgun: true, tubeY: -0.002, tubeStartZ: -0.155, tubeTipZ: -0.568, sideSaddlePos: [-0.024, 0.013, -0.044], drumPos: [0, -0.068, -0.060] };
       wpn.stockMount = { x: 0, y: 0.004, z: 0.078, faceW: 0.036, faceH: 0.052 };
       wpn.gripSpec = { shape: gripShape, thickness: 0.031 };
+      wpn.apexMount = { x: -0.021, y: 0.026, z: -0.105, parent: g, scale: 0.88 };
       wpn.ironEyePoint = [0, 0.050, -0.035];
 
     } else if (wt === 'pistol') {
@@ -5336,6 +5456,7 @@
       wpn.magWell = { x: 0, y: -0.092, z: 0.043, rotX: 0.16, width: 0.022, depth: 0.036, bottomY: -0.100, bottomZ: 0.046, isPistolMag: true };
       wpn.stockMount = null;
       wpn.gripSpec = { shape: gripShape, thickness: 0.026 };
+      wpn.apexMount = { x: -0.014, y: 0.003, z: -0.092, parent: inner, scale: 0.65 };
       wpn.ironEyePoint = [0, 0.049, 0.054];
 
     } else {
@@ -5540,6 +5661,7 @@
       wpn.magWell = { x: 0, y: -0.010, z: -0.095, rotX: -0.32, width: 0.026, depth: 0.058, bottomY: -0.146, bottomZ: -0.146, isAkCurve: true };
       wpn.stockMount = { x: 0, y: 0.012, z: 0.095, faceW: 0.036, faceH: 0.038 };
       wpn.gripSpec = { shape: gripShape, thickness: 0.029 };
+      wpn.apexMount = { x: -0.021, y: 0.020, z: -0.175, parent: g, scale: 0.92 };
       wpn.ironEyePoint = [0, 0.063, -0.126];
     }
 
@@ -6224,6 +6346,87 @@
       }
     }
 
+    // 8) APEX Kit: Side-rail Chrono Gyro Stabilizer / Phase Anchor (mounts flush to left receiver flank!)
+    if (atts.apex && wpn.apexMount) {
+      const am = wpn.apexMount;
+      const isPhase = atts.apex === 'chrono_overclock';
+      const glowHex = isPhase ? 0xffb020 : 0x38e8ff;
+      const apexGrp = new THREE.Group();
+      apexGrp.position.set(am.x, am.y, am.z);
+      apexGrp.scale.setScalar(am.scale || 1.0);
+
+      // Flush Picatinny side-clamp seated 2.5mm into receiver wall (zero air gap!)
+      const clampBlock = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.018, 0.056), darkMetal);
+      clampBlock.position.set(0.001, 0, 0);
+      apexGrp.add(clampBlock);
+
+      // Machined CNC Chrono Gyro housing
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.025, 0.068), gunmetal);
+      chassis.position.set(-0.009, 0, 0);
+      apexGrp.add(chassis);
+
+      // Skin-matched top accent cap on the Apex housing
+      const topCap = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.005, 0.054), skinMat);
+      topCap.position.set(-0.009, 0.0135, 0);
+      makeSkinned(topCap, uvBounds);
+      apexGrp.add(topCap);
+
+      // Precision recessed gyro chamber bezel facing camera (-X)
+      const bezel = new THREE.Mesh(new THREE.CylinderGeometry(0.0108, 0.0114, 0.005, 16), darkMetal);
+      bezel.rotation.z = Math.PI / 2;
+      bezel.position.set(-0.016, 0, 0);
+      apexGrp.add(bezel);
+
+      // Glowing dual-ring precision temporal gyroscope + energy core
+      const ringMat = new THREE.MeshStandardMaterial({
+        color: glowHex,
+        emissive: glowHex,
+        emissiveIntensity: 0.95,
+        roughness: 0.2,
+        metalness: 0.7
+      });
+      const outerRing = new THREE.Mesh(new THREE.TorusGeometry(0.0086, 0.0013, 8, 20), ringMat);
+      outerRing.rotation.y = Math.PI / 2;
+      outerRing.position.set(-0.0185, 0, 0);
+      apexGrp.add(outerRing);
+
+      const innerRing = new THREE.Mesh(new THREE.TorusGeometry(0.0052, 0.0011, 8, 16), ringMat);
+      innerRing.position.set(-0.0185, 0, 0);
+      apexGrp.add(innerRing);
+
+      const coreMat = new THREE.MeshBasicMaterial({ color: glowHex });
+      const coreOrb = new THREE.Mesh(new THREE.OctahedronGeometry(0.0026, 0), coreMat);
+      coreOrb.position.set(-0.0185, 0, 0);
+      apexGrp.add(coreOrb);
+
+      // Twin status indicator pips fore & aft
+      for (const dz of [-0.024, 0.024]) {
+        const pip = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.0036, 0.007), coreMat);
+        pip.position.set(-0.0162, 0.004, dz);
+        apexGrp.add(pip);
+      }
+
+      if (isPhase) {
+        // Phase Anchor extra heat-sink cooling fins on fore/aft collar
+        for (const dz of [-0.018, 0.018]) {
+          const fin = new THREE.Mesh(new THREE.BoxGeometry(0.017, 0.029, 0.004), brightSteel);
+          fin.position.set(-0.0095, 0, dz);
+          apexGrp.add(fin);
+        }
+      }
+
+      const targetParent = am.parent || g;
+      targetParent.add(apexGrp);
+      g.userData.chronoGyro = {
+        group: apexGrp,
+        outerRing,
+        innerRing,
+        coreOrb,
+        ringMat,
+        tier: isPhase ? 2 : 1
+      };
+    }
+
     g.userData.opticEyePoint = opticEyePoint;
     g.userData.opticEyeY = opticEyePoint.y;
     g.userData.weaponType = wt;
@@ -6362,6 +6565,34 @@
     out.rPose.thumb = THREE.MathUtils.lerp(spec.rightPose.thumb, 0.76, handOff);
   }
 
+  // Exact inverse-compensated right-hand shift for V-47 right-side AK charging handle rack
+  // so the left hand braces the handguard steadily and NEVER reaches through the receiver!
+  function applyV47RightHandRack(out, spec, handOff, rackPull) {
+    if (handOff <= 0.0001 && rackPull <= 0.0001) return;
+    const dx = handOff * 0.044;
+    const dy = handOff * 0.072;
+    const dz = -handOff * 0.062 + rackPull * 0.058;
+    const cosC = Math.cos(-RIGHT_HAND_GRIP_ROLL);
+    const sinC = Math.sin(-RIGHT_HAND_GRIP_ROLL);
+
+    out.rx += dx;
+    out.ry += dy;
+    out.rz += dz;
+    // Counter-translate V-47 inside rightHandPivot so the rifle stays braced steady in the left hand
+    out.wPosX -= (dx * cosC - dy * sinC);
+    out.wPosY -= (dx * sinC + dy * cosC);
+    out.wPosZ -= dz;
+    out.rRotZ -= rackPull * 0.06;
+    out.boltPull = Math.max(out.boltPull, rackPull * 0.058);
+
+    // Hooked index/middle fingers pulling the upturned AK charging handle straight back
+    out.rPose.index = THREE.MathUtils.lerp(spec.rightPose.index, 0.84, handOff);
+    out.rPose.middle = THREE.MathUtils.lerp(spec.rightPose.middle, 0.68, handOff);
+    out.rPose.ring = THREE.MathUtils.lerp(spec.rightPose.ring, 0.48, handOff);
+    out.rPose.pinky = THREE.MathUtils.lerp(spec.rightPose.pinky, 0.40, handOff);
+    out.rPose.thumb = THREE.MathUtils.lerp(spec.rightPose.thumb, 0.62, handOff);
+  }
+
   // Authentic real-world firearm reloads, hand-racking, M870 twin-shell bottom loading, and AWP bolt cycling
   function evaluateWeaponReloadAndAction(wt, state, out, playAudio) {
     const spec = WEAPON_GRIP_SPECS[wt] || WEAPON_GRIP_SPECS.rifle;
@@ -6496,28 +6727,31 @@
     }
 
     if (wt === 'rifle') {
-      // V-47 AK-47: Rock out/in curved banana mag (0.0..0.64) -> Left hand racks right-side (+X) AK charging handle (0.66..0.96)
-      const magEnv = smoothstep(0.0, 0.14, t) * (1 - smoothstep(0.56, 0.66, t));
-      const magPull = bell(t, 0.12, 0.56);
-      const rackEnv = smoothstep(0.65, 0.74, t) * (1 - smoothstep(0.88, 0.98, t));
-      const rackPull = bell(t, 0.73, 0.90);
+      // V-47 AK-47: Left hand rocks out/in curved banana mag (0.0..0.60), returns to brace handguard,
+      // then RIGHT firing hand cleanly racks the right-side (+X) AK charging handle (0.68..0.97) — zero clipping!
+      const magEnv = smoothstep(0.0, 0.14, t) * (1 - smoothstep(0.54, 0.65, t));
+      const magPull = bell(t, 0.12, 0.55);
 
-      out.ry -= magEnv * 0.048 - rackEnv * 0.018;
-      out.rRotX -= magEnv * 0.22 - rackEnv * 0.10;
-      out.rRotY -= magEnv * 0.18 + rackEnv * 0.18;
-      out.rRotZ += magEnv * 0.34 - rackEnv * 0.32; // Roll slightly left during rack to expose right-side AK charging handle!
+      out.ry -= magEnv * 0.048;
+      out.rRotX -= magEnv * 0.22;
+      out.rRotY -= magEnv * 0.18;
+      out.rRotZ += magEnv * 0.34;
 
-      // Mag swap reach (z = -0.245 -> -0.11 => dz = +0.135) + right-side charging handle reach (x = +0.048, y = +0.030, z = -0.056)
-      out.leftAnchorOffX += magEnv * 0.008 + rackEnv * 0.052;
-      out.leftAnchorOffY += magEnv * (-0.075 - magPull * 0.085) + rackEnv * 0.042;
-      out.leftAnchorOffZ += magEnv * 0.138 + rackEnv * (0.195 + rackPull * 0.058);
-      out.leftRelOffX += -magEnv * 0.24 + rackEnv * 0.26;
-      out.leftRelOffY += magEnv * 0.16 - rackEnv * 0.34;
-      out.leftRelOffZ += -magEnv * 0.32 - rackEnv * 0.68;
+      // Left hand ONLY reaches straight down to the curved mag (stays cleanly on -X/center underside!)
+      out.leftAnchorOffX += -magEnv * 0.008;
+      out.leftAnchorOffY += magEnv * (-0.075 - magPull * 0.085);
+      out.leftAnchorOffZ += magEnv * 0.138;
+      out.leftRelOffX -= magEnv * 0.24;
+      out.leftRelOffY += magEnv * 0.16;
+      out.leftRelOffZ -= magEnv * 0.32;
 
       out.magDropY = -magPull * 0.108;
       out.magTiltX = -magPull * 0.34;
-      out.boltPull = Math.max(out.boltPull, rackPull * 0.058);
+
+      // Right hand lifts off pistol grip on the +X side to rack the right-side charging handle
+      const handOff = smoothstep(0.67, 0.76, t) * (1 - smoothstep(0.89, 0.98, t));
+      const rackPull = bell(t, 0.74, 0.91);
+      applyV47RightHandRack(out, spec, handOff, rackPull);
 
       if (playAudio && t > 0.74 && !(state.reloadCueMask & 1)) {
         state.reloadCueMask |= 1;
@@ -6568,8 +6802,8 @@
     out.rRotY -= magEnv * 0.14 - rackEnv * 0.24;
     out.rRotZ += magEnv * 0.34 + rackEnv * 0.28;
 
-    // Left hand drops to magazine baseplate, then rises over rear slide serrations to rack back!
-    out.leftAnchorOffX += -rackEnv * 0.012;
+    // Left hand drops to magazine baseplate, then hugs left side of rear slide serrations to rack back cleanly!
+    out.leftAnchorOffX += -rackEnv * 0.022;
     out.leftAnchorOffY += magEnv * (-0.068 - magPull * 0.072) + rackEnv * 0.094;
     out.leftAnchorOffZ += magEnv * 0.022 + rackEnv * (-0.008 + rackPull * 0.038);
     out.leftRelOffX += -magEnv * 0.24 + rackEnv * 0.22;
@@ -7512,13 +7746,30 @@
 
       applyWeaponMechanicalParts(mesh, wt, _weaponOut, reloadArc, boltArc, weaponAnim.slideKick, weaponAnim.hammerKick);
       lockSupportHandToWeapon(rig, mesh, wt, reloadArc, _weaponOut);
+
+      // Spin & energize mounted Apex Chrono Gyro core live with ADS hangtime weight
+      const gyro = mesh.userData.chronoGyro;
+      if (gyro) {
+        const cw = Math.max(0, Math.min(1, chronoGyroWeight));
+        const spinRate = 1.6 + cw * (gyro.tier >= 2 ? 14.0 : 10.5);
+        gyro.outerRing.rotation.x += dt * spinRate;
+        gyro.innerRing.rotation.z -= dt * spinRate * 1.45;
+        gyro.innerRing.rotation.x += dt * spinRate * 0.7;
+        gyro.coreOrb.rotation.y += dt * (2.5 + cw * 9.0);
+        const s = 1.0 + cw * 0.24;
+        gyro.coreOrb.scale.setScalar(s);
+        gyro.ringMat.emissiveIntensity = 0.85 + cw * 2.25;
+      }
     }
 
-    function update(dt, playerState, sharedAdsProgress) {
+    let chronoGyroWeight = 0;
+
+    function update(dt, playerState, sharedAdsProgress, chronoWeight) {
       if (!rig || !currentItem) return;
       if (Number.isFinite(sharedAdsProgress)) {
         adsProgress = Math.max(0, Math.min(1, sharedAdsProgress));
       }
+      chronoGyroWeight = Number.isFinite(chronoWeight) ? Math.max(0, Math.min(1, chronoWeight)) : 0;
       const damp = Math.min(1, dt * 11);
 
       swayX += (0 - swayX) * Math.min(1, dt * 10);
@@ -7643,15 +7894,19 @@
     let pCamera = null;
     let pEnv = null;
 
+    let studioFloorGroup = null;
     let soloPivot = null;
     let soloKnifeMesh = null;
+
+    let runnerPivot = null;
+    let runnerMesh = null;
 
     let comboPivot = null;
     let comboRig = null;
     let comboKnifeMesh = null;
 
-    let previewMode = 'combo'; // 'combo' | 'solo'
-    let previewKind = 'knife'; // 'knife' | 'weapon'
+    let previewMode = 'combo'; // 'combo' | 'solo' | 'runner'
+    let previewKind = 'knife'; // 'knife' | 'weapon' | 'runner'
     let currentKnife = KS.createStarterKnife();
     let currentWeapon = KS.createStarterWeapon('rifle');
     let currentAttachments = {};
@@ -7660,8 +7915,17 @@
 
     let yaw = 0.08;
     let pitch = 0.06;
+    let targetYaw = 0.08;
+    let targetPitch = 0.06;
+    let targetCamX = 0;
+    let targetCamY = 0.02;
+    let targetCamZ = 0.56;
+    let targetLookX = 0;
+    let targetLookY = 0;
+    let camLerpActive = false;
     let dragging = false;
     let lastX = 0, lastY = 0;
+    let contextLost = false;
 
     let soloTrickT = 1;
     let soloTrickCueMask = 0;
@@ -7682,9 +7946,265 @@
     let rafId = 0;
     let active = false;
 
+    function buildStudioFloor() {
+      const grp = new THREE.Group();
+
+      // Radial studio floor texture with subtle obsidian spotlight & tactical ring
+      const texCanvas = document.createElement('canvas');
+      texCanvas.width = 512;
+      texCanvas.height = 512;
+      const tctx = texCanvas.getContext('2d');
+      const g = tctx.createRadialGradient(256, 256, 16, 256, 256, 248);
+      g.addColorStop(0.0, 'rgba(32, 68, 92, 0.52)');
+      g.addColorStop(0.32, 'rgba(15, 31, 46, 0.44)');
+      g.addColorStop(0.68, 'rgba(7, 14, 22, 0.24)');
+      g.addColorStop(1.0, 'rgba(5, 10, 17, 0.0)');
+      tctx.fillStyle = g;
+      tctx.fillRect(0, 0, 512, 512);
+
+      // Subtle tactical crosshair ring on floor
+      tctx.strokeStyle = 'rgba(101, 231, 255, 0.16)';
+      tctx.lineWidth = 2;
+      tctx.beginPath();
+      tctx.arc(256, 256, 138, 0, Math.PI * 2);
+      tctx.stroke();
+
+      tctx.strokeStyle = 'rgba(255, 184, 77, 0.14)';
+      tctx.lineWidth = 1.5;
+      tctx.setLineDash([12, 16]);
+      tctx.beginPath();
+      tctx.arc(256, 256, 176, 0, Math.PI * 2);
+      tctx.stroke();
+      tctx.setLineDash([]);
+
+      const floorTex = new THREE.CanvasTexture(texCanvas);
+      floorTex.colorSpace = THREE.SRGBColorSpace;
+      const floorGeo = new THREE.CircleGeometry(2.6, 48);
+      const floorMat = new THREE.MeshStandardMaterial({
+        map: floorTex,
+        transparent: true,
+        roughness: 0.78,
+        metalness: 0.22,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1
+      });
+      const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.rotation.x = -Math.PI / 2;
+      grp.add(floorMesh);
+
+      // Soft contact shadow directly under center subject
+      const shadowCanvas = document.createElement('canvas');
+      shadowCanvas.width = 256;
+      shadowCanvas.height = 256;
+      const sctx = shadowCanvas.getContext('2d');
+      const sg = sctx.createRadialGradient(128, 128, 8, 128, 128, 120);
+      sg.addColorStop(0, 'rgba(0, 0, 0, 0.62)');
+      sg.addColorStop(0.55, 'rgba(0, 0, 0, 0.22)');
+      sg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      sctx.fillStyle = sg;
+      sctx.fillRect(0, 0, 256, 256);
+      const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+      shadowTex.colorSpace = THREE.SRGBColorSpace;
+      const shadowMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.1, 1.1),
+        new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.85 })
+      );
+      shadowMesh.rotation.x = -Math.PI / 2;
+      shadowMesh.position.y = 0.008;
+      grp.add(shadowMesh);
+
+      return grp;
+    }
+
+    function buildRunnerOperatorModel(weaponItem, attachments, gloveItem, targetRenderer) {
+      const rootGrp = new THREE.Group();
+      const upperBody = new THREE.Group();
+      rootGrp.add(upperBody);
+
+      // PBR materials with clear roughness/metalness separation
+      const suitMat = new THREE.MeshStandardMaterial({ color: 0x131d29, roughness: 0.82, metalness: 0.14 });
+      const armorMat = new THREE.MeshStandardMaterial({ color: 0x1e2c3c, roughness: 0.48, metalness: 0.42 });
+      const darkTrimMat = new THREE.MeshStandardMaterial({ color: 0x0b1118, roughness: 0.62, metalness: 0.28 });
+      const bootMat = new THREE.MeshStandardMaterial({ color: 0x0d131b, roughness: 0.72, metalness: 0.18 });
+      const visorMat = new THREE.MeshStandardMaterial({
+        color: 0x102838,
+        emissive: 0x2692b8,
+        emissiveIntensity: 0.65,
+        roughness: 0.14,
+        metalness: 0.92
+      });
+      const cyanAccentMat = new THREE.MeshStandardMaterial({
+        color: 0x65e7ff,
+        emissive: 0x4fd2ef,
+        emissiveIntensity: 0.9,
+        roughness: 0.25,
+        metalness: 0.5
+      });
+      const amberAccentMat = new THREE.MeshStandardMaterial({
+        color: 0xffb84d,
+        emissive: 0xd98a26,
+        emissiveIntensity: 0.72,
+        roughness: 0.3,
+        metalness: 0.55
+      });
+
+      // Procedural glove texture matching player's equipped glove skin!
+      const cleanGlove = KS.sanitizeGloveItem(gloveItem || KS.createStarterGlove());
+      const glovePaint = paintGloveToCanvases(cleanGlove, 256);
+      const gloveMap = new THREE.CanvasTexture(glovePaint.albedoCanvas);
+      gloveMap.colorSpace = THREE.SRGBColorSpace;
+      const gloveMat = new THREE.MeshStandardMaterial({
+        map: gloveMap,
+        roughness: 0.64,
+        metalness: 0.22
+      });
+
+      const addPart = (parent, geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => {
+        const m = new THREE.Mesh(geo, mat);
+        m.position.set(x, y, z);
+        m.rotation.set(rx, ry, rz);
+        parent.add(m);
+        return m;
+      };
+
+      // Grounded tactical stance: pivot at y = 0 (soles flush with studio floor)
+      // Left & Right Legs + Boots + Knee Pads
+      for (const side of [-1, 1]) {
+        const lx = side * 0.135;
+        const lz = side < 0 ? 0.035 : -0.04;
+        // Boot sole + upper
+        addPart(rootGrp, new THREE.BoxGeometry(0.11, 0.08, 0.22), bootMat, lx, 0.04, lz + 0.03, 0, side * 0.1, 0);
+        addPart(rootGrp, new THREE.CylinderGeometry(0.056, 0.062, 0.12, 12), bootMat, lx, 0.12, lz);
+        // Lower leg / greave
+        addPart(rootGrp, new THREE.CylinderGeometry(0.064, 0.056, 0.34, 12), suitMat, lx, 0.34, lz, side < 0 ? -0.05 : 0.06, 0, 0);
+        // Armored knee pad
+        addPart(rootGrp, new THREE.BoxGeometry(0.095, 0.10, 0.07), armorMat, lx, 0.51, lz + 0.045);
+        // Upper thigh
+        addPart(rootGrp, new THREE.CylinderGeometry(0.082, 0.068, 0.36, 12), suitMat, lx * 0.96, 0.71, lz * 0.6);
+        // Side thigh rig pouch / holster
+        addPart(rootGrp, new THREE.BoxGeometry(0.045, 0.15, 0.10), darkTrimMat, lx + side * 0.075, 0.70, lz * 0.5);
+      }
+
+      // Pelvis & Tactical Utility Belt
+      addPart(rootGrp, new THREE.BoxGeometry(0.32, 0.15, 0.20), suitMat, 0, 0.92, 0);
+      addPart(rootGrp, new THREE.BoxGeometry(0.35, 0.065, 0.225), darkTrimMat, 0, 0.96, 0);
+      addPart(rootGrp, new THREE.BoxGeometry(0.07, 0.048, 0.03), amberAccentMat, 0, 0.96, 0.118);
+
+      // Upper Body (subtle breathing animation group pivoted at waist)
+      upperBody.position.set(0, 0.98, 0);
+
+      // Torso Core + Armored Plate Carrier
+      addPart(upperBody, new THREE.BoxGeometry(0.34, 0.44, 0.21), suitMat, 0, 0.24, 0);
+      addPart(upperBody, new THREE.BoxGeometry(0.31, 0.35, 0.245), armorMat, 0, 0.26, 0.01);
+      // Chest tactical mag pouches (3 across front)
+      for (let i = -1; i <= 1; i++) {
+        addPart(upperBody, new THREE.BoxGeometry(0.068, 0.11, 0.042), darkTrimMat, i * 0.082, 0.16, 0.145);
+      }
+      // Collar guard + velocity chest chevron light
+      addPart(upperBody, new THREE.CylinderGeometry(0.11, 0.14, 0.07, 14), armorMat, 0, 0.46, 0.0);
+      addPart(upperBody, new THREE.BoxGeometry(0.11, 0.018, 0.02), cyanAccentMat, 0, 0.36, 0.138);
+      addPart(upperBody, new THREE.BoxGeometry(0.055, 0.014, 0.02), amberAccentMat, 0.095, 0.39, 0.136);
+
+      // Tactical Backpack / Thruster Spine Pack
+      addPart(upperBody, new THREE.BoxGeometry(0.24, 0.32, 0.11), darkTrimMat, 0, 0.27, -0.155);
+      addPart(upperBody, new THREE.BoxGeometry(0.03, 0.18, 0.02), cyanAccentMat, -0.07, 0.27, -0.21);
+      addPart(upperBody, new THREE.BoxGeometry(0.03, 0.18, 0.02), cyanAccentMat, 0.07, 0.27, -0.21);
+
+      // Neck & Tactical Ballistic Helmet + Reflective Visor
+      const headGrp = new THREE.Group();
+      headGrp.position.set(0, 0.56, 0.01);
+      headGrp.rotation.y = -0.14;
+      upperBody.add(headGrp);
+
+      addPart(headGrp, new THREE.CylinderGeometry(0.062, 0.07, 0.10, 12), darkTrimMat, 0, -0.03, 0);
+      // Lower face balaclava / respirator
+      addPart(headGrp, new THREE.SphereGeometry(0.105, 18, 16), darkTrimMat, 0, 0.06, 0.005);
+      // Helmet dome shell
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(0.126, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
+        armorMat
+      );
+      dome.position.set(0, 0.08, -0.005);
+      headGrp.add(dome);
+      // Helmet brim + NVG shroud mount + side rails + ear comms
+      addPart(headGrp, new THREE.BoxGeometry(0.055, 0.045, 0.035), darkTrimMat, 0, 0.145, 0.118, -0.2, 0, 0);
+      addPart(headGrp, new THREE.BoxGeometry(0.025, 0.014, 0.02), amberAccentMat, 0, 0.155, 0.135);
+      addPart(headGrp, new THREE.BoxGeometry(0.036, 0.075, 0.075), darkTrimMat, -0.126, 0.075, -0.01);
+      addPart(headGrp, new THREE.BoxGeometry(0.036, 0.075, 0.075), darkTrimMat, 0.126, 0.075, -0.01);
+      // Curved ballistic visor
+      const visor = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.114, 0.110, 0.062, 18, 1, true, -Math.PI * 0.36, Math.PI * 0.72),
+        visorMat
+      );
+      visor.position.set(0, 0.088, 0.018);
+      headGrp.add(visor);
+
+      // Shoulders + Articulated Arms in COD Low-Ready Weapon Hold
+      for (const side of [-1, 1]) {
+        // Armored shoulder pauldron
+        addPart(upperBody, new THREE.SphereGeometry(0.086, 14, 12), armorMat, side * 0.22, 0.40, 0);
+        addPart(upperBody, new THREE.BoxGeometry(0.018, 0.06, 0.07), side > 0 ? amberAccentMat : cyanAccentMat, side * 0.28, 0.40, 0.01);
+      }
+
+      // Right arm (trigger hand tucked near right chest / pistol grip)
+      addPart(upperBody, new THREE.CylinderGeometry(0.054, 0.048, 0.26, 12), suitMat, -0.23, 0.26, 0.04, -0.35, 0, 0.22);
+      addPart(upperBody, new THREE.CylinderGeometry(0.046, 0.040, 0.24, 12), suitMat, -0.17, 0.15, 0.17, -1.18, 0.22, -0.18);
+      addPart(upperBody, new THREE.BoxGeometry(0.068, 0.062, 0.082), gloveMat, -0.10, 0.15, 0.26, 0.1, 0.3, 0);
+
+      // Left arm (support hand reaching forward under handguard)
+      addPart(upperBody, new THREE.CylinderGeometry(0.054, 0.048, 0.26, 12), suitMat, 0.23, 0.26, 0.06, -0.52, 0, -0.26);
+      addPart(upperBody, new THREE.CylinderGeometry(0.046, 0.040, 0.25, 12), suitMat, 0.15, 0.18, 0.20, -1.25, -0.45, 0.24);
+      addPart(upperBody, new THREE.BoxGeometry(0.068, 0.062, 0.082), gloveMat, 0.075, 0.20, 0.285, 0.05, -0.3, 0);
+
+      // Live 3D Equipped Primary Weapon held across chest!
+      const weaponPivot = new THREE.Group();
+      weaponPivot.position.set(0.02, 0.20, 0.295);
+      upperBody.add(weaponPivot);
+
+      const cleanWep = KS.sanitizeWeaponItem(weaponItem || KS.createStarterWeapon('rifle'));
+      const wepModel = buildWeaponModel(cleanWep, targetRenderer, attachments || {});
+      // Orient weapon across chest barrel pointing right-downward (COD low-ready hero pose)
+      wepModel.rotation.set(0.14, Math.PI * 0.44, -0.22);
+      const wBox = new THREE.Box3().setFromObject(wepModel);
+      const wCenter = new THREE.Vector3();
+      const wSize = new THREE.Vector3();
+      wBox.getCenter(wCenter);
+      wBox.getSize(wSize);
+      const wMax = Math.max(wSize.x, wSize.y, wSize.z, 0.2);
+      const isShort = cleanWep.weaponType === 'smg' || cleanWep.weaponType === 'deagle' || cleanWep.weaponType === 'pistol';
+      const targetLen = isShort ? 0.56 : (cleanWep.weaponType === 'awp' ? 0.88 : 0.74);
+      const wScale = targetLen / wMax;
+      wepModel.scale.setScalar(wScale);
+      wepModel.position.set(-wCenter.x * wScale, -wCenter.y * wScale, -wCenter.z * wScale);
+      weaponPivot.add(wepModel);
+
+      rootGrp.userData.upperBody = upperBody;
+      rootGrp.userData.headGrp = headGrp;
+      rootGrp.userData.wepModel = wepModel;
+      return rootGrp;
+    }
+
     function ensureInit(canvas) {
       if (pRenderer && canvasEl === canvas) return;
+      if (pRenderer && canvasEl !== canvas) {
+        stopLoop();
+        try { pRenderer.dispose(); } catch (_) {}
+        pRenderer = null;
+        pScene = null;
+        pCamera = null;
+        soloPivot = null;
+        soloKnifeMesh = null;
+        runnerPivot = null;
+        runnerMesh = null;
+        comboPivot = null;
+        comboRig = null;
+        comboKnifeMesh = null;
+        studioFloorGroup = null;
+      }
       canvasEl = canvas;
+      contextLost = false;
       pRenderer = new THREE.WebGLRenderer({
         canvas,
         antialias: !(typeof isSoftwareGl !== 'undefined' && isSoftwareGl),
@@ -7693,26 +8213,36 @@
       });
       pRenderer.outputColorSpace = THREE.SRGBColorSpace;
       pRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-      pRenderer.toneMappingExposure = 1.20;
+      pRenderer.toneMappingExposure = 1.24;
 
       pScene = new THREE.Scene();
-      pCamera = new THREE.PerspectiveCamera(44, 1.6, 0.02, 20);
+      pCamera = new THREE.PerspectiveCamera(42, 1.6, 0.02, 24);
       pCamera.position.set(0, 0.02, 0.56);
       pCamera.lookAt(0, 0, 0);
 
       pEnv = createStudioEnvMap(pRenderer);
       pScene.environment = pEnv;
 
-      pScene.add(new THREE.HemisphereLight(0xd2f1ff, 0x162230, 1.34));
-      const key = new THREE.DirectionalLight(0xfff4e2, 2.60);
-      key.position.set(1.8, 2.5, 2.2);
+      // Balanced 3-point obsidian studio lighting (warm key + cool cyan rim + hemisphere fill)
+      pScene.add(new THREE.HemisphereLight(0xd6f3ff, 0x101c28, 1.38));
+      const key = new THREE.DirectionalLight(0xfff1dc, 2.75);
+      key.position.set(2.1, 2.8, 2.4);
       pScene.add(key);
-      const rim = new THREE.DirectionalLight(0x65e7ff, 1.90);
-      rim.position.set(-2.2, 1.1, -1.5);
+      const rim = new THREE.DirectionalLight(0x65e7ff, 2.15);
+      rim.position.set(-2.4, 1.4, -1.8);
       pScene.add(rim);
+      const amberKick = new THREE.DirectionalLight(0xffb84d, 0.85);
+      amberKick.position.set(1.6, 0.4, -2.0);
+      pScene.add(amberKick);
+
+      studioFloorGroup = buildStudioFloor();
+      pScene.add(studioFloorGroup);
 
       soloPivot = new THREE.Group();
       pScene.add(soloPivot);
+
+      runnerPivot = new THREE.Group();
+      pScene.add(runnerPivot);
 
       comboPivot = new THREE.Group();
       comboRig = buildHandsRig();
@@ -7720,25 +8250,43 @@
       comboPivot.add(comboRig.rootRig);
       pScene.add(comboPivot);
 
-      canvas.addEventListener('pointerdown', (e) => {
-        dragging = true;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        canvas.setPointerCapture?.(e.pointerId);
-      });
-      canvas.addEventListener('pointermove', (e) => {
-        if (!dragging) return;
-        const dx = e.clientX - lastX;
-        const dy = e.clientY - lastY;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        yaw += dx * 0.012;
-        pitch = Math.max(-0.95, Math.min(0.95, pitch + dy * 0.01));
-        renderOnce();
-      });
-      const stopDrag = () => { dragging = false; };
-      canvas.addEventListener('pointerup', stopDrag);
-      canvas.addEventListener('pointercancel', stopDrag);
+      if (!canvas.__velBoundOrbit) {
+        canvas.__velBoundOrbit = true;
+        canvas.addEventListener('webglcontextlost', (e) => {
+          e.preventDefault();
+          contextLost = true;
+        });
+        canvas.addEventListener('webglcontextrestored', () => {
+          contextLost = false;
+          renderOnce();
+        });
+        canvas.addEventListener('pointerdown', (e) => {
+          dragging = true;
+          camLerpActive = false;
+          lastX = e.clientX;
+          lastY = e.clientY;
+          canvas.setPointerCapture?.(e.pointerId);
+        });
+        canvas.addEventListener('pointermove', (e) => {
+          if (!dragging) return;
+          const dx = e.clientX - lastX;
+          const dy = e.clientY - lastY;
+          lastX = e.clientX;
+          lastY = e.clientY;
+          yaw += dx * 0.011;
+          targetYaw = yaw;
+          if (previewMode === 'runner') {
+            pitch = Math.max(-0.18, Math.min(0.24, pitch + dy * 0.005));
+          } else {
+            pitch = Math.max(-0.95, Math.min(0.95, pitch + dy * 0.009));
+          }
+          targetPitch = pitch;
+          renderOnce();
+        });
+        const stopDrag = () => { dragging = false; };
+        canvas.addEventListener('pointerup', stopDrag);
+        canvas.addEventListener('pointercancel', stopDrag);
+      }
     }
 
     function resize() {
@@ -7755,6 +8303,18 @@
 
     function rebuildModels() {
       if (!pRenderer) return;
+      if (previewMode === 'runner') {
+        if (runnerMesh) {
+          runnerPivot.remove(runnerMesh);
+          disposeGroupResources(runnerMesh);
+          runnerMesh = null;
+        }
+        runnerMesh = buildRunnerOperatorModel(currentWeapon, currentAttachments, currentGlove, pRenderer);
+        runnerPivot.add(runnerMesh);
+        applyModeVisibility();
+        return;
+      }
+
       if (soloKnifeMesh) {
         soloPivot.remove(soloKnifeMesh);
         disposeGroupResources(soloKnifeMesh);
@@ -7772,7 +8332,7 @@
       box.getCenter(center);
       box.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z, 0.2);
-      const fitScale = (previewKind === 'weapon' ? (gunsmithMode ? 0.50 : 0.45) : 0.38) / maxDim;
+      const fitScale = (previewKind === 'weapon' ? (gunsmithMode ? 0.62 : 0.48) : 0.40) / maxDim;
       soloKnifeMesh.scale.setScalar(fitScale);
       soloKnifeMesh.position.set(-center.x * fitScale, -center.y * fitScale, -center.z * fitScale);
       soloPivot.add(soloKnifeMesh);
@@ -7796,24 +8356,56 @@
     }
 
     function applyModeVisibility() {
-      if (!soloPivot || !comboPivot || !pCamera) return;
+      if (!soloPivot || !comboPivot || !runnerPivot || !pCamera) return;
       const isCombo = previewMode === 'combo';
+      const isRunner = previewMode === 'runner';
       comboPivot.visible = isCombo;
-      soloPivot.visible = !isCombo;
-      if (isCombo) {
+      runnerPivot.visible = isRunner;
+      soloPivot.visible = !isCombo && !isRunner;
+      if (studioFloorGroup) {
+        studioFloorGroup.visible = !isCombo;
+        if (isRunner) {
+          studioFloorGroup.position.set(0, 0, 0);
+          studioFloorGroup.scale.setScalar(1.0);
+        } else {
+          studioFloorGroup.position.set(0, -0.22, 0);
+          studioFloorGroup.scale.setScalar(0.55);
+        }
+      }
+
+      if (isRunner) {
+        pCamera.fov = 36;
+        // Shift camera target slightly left so the Runner stands heroically on the open right half
+        targetCamX = -0.32;
+        targetCamY = 1.18;
+        targetCamZ = 2.68;
+        targetLookX = -0.34;
+        targetLookY = 1.04;
+        pCamera.position.set(targetCamX, targetCamY, targetCamZ);
+        pCamera.lookAt(targetLookX, targetLookY, 0);
+      } else if (isCombo) {
         pCamera.fov = 44;
         if (previewKind === 'weapon') {
           const isPistol = currentWeapon && (currentWeapon.weaponType === 'deagle' || currentWeapon.weaponType === 'pistol');
-          pCamera.position.set(0.03, 0.08, isPistol ? 0.50 : 0.78);
-          pCamera.lookAt(0.0, -0.015, 0.0);
+          targetCamX = 0.03; targetCamY = 0.08; targetCamZ = isPistol ? 0.50 : 0.78;
+          targetLookX = 0.0; targetLookY = -0.015;
         } else {
-          pCamera.position.set(0.01, 0.10, 0.50);
-          pCamera.lookAt(0.01, 0.045, 0);
+          targetCamX = 0.01; targetCamY = 0.10; targetCamZ = 0.50;
+          targetLookX = 0.01; targetLookY = 0.045;
         }
+        pCamera.position.set(targetCamX, targetCamY, targetCamZ);
+        pCamera.lookAt(targetLookX, targetLookY, 0);
       } else {
-        pCamera.fov = 36;
-        pCamera.position.set(0, 0.015, 0.47);
-        pCamera.lookAt(0, 0, 0);
+        pCamera.fov = gunsmithMode ? 34 : 36;
+        targetCamX = 0;
+        targetCamY = gunsmithMode ? 0.01 : 0.015;
+        targetCamZ = gunsmithMode ? 0.86 : 0.50;
+        targetLookX = 0;
+        targetLookY = gunsmithMode ? -0.015 : 0;
+        if (!camLerpActive) {
+          pCamera.position.set(targetCamX, targetCamY, targetCamZ);
+          pCamera.lookAt(targetLookX, targetLookY, 0);
+        }
       }
       pCamera.updateProjectionMatrix();
     }
@@ -7823,17 +8415,21 @@
       resize();
       const options = opts || {};
       gunsmithMode = false;
+      camLerpActive = false;
       currentAttachments = {};
       previewKind = 'knife';
       currentKnife = KS.sanitizeKnifeItem(knifeItem || currentKnife || KS.createStarterKnife());
       currentGlove = KS.sanitizeGloveItem(gloveItem || currentGlove || KS.createStarterGlove());
       if (options.mode === 'solo' || options.mode === 'combo') {
         previewMode = options.mode;
+      } else if (previewMode === 'runner') {
+        previewMode = 'combo';
       }
       rebuildModels();
 
       yaw = previewMode === 'combo' ? 0.0 : 0.28;
       pitch = previewMode === 'combo' ? 0.04 : 0.10;
+      targetYaw = yaw; targetPitch = pitch;
       soloTrickT = 1;
       soloTrickCueMask = 0;
       comboAnimState.drawT = 1;
@@ -7849,17 +8445,21 @@
       resize();
       const options = opts || {};
       gunsmithMode = false;
+      camLerpActive = false;
       currentAttachments = options.attachments && typeof options.attachments === 'object' ? Object.assign({}, options.attachments) : {};
       previewKind = 'weapon';
       currentWeapon = KS.sanitizeWeaponItem(weaponItem || currentWeapon || KS.createStarterWeapon('rifle'));
       currentGlove = KS.sanitizeGloveItem(gloveItem || currentGlove || KS.createStarterGlove());
       if (options.mode === 'solo' || options.mode === 'combo') {
         previewMode = options.mode;
+      } else if (previewMode === 'runner') {
+        previewMode = 'combo';
       }
       rebuildModels();
 
       yaw = previewMode === 'combo' ? -0.78 : 0.22;
       pitch = previewMode === 'combo' ? 0.06 : 0.08;
+      targetYaw = yaw; targetPitch = pitch;
       soloTrickT = 1;
       soloTrickCueMask = 0;
       comboAnimState.drawT = 1;
@@ -7870,13 +8470,29 @@
       startLoop();
     }
 
-    function showGunsmithWeapon(canvas, weaponItem, attachments, opts) {
-      const prevCanvas = canvasEl;
-      if (pRenderer && prevCanvas !== canvas) {
-        stopLoop();
-        try { pRenderer.dispose(); } catch (_) {}
-        pRenderer = null;
+    function showRunnerShowcase(canvas, weaponItem, attachments, gloveItem, opts) {
+      ensureInit(canvas);
+      resize();
+      const options = opts || {};
+      gunsmithMode = false;
+      camLerpActive = false;
+      previewMode = 'runner';
+      previewKind = 'runner';
+      currentWeapon = KS.sanitizeWeaponItem(weaponItem || currentWeapon || KS.createStarterWeapon('rifle'));
+      currentAttachments = attachments && typeof attachments === 'object' ? Object.assign({}, attachments) : {};
+      currentGlove = KS.sanitizeGloveItem(gloveItem || currentGlove || KS.createStarterGlove());
+      rebuildModels();
+      if (options.resetCamera !== false) {
+        yaw = -0.22;
+        pitch = 0.02;
+        targetYaw = yaw;
+        targetPitch = pitch;
       }
+      active = true;
+      startLoop();
+    }
+
+    function showGunsmithWeapon(canvas, weaponItem, attachments, opts) {
       ensureInit(canvas);
       resize();
       const options = opts || {};
@@ -7887,18 +8503,33 @@
       currentAttachments = attachments && typeof attachments === 'object' ? Object.assign({}, attachments) : {};
       rebuildModels();
       if (options.resetCamera !== false) {
-        const focusYaw = {
-          optic: -0.22,
-          muzzle: 0.42,
-          barrel: 0.34,
-          underbarrel: 0.25,
-          magazine: -0.15,
-          ammo: -0.15,
-          rearGrip: -0.45,
-          stock: -0.58
+        const focusMap = {
+          none:        { y: 0.06,  p: 0.06, z: 0.86, lx: 0.00, ly: -0.015 },
+          optic:       { y: -0.14, p: 0.14, z: 0.72, lx: -0.02, ly: 0.03 },
+          muzzle:      { y: 0.28,  p: 0.05, z: 0.74, lx: 0.14,  ly: 0.00 },
+          barrel:      { y: 0.22,  p: 0.07, z: 0.76, lx: 0.10,  ly: 0.01 },
+          underbarrel: { y: 0.18,  p: -0.06,z: 0.74, lx: 0.06,  ly: -0.03 },
+          magazine:    { y: -0.10, p: -0.08,z: 0.74, lx: -0.02, ly: -0.05 },
+          ammo:        { y: -0.14, p: -0.06,z: 0.75, lx: -0.03, ly: -0.04 },
+          rearGrip:    { y: -0.30, p: 0.04, z: 0.74, lx: -0.10, ly: -0.03 },
+          stock:       { y: -0.38, p: 0.06, z: 0.76, lx: -0.15, ly: 0.00 },
+          apex:        { y: -0.26, p: 0.10, z: 0.72, lx: -0.04, ly: 0.02 }
         };
-        yaw = focusYaw[options.focusSlot] !== undefined ? focusYaw[options.focusSlot] : 0.16;
-        pitch = options.focusSlot === 'optic' ? 0.16 : 0.08;
+        const f = focusMap[options.focusSlot] || focusMap.none;
+        targetYaw = f.y;
+        targetPitch = f.p;
+        targetCamZ = f.z;
+        targetLookX = f.lx;
+        targetLookY = f.ly;
+        if (options.instantCamera) {
+          yaw = targetYaw;
+          pitch = targetPitch;
+          pCamera.position.set(0, 0.01, targetCamZ);
+          pCamera.lookAt(targetLookX, targetLookY, 0);
+          camLerpActive = false;
+        } else {
+          camLerpActive = true;
+        }
       }
       soloTrickT = 1;
       active = true;
@@ -7906,7 +8537,7 @@
     }
 
     function showKnife(canvas, knifeItem, gloveItem) {
-      showCombo(canvas, knifeItem, gloveItem || currentGlove, { mode: previewMode });
+      showCombo(canvas, knifeItem, gloveItem || currentGlove, { mode: previewMode === 'runner' ? 'combo' : previewMode });
     }
 
     function setMode(mode) {
@@ -7914,10 +8545,12 @@
       applyModeVisibility();
       yaw = previewMode === 'combo' ? (previewKind === 'weapon' ? -0.78 : 0.0) : 0.28;
       pitch = previewMode === 'combo' ? (previewKind === 'weapon' ? 0.06 : 0.04) : 0.10;
+      targetYaw = yaw; targetPitch = pitch;
       renderOnce();
     }
 
     function playTrick(tier = 'normal') {
+      if (previewMode === 'runner') return;
       if (previewKind === 'weapon') {
         const wt = currentWeapon.weaponType;
         const wTier = tier === 'mythic' || tier === 'uncommon' ? 'uncommon' : 'normal';
@@ -8018,8 +8651,10 @@
     }
 
     function renderOnce() {
-      if (!pRenderer || !pScene || !pCamera) return;
-      if (previewMode === 'combo') {
+      if (!pRenderer || !pScene || !pCamera || contextLost) return;
+      if (previewMode === 'runner') {
+        if (runnerPivot) runnerPivot.rotation.set(pitch * 0.35, yaw, 0);
+      } else if (previewMode === 'combo') {
         updateComboRig(0);
         comboPivot.rotation.set(pitch, yaw, 0);
       } else {
@@ -8034,7 +8669,30 @@
       const dt = Math.min(0.05, (now - lastTick) / 1000);
       lastTick = now;
 
-      if (previewMode === 'combo') {
+      if (previewMode === 'runner') {
+        if (!dragging) {
+          // Gentle alive idle sway around current user yaw
+          const breathe = Math.sin(now * 0.0018);
+          if (runnerMesh && runnerMesh.userData.upperBody) {
+            runnerMesh.userData.upperBody.position.y = 0.98 + breathe * 0.006;
+            runnerMesh.userData.upperBody.rotation.x = breathe * 0.008;
+          }
+          if (runnerMesh && runnerMesh.userData.headGrp) {
+            runnerMesh.userData.headGrp.rotation.y = -0.14 + Math.sin(now * 0.0007) * 0.06;
+          }
+        }
+        if (runnerMesh && runnerMesh.userData.wepModel && runnerMesh.userData.wepModel.userData && runnerMesh.userData.wepModel.userData.chronoGyro) {
+          const g = runnerMesh.userData.wepModel.userData.chronoGyro;
+          g.outerRing.rotation.x += dt * 3.4;
+          g.innerRing.rotation.z -= dt * 4.8;
+          g.innerRing.rotation.x += dt * 2.1;
+          g.coreOrb.rotation.y += dt * 4.0;
+          g.ringMat.emissiveIntensity = 1.35 + Math.sin(now * 0.005) * 0.45;
+        }
+        if (runnerPivot) {
+          runnerPivot.rotation.set(pitch * 0.35, yaw, 0);
+        }
+      } else if (previewMode === 'combo') {
         if (!dragging && comboAnimState.inspectT >= 1) {
           const baseYaw = previewKind === 'weapon' ? -0.78 : 0.0;
           const swayAmp = previewKind === 'weapon' ? 0.20 : 0.28;
@@ -8045,9 +8703,22 @@
           comboPivot.rotation.set(pitch, yaw, 0);
         }
       } else {
-        if (!dragging) {
-          yaw += dt * (gunsmithMode ? 0.18 : 0.42);
+        if (gunsmithMode && camLerpActive && !dragging) {
+          const k = 1 - Math.exp(-7.5 * dt);
+          yaw += (targetYaw - yaw) * k;
+          pitch += (targetPitch - pitch) * k;
+          pCamera.position.z += (targetCamZ - pCamera.position.z) * k;
+          pCamera.lookAt(targetLookX, targetLookY, 0);
+          if (Math.abs(targetYaw - yaw) < 0.003 && Math.abs(targetPitch - pitch) < 0.003 && Math.abs(targetCamZ - pCamera.position.z) < 0.003) {
+            camLerpActive = false;
+          }
+        } else if (!dragging && !gunsmithMode) {
+          yaw += dt * 0.42;
+        } else if (!dragging && gunsmithMode) {
+          // Subtle COD hero weapon float breath without spinning away from attachment nodes
+          if (soloPivot) soloPivot.position.y = Math.sin(now * 0.0014) * 0.006;
         }
+
         if (soloKnifeMesh && soloTrickT < 1) {
           soloTrickT = Math.min(1, soloTrickT + dt / 1.55);
           const t = soloTrickT;
@@ -8070,7 +8741,6 @@
               }
             }
           } else if (soloKnifeMesh.userData.bladePivot && soloKnifeMesh.userData.biteHandlePivot) {
-            // Physically valid balisong turntable flip: hinge angles stay strictly within [0, Math.PI].
             const f1 = bell(t, 0.04, 0.52);
             const f2 = bell(t, 0.50, 0.96);
             soloKnifeMesh.userData.bladePivot.rotation.z = Math.min(Math.PI, f1 * 2.55 + f2 * 1.15);
@@ -8103,13 +8773,21 @@
             soloKnifeMesh.userData.biteHandlePivot.rotation.z = 0;
           }
         }
+        if (soloKnifeMesh && soloKnifeMesh.userData && soloKnifeMesh.userData.chronoGyro) {
+          const g = soloKnifeMesh.userData.chronoGyro;
+          g.outerRing.rotation.x += dt * 3.4;
+          g.innerRing.rotation.z -= dt * 4.8;
+          g.innerRing.rotation.x += dt * 2.1;
+          g.coreOrb.rotation.y += dt * 4.0;
+          g.ringMat.emissiveIntensity = 1.35 + Math.sin(now * 0.005) * 0.45;
+        }
         if (soloPivot) {
           soloPivot.rotation.x = pitch;
           soloPivot.rotation.y = yaw;
         }
       }
 
-      if (pRenderer && pScene && pCamera) {
+      if (pRenderer && pScene && pCamera && !contextLost) {
         pRenderer.render(pScene, pCamera);
       }
       if (typeof isSoftwareGl !== 'undefined' && isSoftwareGl) {
@@ -8136,6 +8814,7 @@
       showCombo,
       showWeaponCombo,
       showGunsmithWeapon,
+      showRunnerShowcase,
       showKnife,
       setMode,
       getMode: () => previewMode,

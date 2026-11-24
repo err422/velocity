@@ -17,7 +17,7 @@ test('expanded 6-weapon roster separates Primary (4) and Secondary (2) cleanly',
   assert.deepEqual(LoadoutsSystem.PRIMARY_WEAPON_IDS, ['rifle', 'smg', 'shotgun', 'awp']);
   assert.deepEqual(LoadoutsSystem.SECONDARY_WEAPON_IDS, ['deagle', 'pistol']);
   assert.equal(LoadoutsSystem.WEAPON_IDS.length, 6);
-  assert.equal(LoadoutsSystem.ATTACHMENT_SLOT_IDS.length, 8);
+  assert.equal(LoadoutsSystem.ATTACHMENT_SLOT_IDS.length, 9);
   assert.equal(LoadoutsSystem.MAX_ATTACHMENTS, 5);
   assert.equal(LoadoutsSystem.LOADOUT_COUNT, 5);
 
@@ -222,10 +222,13 @@ test('localStorage persistence self-heals from backup and cloud merge preserves 
   assert.equal(typeof payload.equippedWeaponSkins, 'object');
 });
 
-test('firestore.rules defines hardened /userLoadouts/{uid} rules and expanded 6-weapon allowlist', () => {
+test('firestore.rules defines hardened /userLoadouts/{uid} rules and expanded 6-weapon + Apex slot allowlists', () => {
   const rulesText = fs.readFileSync(path.join(__dirname, '..', 'firestore.rules'), 'utf8');
   assert.ok(rulesText.includes('match /userLoadouts/{uid}'));
   assert.ok(rulesText.includes('isValidUserLoadoutsCreate'));
   assert.ok(rulesText.includes('isValidUserLoadoutsUpdate'));
   assert.ok(rulesText.includes("'smg'") && rulesText.includes("'shotgun'") && rulesText.includes("'pistol'"));
+  for (const slotId of LoadoutsSystem.ATTACHMENT_SLOT_IDS) {
+    assert.ok(rulesText.includes(`'${slotId}'`), `Expected attachment slot '${slotId}' to be allowlisted in firestore.rules`);
+  }
 });

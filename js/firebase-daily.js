@@ -574,6 +574,10 @@ async function writeUserInventorySummaryLocked(inventory) {
 
   if (existingSnap && existingSnap.exists()) {
     try {
+      const existingData = existingSnap.data() || {};
+      const existingOpened = Number.isFinite(Number(existingData.totalOpened))
+        ? Math.max(0, Math.min(99999, Math.floor(Number(existingData.totalOpened))))
+        : 0;
       await updateDoc(invRef, {
         coins: payload.coins,
         equippedKnifeId: payload.equippedKnifeId,
@@ -582,7 +586,7 @@ async function writeUserInventorySummaryLocked(inventory) {
         equippedAwpId: payload.equippedAwpId,
         equippedDeagleId: payload.equippedDeagleId,
         caseCounts: payload.caseCounts,
-        totalOpened: Math.max(payload.totalOpened, existingSnap.data().totalOpened || 0),
+        totalOpened: Math.max(payload.totalOpened, existingOpened),
         lastDailyDropDate: payload.lastDailyDropDate,
         updatedAt: serverTimestamp()
       });

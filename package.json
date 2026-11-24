@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "test": "node --test tests/ghost.test.js tests/daily.test.js tests/surf.test.js tests/settings.test.js tests/knives.test.js tests/combat.test.js tests/loadouts.test.js",
-    "build": "node -c server.js && node -c js/core.js && node -c js/settings.js && node -c js/knives-data.js && node -c js/loadouts-data.js && node -c js/viewmodel.js && node -c js/combat.js && node -c js/surf.js && node -c js/world.js && node -c js/sandbox.js && node -c js/course.js && node -c js/course-preview.js && node -c js/arenas.js && node -c js/daily.js && node -c js/ghost.js && node -c js/netcode.js && node -c js/player.js && node -c js/main.js",
-    "lint": "npx eslint firestore.rules && node -c server.js && node -c js/core.js && node -c js/settings.js && node -c js/knives-data.js && node -c js/loadouts-data.js && node -c js/viewmodel.js && node -c js/combat.js && node -c js/surf.js && node -c js/world.js && node -c js/sandbox.js && node -c js/course.js && node -c js/course-preview.js && node -c js/arenas.js && node -c js/daily.js && node -c js/ghost.js && node -c js/netcode.js && node -c js/player.js && node -c js/main.js"
+    "test": "node --test tests/ghost.test.js tests/daily.test.js tests/surf.test.js tests/settings.test.js tests/knives.test.js tests/combat.test.js tests/loadouts.test.js tests/bot-ai.test.js",
+    "build": "node -c server.js && node -c js/core.js && node -c js/settings.js && node -c js/knives-data.js && node -c js/loadouts-data.js && node -c js/viewmodel.js && node -c js/bot-ai.js && node -c js/combat.js && node -c js/surf.js && node -c js/world.js && node -c js/sandbox.js && node -c js/course.js && node -c js/course-preview.js && node -c js/arenas.js && node -c js/daily.js && node -c js/ghost.js && node -c js/netcode.js && node -c js/player.js && node -c js/main.js",
+    "lint": "npx eslint firestore.rules && node -c server.js && node -c js/core.js && node -c js/settings.js && node -c js/knives-data.js && node -c js/loadouts-data.js && node -c js/viewmodel.js && node -c js/bot-ai.js && node -c js/combat.js && node -c js/surf.js && node -c js/world.js && node -c js/sandbox.js && node -c js/course.js && node -c js/course-preview.js && node -c js/arenas.js && node -c js/daily.js && node -c js/ghost.js && node -c js/netcode.js && node -c js/player.js && node -c js/main.js"
   },
   "dependencies": {
     "express": "^4.21.2"

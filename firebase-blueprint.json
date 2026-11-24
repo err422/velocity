@@ -298,9 +298,12 @@
           "properties": {
             "velocity": { "type": "integer" },
             "chroma": { "type": "integer" },
-            "spectrum": { "type": "integer" }
+            "spectrum": { "type": "integer" },
+            "blacksite": { "type": "integer" },
+            "overdrive": { "type": "integer" },
+            "eclipse": { "type": "integer" }
           },
-          "required": ["velocity", "chroma", "spectrum"]
+          "required": ["velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse"]
         },
         "totalOpened": {
           "type": "integer"
@@ -357,7 +360,7 @@
         },
         "skinId": {
           "type": "string",
-          "enum": ["vanilla", "ultraviolet", "damascus", "crimson_web", "slaughter", "tiger_tooth", "fade", "marble_fade", "doppler", "case_hardened"]
+          "enum": ["vanilla", "ultraviolet", "damascus", "crimson_web", "slaughter", "tiger_tooth", "fade", "marble_fade", "doppler", "case_hardened", "emberstrike", "arctic_veil"]
         },
         "rarity": {
           "type": "string",
@@ -382,7 +385,7 @@
         },
         "caseId": {
           "type": "string",
-          "enum": ["starter", "velocity", "chroma", "spectrum"]
+          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse"]
         },
         "createdAt": {
           "type": "string",
@@ -440,7 +443,10 @@
             "leather",
             "slaughter",
             "cobalt_skulls",
-            "overprint"
+            "overprint",
+            "breachline",
+            "stormgrid",
+            "eclipse_mantle"
           ]
         },
         "rarity": {
@@ -466,7 +472,7 @@
         },
         "caseId": {
           "type": "string",
-          "enum": ["starter", "velocity", "chroma", "spectrum"]
+          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse"]
         },
         "createdAt": {
           "type": "string",
@@ -525,7 +531,13 @@
             "hyper_chroma",
             "fade",
             "case_hardened",
-            "dragon_gold"
+            "dragon_gold",
+            "hazard_pay",
+            "coldfront",
+            "redshift",
+            "nitro",
+            "solarflare",
+            "voidglass"
           ]
         },
         "rarity": {
@@ -545,7 +557,7 @@
         "bluePct": { "type": "integer" },
         "caseId": {
           "type": "string",
-          "enum": ["starter", "velocity", "chroma", "spectrum"]
+          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse"]
         },
         "createdAt": {
           "type": "string",
@@ -633,7 +645,7 @@
     },
     "UserLoadouts": {
       "title": "UserLoadouts",
-      "description": "Private owner-only 5 custom loadouts, Gunsmith attachments, per-weapon XP, and equipped weapon skins.",
+      "description": "Private owner-only 5 custom loadouts, Gunsmith attachments (including Apex Chrono Kit), per-weapon XP, and equipped weapon skins.",
       "type": "object",
       "properties": {
         "uid": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "minLength": 1, "maxLength": 128 },

@@ -19,6 +19,8 @@
   .unit{font-size:11px;color:#8da8ba;margin-left:5px}
   .small-stat{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;transition:color .12s}
   .small-stat.surfing{color:var(--cyan);text-shadow:0 0 14px rgba(101,231,255,.45)}
+  .small-stat.chrono{color:#7af4ff;text-shadow:0 0 18px rgba(78,238,255,.62)}
+  .small-stat.chrono-phase{color:#ffc266;text-shadow:0 0 18px rgba(255,176,72,.68)}
   .rightstats{position:absolute;right:24px;top:22px;text-align:right}
   .timer{font-size:29px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
   .pb{font-size:11px;color:#8ca7ba;margin-top:3px;font-variant-numeric:tabular-nums}
@@ -325,6 +327,15 @@
   .srv-warmup-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
   .srv-warmup-btn{padding:11px 12px;font-size:10px;letter-spacing:.12em;text-align:left;display:flex;flex-direction:column;gap:3px}
   .srv-warmup-btn small{font-size:9px;opacity:.76;font-weight:600;letter-spacing:.08em}
+  .bot-diff-wrap{margin:8px 0 10px;padding:9px 10px;background:rgba(4,12,20,.72);border:1px solid rgba(111,210,238,.2)}
+  .bot-diff-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px;font-size:9px;letter-spacing:.12em}
+  .bot-diff-title{color:#8eb5c7;font-weight:800;text-transform:uppercase}
+  .bot-diff-meta{color:var(--orange);font-weight:800;font-variant-numeric:tabular-nums}
+  .bot-diff-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .bot-diff-btn{padding:6px 6px;font-size:9px;font-weight:800;letter-spacing:.1em;border:1px solid rgba(126,190,213,.24);background:rgba(9,22,34,.84);color:#b7d5e4;cursor:pointer;transition:border-color .14s,background .14s,color .14s}
+  .bot-diff-btn:hover{border-color:rgba(101,231,255,.55);color:#ffffff}
+  .bot-diff-btn.active{border-color:rgba(101,231,255,.85);background:rgba(46,188,211,.22);color:#ffffff;box-shadow:inset 0 0 0 1px rgba(101,231,255,.32)}
+  .bot-diff-desc{margin-top:6px;font-size:9px;color:#8cb0c2;letter-spacing:.05em}
 
   /* Combat HUD */
   #weaponHud{position:absolute;right:24px;bottom:56px;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
@@ -366,6 +377,9 @@
   #hitmarker::after{transform:translate(-50%,-50%) rotate(-45deg)}
 
   #damageVignette{position:fixed;inset:0;pointer-events:none;opacity:0;box-shadow:inset 0 0 110px 28px rgba(255,48,78,.72);transition:opacity .08s}
+  #chronoVignette{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:2;background:radial-gradient(ellipse at center,transparent 56%,rgba(34,218,248,.16) 84%,rgba(12,140,184,.38) 100%);box-shadow:inset 0 0 90px 14px rgba(72,236,255,.32);transition:opacity .09s linear}
+  #chronoVignette[data-tier="2"]{background:radial-gradient(ellipse at center,transparent 54%,rgba(255,168,56,.18) 84%,rgba(196,104,22,.42) 100%);box-shadow:inset 0 0 96px 16px rgba(255,178,72,.38)}
+  @media (prefers-reduced-motion: reduce){#chronoVignette{transition:none}}
 
   #awpScopeOverlay{position:fixed;inset:0;pointer-events:none;display:none;z-index:3}
   .scope-mask{position:absolute;inset:0;background:radial-gradient(circle at center,transparent 0%,transparent 35%,#03060a 37.5%,#020408 100%)}
@@ -536,6 +550,9 @@
   .gs-cat-btn{display:flex;justify-content:space-between;align-items:center;gap:6px;width:100%;padding:9px 10px;background:rgba(7,17,27,.84);border:1px solid rgba(111,210,238,.16);color:#98b8cb;font-size:10px;font-weight:800;letter-spacing:.12em;text-align:left}
   .gs-cat-btn:hover{border-color:rgba(101,231,255,.55);color:#effaff;filter:none;transform:none}
   .gs-cat-btn.active{background:rgba(21,54,76,.94);border-color:var(--cyan);color:#ffffff;box-shadow:inset 2px 0 0 var(--cyan)}
+  .gs-cat-btn.apex{border-left:2px solid rgba(103,232,249,.62)}
+  .gs-cat-btn.apex.equipped{border-left-color:#ffbd59}
+  .gs-cat-btn.apex.equipped .gs-cat-dot{background:#ffbd59;border-color:#ffbd59}
   .gs-cat-btn.equipped .gs-cat-dot{background:var(--cyan);border-color:var(--cyan)}
   .gs-cat-dot{width:7px;height:7px;border:1px solid #486b80;flex-shrink:0}
   .gs-cat-sub{display:block;font-size:9px;font-weight:500;letter-spacing:.03em;color:#7296ab;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;text-transform:none}
@@ -577,6 +594,11 @@
   .gs-num-v{font-size:12px;font-weight:800;color:#edf9ff;margin-top:2px}
   .gs-num-v.pos{color:#6effa6}
   .gs-num-v.neg{color:#ff7b8d}
+  .gs-chrono-strip{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 9px;background:rgba(8,22,34,.92);border:1px solid rgba(103,232,249,.32);border-left:2px solid var(--cyan);font-size:10px;letter-spacing:.1em;font-variant-numeric:tabular-nums}
+  .gs-chrono-strip.phase{border-color:rgba(255,186,82,.42);border-left-color:#ffba52}
+  .gs-chrono-k{color:#8eb7cc;font-weight:800}
+  .gs-chrono-v{color:#8ef7ff;font-weight:800}
+  .gs-chrono-strip.phase .gs-chrono-v{color:#ffd082}
 
   .gs-skin-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:460px;overflow-y:auto;padding-right:4px}
   .gs-skin-card{display:flex;flex-direction:column;gap:5px;padding:9px;background:rgba(8,19,31,.86);border:1px solid rgba(111,210,238,.18);border-top:2px solid var(--rar-col,#4b69ff);color:#eaf7ff;text-align:left;text-transform:none}
@@ -1689,9 +1711,13 @@
   /* Spatial pause interface — a floating control surface over the live course */
   body[data-state="paused"] #overlay {
     display: grid;
-    place-items: center end;
-    padding: 24px clamp(28px, 8vw, 132px) 24px 24px;
-    overflow: hidden;
+    justify-items: end;
+    align-items: start;
+    padding: 20px clamp(28px, 8vw, 132px) 24px 24px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     background:
       linear-gradient(90deg, rgba(3,8,13,.02) 0%, rgba(3,8,13,.08) 52%, rgba(3,8,13,.20) 100%),
       radial-gradient(ellipse at 82% 50%, rgba(4,10,16,.18), transparent 52%);
@@ -1701,6 +1727,7 @@
     width: auto;
     max-width: min(430px, calc(100vw - 28px));
     max-height: none;
+    margin: auto 0;
     overflow: visible;
     padding: 0;
     border: 0;
@@ -1957,8 +1984,9 @@
   }
   @media (max-width: 760px) {
     body[data-state="paused"] #overlay {
-      place-items:center;
-      padding:16px;
+      justify-items: center;
+      align-items: start;
+      padding: 16px;
       background:rgba(2,7,12,.38);
     }
     body[data-state="paused"] #overlayCard.card {
@@ -1989,6 +2017,1295 @@
   .case-art-overdrive::before{background:repeating-linear-gradient(158deg,transparent 0 22px,rgba(75,229,239,.30) 22px 25px,transparent 25px 40px),linear-gradient(90deg,transparent 0 62%,rgba(255,67,176,.13) 62% 70%,transparent 70%)}
   .case-art-eclipse{background:radial-gradient(circle at 50% 48%,#473c66 0,#151324 42%,#070b12 78%)}
   .case-art-eclipse::before{inset:12px auto auto 50%;width:74px;height:74px;transform:translateX(-50%);border:1px solid rgba(198,154,85,.34);border-radius:50%;box-shadow:0 0 0 8px rgba(158,130,255,.06),0 0 24px rgba(158,130,255,.18)}
+
+  /* =========================================================================
+     COD-INSPIRED FULL-VIEWPORT OBSIDIAN TACTICAL STUDIO
+     (Create-a-Class Loadouts · Spatial 3D Gunsmith · Full-Screen Armory)
+     Zero backdrop-filter over WebGL canvases, zero pills, tabular numerals.
+     ========================================================================= */
+  body[data-state="loadouts"] #overlay,
+  body[data-state="armory"] #overlay {
+    padding: 0 !important;
+    background: #04080f !important;
+    backdrop-filter: none !important;
+  }
+  #overlayCard.card.studio-full {
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-width: 100vw !important;
+    max-height: 100dvh !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    background: radial-gradient(circle at 58% 46%, #102030 0%, #09131e 48%, #04080f 100%) !important;
+    box-shadow: none !important;
+    font-variant-numeric: tabular-nums;
+  }
+  #overlayCard.card.studio-full::before { display: none !important; }
+
+  /* Shared Studio Topbar & Tabs */
+  .cod-studio-root {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    color: #eaf4fa;
+  }
+  .cod-stage-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 0;
+    cursor: grab;
+  }
+  .cod-stage-canvas:active { cursor: grabbing; }
+  .cod-stage-vignette {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(4,9,15,.82) 0%, rgba(4,9,15,0) 15%, rgba(4,9,15,0) 76%, rgba(4,9,15,.90) 100%),
+      linear-gradient(90deg, rgba(4,9,15,.72) 0%, rgba(4,9,15,.22) 34%, rgba(4,9,15,0) 56%);
+  }
+  .cod-stage-vignette.gunsmith-vig {
+    background:
+      linear-gradient(180deg, rgba(4,9,15,.84) 0%, rgba(4,9,15,0) 18%, rgba(4,9,15,0) 72%, rgba(4,9,15,.92) 100%),
+      radial-gradient(ellipse at 50% 48%, rgba(4,9,15,0) 42%, rgba(4,9,15,.68) 100%);
+  }
+  .cod-topbar {
+    position: relative;
+    z-index: 6;
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+    align-items: center;
+    gap: 16px;
+    padding: 14px 24px 12px;
+    border-bottom: 1px solid rgba(101,231,255,.12);
+    background: linear-gradient(180deg, rgba(5,10,17,.92), rgba(5,10,17,.58));
+  }
+  .cod-topbar.two-col {
+    grid-template-columns: minmax(0,1fr) auto;
+  }
+  .cod-top-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .cod-top-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+  }
+  #overlay .cod-back-icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    margin: 0;
+    border: 1px solid rgba(140,185,205,.24);
+    border-radius: 3px;
+    background: rgba(10,19,30,.82);
+    color: #d4e8f3;
+    font-size: 16px;
+    font-weight: 900;
+  }
+  #overlay .cod-back-icon:hover {
+    border-color: rgba(101,231,255,.68);
+    background: rgba(18,38,52,.92);
+    color: #fff;
+    transform: none;
+  }
+  .cod-crumb {
+    color: #7d9ab0;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .cod-heading-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .cod-heading {
+    margin: 0;
+    color: #f3faff;
+    font-size: 22px;
+    font-weight: 950;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    line-height: 1.05;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cod-submeta {
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #8ca8bc;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    white-space: nowrap;
+  }
+  .cod-submeta strong { color: #ffb84d; font-weight: 800; }
+
+  /* Center COD Segmented Tab Bar */
+  .cod-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid rgba(130,175,198,.2);
+    border-radius: 3px;
+    background: rgba(7,14,22,.86);
+  }
+  #overlay .cod-tab {
+    width: auto;
+    margin: 0;
+    padding: 7px 16px;
+    border: 0;
+    border-radius: 2px;
+    background: transparent;
+    color: #8ba4b6;
+    font-size: 10px;
+    font-weight: 850;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  #overlay .cod-tab:hover {
+    color: #eef9ff;
+    background: rgba(101,231,255,.08);
+    transform: none;
+  }
+  #overlay .cod-tab.active {
+    background: #eaf7fc;
+    color: #07131c;
+    box-shadow: none;
+  }
+
+  /* Tactical Square Pips (5 regular + Apex diamond) */
+  .cod-pips {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .cod-pip {
+    width: 9px;
+    height: 9px;
+    border: 1px solid rgba(145,178,198,.38);
+    background: rgba(10,18,27,.72);
+    border-radius: 1px;
+  }
+  .cod-pip.filled {
+    background: #ffb84d;
+    border-color: #ffd388;
+    box-shadow: 0 0 8px rgba(255,184,77,.35);
+  }
+  .cod-pip-plus {
+    color: #6b879a;
+    font-size: 10px;
+    font-weight: 900;
+    margin: 0 1px;
+  }
+  .cod-pip-apex {
+    width: 9px;
+    height: 9px;
+    transform: rotate(45deg);
+    border: 1px solid rgba(101,231,255,.42);
+    background: rgba(10,18,27,.78);
+    margin-left: 2px;
+  }
+  .cod-pip-apex.filled {
+    background: #65e7ff;
+    border-color: #c2f8ff;
+    box-shadow: 0 0 10px rgba(101,231,255,.5);
+  }
+  .cod-pip-apex.phase {
+    background: #ffb84d;
+    border-color: #ffe0a8;
+    box-shadow: 0 0 10px rgba(255,184,77,.55);
+  }
+
+  /* Studio Bottom Footer Bar */
+  .cod-footer {
+    position: relative;
+    z-index: 6;
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 24px 16px;
+    border-top: 1px solid rgba(101,231,255,.10);
+    background: linear-gradient(0deg, rgba(4,9,15,.94), rgba(4,9,15,.48));
+  }
+  .cod-footer-left,
+  .cod-footer-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #overlay .cod-range-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+    margin: 0;
+    padding: 8px 14px;
+    border: 1px solid rgba(101,231,255,.46);
+    border-radius: 3px;
+    background: rgba(11,26,38,.90);
+    color: #e9f9ff;
+    font-size: 10px;
+    font-weight: 850;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  #overlay .cod-range-btn:hover {
+    background: #65e7ff;
+    border-color: #9bf2ff;
+    color: #06131c;
+    transform: none;
+  }
+  .cod-keycap {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border: 1px solid rgba(145,190,210,.45);
+    border-radius: 2px;
+    background: rgba(235,248,255,.12);
+    color: inherit;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0;
+  }
+  #overlay .cod-range-btn:hover .cod-keycap {
+    border-color: rgba(6,19,28,.45);
+    background: rgba(6,19,28,.12);
+  }
+  .cod-hints {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: #849fb2;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .cod-hints span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  /* =========================================================================
+     VIEW 1: COD CREATE-A-CLASS LOADOUTS OVERVIEW (#loadoutsOverviewView)
+     ========================================================================= */
+  #loadoutsPanel {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+  #loadoutsOverviewView,
+  #gunsmithView {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .ld-name-inline {
+    width: 210px;
+    max-width: 34vw;
+    padding: 5px 10px;
+    border: 1px solid rgba(125,175,198,.26);
+    border-radius: 3px;
+    background: rgba(9,18,28,.86);
+    color: #f4fbff;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .ld-name-inline:focus {
+    outline: 1px solid #65e7ff;
+    border-color: #65e7ff;
+  }
+  .cod-class-body {
+    position: relative;
+    z-index: 4;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    padding: 14px 24px 10px;
+    pointer-events: none;
+  }
+  /* Far-left vertical 01-05 rail */
+  .cod-num-rail {
+    pointer-events: auto;
+    width: 68px;
+    flex: 0 0 68px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 4px;
+  }
+  #overlay .cod-num-btn {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    height: 54px;
+    margin: 0;
+    padding: 6px 4px;
+    border: 1px solid rgba(125,170,192,.18);
+    border-radius: 3px;
+    background: rgba(8,16,25,.78);
+    color: #829cb0;
+    text-align: center;
+  }
+  #overlay .cod-num-btn:hover {
+    border-color: rgba(101,231,255,.48);
+    background: rgba(14,29,43,.88);
+    color: #e6f7ff;
+    transform: none;
+  }
+  #overlay .cod-num-btn.active {
+    border-color: rgba(255,184,77,.78);
+    background: linear-gradient(90deg, rgba(255,184,77,.22), rgba(14,28,42,.92));
+    color: #fff6e5;
+  }
+  .cod-num-idx {
+    font-size: 16px;
+    font-weight: 950;
+    line-height: 1;
+    letter-spacing: .04em;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .cod-num-star {
+    color: #ffb84d;
+    font-size: 10px;
+  }
+  .cod-num-mini {
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 7.5px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    opacity: .8;
+    text-transform: uppercase;
+  }
+
+  /* Left Translucent Class Card Stack */
+  .cod-class-stack {
+    pointer-events: auto;
+    width: 374px;
+    max-width: calc(100vw - 120px);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .cod-slot-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 11px 13px;
+    border: 1px solid rgba(125,175,198,.22);
+    border-radius: 3px;
+    background: rgba(8,16,26,.88);
+    transition: border-color .14s ease, background .14s ease;
+  }
+  .cod-slot-card.clickable { cursor: pointer; }
+  .cod-slot-card:hover {
+    border-color: rgba(101,231,255,.55);
+    background: rgba(11,22,35,.94);
+  }
+  .cod-slot-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .cod-slot-label {
+    color: #9bb7ca;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .cod-slot-mid {
+    display: grid;
+    grid-template-columns: 112px minmax(0,1fr);
+    gap: 11px;
+    align-items: center;
+  }
+  .cod-slot-thumb {
+    height: 54px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(125,175,198,.14);
+    border-radius: 2px;
+    background: radial-gradient(circle at 50% 50%, rgba(26,50,68,.55), rgba(6,13,21,.9));
+    overflow: hidden;
+  }
+  .cod-slot-thumb img {
+    max-width: 96%;
+    max-height: 48px;
+    object-fit: contain;
+    display: block;
+  }
+  .cod-slot-info { min-width: 0; }
+  .cod-slot-class {
+    color: #7e9bb0;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cod-slot-name {
+    margin: 2px 0 3px;
+    color: #f4fbff;
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cod-slot-unlocks {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: #8ea9bc;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .08em;
+  }
+  .cod-slot-unlocks b { color: #65e7ff; }
+  .cod-slot-unlocks .cod-gs-link {
+    color: #ffb84d;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .1em;
+    white-space: nowrap;
+  }
+  .cod-wep-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  #overlay .cod-wep-chip {
+    width: auto;
+    margin: 0;
+    padding: 4px 8px;
+    border: 1px solid rgba(125,175,198,.20);
+    border-radius: 2px;
+    background: rgba(11,22,34,.82);
+    color: #93afc2;
+    font-size: 8.5px;
+    font-weight: 850;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  #overlay .cod-wep-chip:hover {
+    border-color: rgba(101,231,255,.55);
+    color: #fff;
+    transform: none;
+  }
+  #overlay .cod-wep-chip.active {
+    border-color: #65e7ff;
+    background: rgba(101,231,255,.16);
+    color: #e9fbff;
+  }
+  .cod-mob-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 6px;
+  }
+  .cod-mob-cell {
+    padding: 6px 8px;
+    border: 1px solid rgba(125,175,198,.14);
+    border-radius: 2px;
+    background: rgba(6,13,22,.78);
+  }
+  .cod-mob-k {
+    color: #7491a4;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .cod-mob-v {
+    margin-top: 2px;
+    color: #e9f8ff;
+    font-size: 11px;
+    font-weight: 900;
+  }
+  .cod-mob-v.good { color: #6effa6; }
+
+  /* Right-side Runner operator badge floating lightly */
+  .cod-runner-badge {
+    position: absolute;
+    right: 28px;
+    bottom: 66px;
+    z-index: 4;
+    pointer-events: none;
+    text-align: right;
+  }
+  .cod-runner-kicker {
+    color: #7897ac;
+    font-size: 9px;
+    font-weight: 850;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+  .cod-runner-title {
+    margin-top: 2px;
+    color: #eaf7ff;
+    font-size: 16px;
+    font-weight: 950;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .cod-runner-sub {
+    margin-top: 2px;
+    color: #ffb84d;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  /* =========================================================================
+     VIEW 2: COD SPATIAL 3D GUNSMITH (#gunsmithView)
+     ========================================================================= */
+  .gs-xp-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .gs-xp-inline .gs-xp-bar {
+    width: 84px;
+    height: 4px;
+    background: rgba(130,175,198,.2);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .gs-xp-inline .gs-xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #65e7ff, #ffb84d);
+  }
+
+  .gs-stage-workspace {
+    position: relative;
+    z-index: 4;
+    flex: 1;
+    min-height: 0;
+    pointer-events: none;
+  }
+
+  /* 8 Perimeter Spatial Callout Nodes + Bottom Center Apex Diamond */
+  .gs-spatial-nodes {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  #overlay .gs-node {
+    pointer-events: auto;
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+    max-width: 218px;
+    margin: 0;
+    padding: 7px 11px;
+    border: 1px solid rgba(140,185,205,.28);
+    border-radius: 2px;
+    background: rgba(8,16,26,.82);
+    color: #c3dae7;
+    text-align: left;
+    transition: border-color .14s ease, background .14s ease, box-shadow .14s ease;
+  }
+  #overlay .gs-node:hover {
+    border-color: #65e7ff;
+    background: rgba(12,27,42,.95);
+    color: #fff;
+    box-shadow: 0 0 18px rgba(101,231,255,.18);
+    transform: translate(-50%, -50%);
+  }
+  #overlay .gs-node.equipped {
+    border-color: rgba(255,184,77,.65);
+    background: rgba(14,22,30,.90);
+    color: #fff6e6;
+  }
+  #overlay .gs-node.active {
+    border-color: #65e7ff;
+    background: rgba(14,34,50,.96);
+    box-shadow: 0 0 0 1px rgba(101,231,255,.5), 0 8px 24px rgba(0,0,0,.45);
+  }
+  .gs-node-check {
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    width: 14px;
+    height: 14px;
+    display: grid;
+    place-items: center;
+    background: #ffb84d;
+    color: #09131c;
+    font-size: 9px;
+    font-weight: 950;
+    border-radius: 1px;
+  }
+  .gs-node-plus {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(140,185,205,.38);
+    border-radius: 1px;
+    color: #9ec0d4;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .gs-node.equipped .gs-node-plus {
+    border-color: rgba(255,184,77,.5);
+    background: rgba(255,184,77,.14);
+    color: #ffb84d;
+    font-size: 9px;
+    font-weight: 900;
+  }
+  .gs-node-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .gs-node-title {
+    font-size: 10.5px;
+    font-weight: 900;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .gs-node-sub {
+    color: #829fb3;
+    font-size: 8.5px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .gs-node.equipped .gs-node-sub { color: #d8be92; }
+
+  /* Exact Spatial Node Coordinates around Centered 3D Weapon */
+  .gs-node[data-slot="barrel"]      { left: 24%; top: 20%; }
+  .gs-node[data-slot="optic"]       { left: 60%; top: 14%; }
+  .gs-node[data-slot="stock"]       { left: 82%; top: 24%; }
+  .gs-node[data-slot="muzzle"]      { left: 14%; top: 44%; }
+  .gs-node[data-slot="rearGrip"]    { left: 83%; top: 48%; }
+  .gs-node[data-slot="underbarrel"] { left: 26%; top: 64%; }
+  .gs-node[data-slot="magazine"]    { left: 56%; top: 69%; }
+  .gs-node[data-slot="ammo"]        { left: 76%; top: 67%; }
+
+  /* Centered Bottom APEX Diamond Node (like Screenshot 1) */
+  #overlay .gs-node-apex {
+    pointer-events: auto;
+    position: absolute;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    width: auto;
+    margin: 0;
+    padding: 8px 18px 6px;
+    border: 0;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: #d6eef9;
+  }
+  #overlay .gs-node-apex:hover { transform: translateX(-50%); }
+  .gs-apex-diamond {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    transform: rotate(45deg);
+    border: 1px solid rgba(101,231,255,.45);
+    background: rgba(8,18,29,.84);
+    box-shadow: 0 0 0 5px rgba(101,231,255,.06);
+    transition: border-color .14s ease, box-shadow .14s ease, background .14s ease;
+  }
+  .gs-apex-diamond span {
+    transform: rotate(-45deg);
+    font-size: 16px;
+    color: #65e7ff;
+    font-weight: 900;
+  }
+  #overlay .gs-node-apex:hover .gs-apex-diamond,
+  #overlay .gs-node-apex.active .gs-apex-diamond {
+    border-color: #65e7ff;
+    background: rgba(15,38,56,.95);
+    box-shadow: 0 0 22px rgba(101,231,255,.32);
+  }
+  #overlay .gs-node-apex.equipped .gs-apex-diamond {
+    border-color: #ffb84d;
+    background: rgba(34,24,12,.92);
+    box-shadow: 0 0 22px rgba(255,184,77,.35);
+  }
+  #overlay .gs-node-apex.equipped .gs-apex-diamond span { color: #ffb84d; }
+  .gs-apex-label {
+    font-size: 11px;
+    font-weight: 950;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    color: #eaf7ff;
+  }
+  .gs-apex-sub {
+    font-size: 8.5px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    color: #84a6bc;
+    text-transform: uppercase;
+  }
+  #overlay .gs-node-apex.equipped .gs-apex-sub { color: #ffb84d; }
+
+  /* Bottom-Left Telemetry HUD (COD Screenshot 1 Style) */
+  .gs-hud-stats {
+    pointer-events: auto;
+    position: absolute;
+    left: 24px;
+    bottom: 14px;
+    z-index: 5;
+    width: 440px;
+    max-width: calc(100vw - 48px);
+    padding: 12px 14px;
+    border: 1px solid rgba(125,175,198,.18);
+    border-radius: 3px;
+    background: rgba(6,13,22,.86);
+  }
+  .gs-hud-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(125,175,198,.12);
+  }
+  .gs-hud-budget {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 9.5px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    color: #c5dce8;
+    text-transform: uppercase;
+  }
+  .gs-hud-budget.full { color: #ffb84d; }
+  .gs-hud-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) 118px;
+    gap: 14px;
+    align-items: start;
+  }
+  .gs-bars-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .gs-cod-row {
+    display: grid;
+    grid-template-columns: 64px minmax(0,1fr) 54px;
+    align-items: center;
+    gap: 8px;
+  }
+  .gs-cod-k {
+    color: #8ea9bc;
+    font-size: 8.5px;
+    font-weight: 850;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .gs-cod-track {
+    position: relative;
+    height: 4px;
+    background: rgba(145,180,200,.18);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .gs-cod-base {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: #d8eef8;
+  }
+  .gs-cod-pos {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: #6effa6;
+  }
+  .gs-cod-neg {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: #ff6b6b;
+  }
+  .gs-cod-v {
+    text-align: right;
+    color: #e6f4fb;
+    font-size: 10px;
+    font-weight: 850;
+    white-space: nowrap;
+  }
+  .gs-cod-v .d-pos { color: #6effa6; margin-left: 3px; }
+  .gs-cod-v .d-neg { color: #ff6b6b; margin-left: 3px; }
+  .gs-nums-col {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding-left: 12px;
+    border-left: 1px solid rgba(125,175,198,.14);
+  }
+  .gs-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .gs-meta-k {
+    color: #7794a8;
+    font-size: 8px;
+    font-weight: 850;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+  }
+  .gs-meta-v {
+    color: #eef9ff;
+    font-size: 11px;
+    font-weight: 900;
+  }
+  .gs-meta-v.pos { color: #6effa6; }
+  .gs-meta-v.neg { color: #ff7e75; }
+  .gs-chrono-bar {
+    margin-top: 8px;
+    padding: 5px 8px;
+    border: 1px solid rgba(101,231,255,.32);
+    border-radius: 2px;
+    background: rgba(10,28,40,.85);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 8.5px;
+    font-weight: 850;
+    letter-spacing: .09em;
+    color: #8eeeff;
+  }
+  .gs-chrono-bar.phase {
+    border-color: rgba(255,184,77,.45);
+    background: rgba(34,22,12,.85);
+    color: #ffd388;
+  }
+
+  /* Slide-Over Right Attachment Drawer (#gsAttDrawer) */
+  .gs-drawer {
+    pointer-events: auto;
+    position: absolute;
+    top: 14px;
+    right: 24px;
+    bottom: 14px;
+    z-index: 8;
+    width: 348px;
+    max-width: calc(100vw - 48px);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(101,231,255,.32);
+    border-radius: 3px;
+    background: rgba(7,14,23,.95);
+    box-shadow: -14px 18px 42px rgba(0,0,0,.62);
+    overflow: hidden;
+  }
+  .gs-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(125,175,198,.16);
+    background: rgba(11,22,34,.92);
+  }
+  .gs-drawer-title {
+    color: #f4fbff;
+    font-size: 13px;
+    font-weight: 950;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .gs-drawer-sub {
+    margin-top: 2px;
+    color: #84a1b5;
+    font-size: 9.5px;
+    font-weight: 700;
+  }
+  #overlay .gs-drawer-close {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin: 0;
+    border: 1px solid rgba(135,180,202,.25);
+    border-radius: 2px;
+    background: rgba(10,20,31,.8);
+    color: #c5dce8;
+    font-size: 15px;
+    font-weight: 800;
+  }
+  #overlay .gs-drawer-close:hover {
+    border-color: #65e7ff;
+    color: #fff;
+    transform: none;
+  }
+  .gs-drawer-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  #overlay .gs-drawer-list .gs-att-card {
+    width: 100%;
+    margin: 0;
+    padding: 10px 11px;
+    border: 1px solid rgba(125,175,198,.2);
+    border-radius: 2px;
+    background: rgba(12,23,36,.88);
+    color: #e6f4fb;
+    text-align: left;
+  }
+  #overlay .gs-drawer-list .gs-att-card:hover {
+    border-color: #65e7ff;
+    background: rgba(18,35,52,.96);
+    transform: none;
+  }
+  #overlay .gs-drawer-list .gs-att-card.equipped {
+    border-color: #ffb84d;
+    background: rgba(34,26,15,.92);
+  }
+  #overlay .gs-drawer-list .gs-att-card.locked {
+    opacity: .62;
+  }
+
+  /* Appearance & Progression Bottom Trays inside Gunsmith */
+  .gs-bottom-tray {
+    pointer-events: auto;
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: 14px;
+    z-index: 7;
+    padding: 12px 16px 14px;
+    border: 1px solid rgba(125,175,198,.22);
+    border-radius: 3px;
+    background: rgba(7,14,23,.92);
+  }
+  .gs-tray-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .gs-skins-strip {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  #overlay .gs-skins-strip .gs-skin-card {
+    flex: 0 0 176px;
+    width: 176px;
+    margin: 0;
+    padding: 9px;
+    border: 1px solid rgba(125,175,198,.22);
+    border-top: 2px solid var(--rar-col, #65e7ff);
+    border-radius: 2px;
+    background: rgba(11,21,33,.92);
+    color: #eaf7ff;
+    text-align: left;
+  }
+  #overlay .gs-skins-strip .gs-skin-card.equipped {
+    border-color: #ffb84d;
+    background: rgba(30,24,14,.94);
+  }
+  .gs-prog-track {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .gs-prog-node {
+    flex: 0 0 144px;
+    padding: 9px 10px;
+    border: 1px solid rgba(125,175,198,.18);
+    border-radius: 2px;
+    background: rgba(10,19,30,.88);
+  }
+  .gs-prog-node.unlocked {
+    border-color: rgba(101,231,255,.42);
+    background: rgba(13,30,44,.92);
+  }
+  .gs-prog-node.current {
+    border-color: #ffb84d;
+    background: rgba(32,24,14,.94);
+  }
+  .gs-prog-lvl {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .12em;
+    color: #84a3b8;
+  }
+  .gs-prog-node.unlocked .gs-prog-lvl { color: #65e7ff; }
+  .gs-prog-node.current .gs-prog-lvl { color: #ffb84d; }
+  .gs-prog-items {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 9.5px;
+    font-weight: 800;
+    color: #dcebf4;
+    line-height: 1.3;
+  }
+  .gs-prog-items span {
+    color: #82a0b4;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  /* =========================================================================
+     VIEW 3: FULL-SCREEN COD ARMORY STUDIO (#armoryPanel inside studio-full)
+     ========================================================================= */
+  #overlayCard.studio-full #armoryPanel {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-pane-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 18px 24px 20px;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-pane-body.inv-full {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inv-grid {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 410px minmax(0,1fr);
+    gap: 0;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inv-left {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 16px 18px;
+    border-right: 1px solid rgba(101,231,255,.14);
+    background: rgba(6,13,22,.90);
+    overflow: hidden;
+  }
+  #overlayCard.studio-full #armoryPanel .inv-grid {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inv-stage-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    background: radial-gradient(circle at 52% 44%, #132537 0%, #09131f 55%, #050a11 100%);
+    overflow: hidden;
+  }
+  #overlayCard.studio-full #armoryPanel #armoryInspectStage {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud {
+    position: relative;
+    z-index: 4;
+    padding: 14px 24px 16px;
+    border-top: 1px solid rgba(101,231,255,.14);
+    background: rgba(6,13,22,.92);
+    display: grid;
+    grid-template-columns: minmax(0,1.25fr) minmax(0,1fr) auto;
+    gap: 16px;
+    align-items: center;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud .arm-item-title {
+    margin: 2px 0 4px;
+    font-size: 18px;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud .arm-spec-grid {
+    margin: 0;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 6px;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud .float-bar-wrap {
+    margin: 8px 0 0;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(112px, 1fr));
+    gap: 6px;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-actions button {
+    margin: 0;
+    padding: 9px 10px;
+    font-size: 9.5px;
+    white-space: nowrap;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-reveal-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) 390px;
+    gap: 18px;
+    height: calc(100dvh - 110px);
+    min-height: 480px;
+    align-items: stretch;
+  }
+  #overlayCard.studio-full #armoryPanel #armoryRevealStage {
+    height: 100%;
+    min-height: 440px;
+  }
+  #overlayCard.studio-full #armoryPanel #armoryRevealWrap .arm-spec-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 20px;
+    border: 1px solid rgba(125,175,198,.2);
+    border-radius: 3px;
+    background: rgba(8,16,26,.92);
+  }
+
+  /* Pause Menu Return-to-Studio Highlight Button */
+  #pause .spatial-return-studio {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 36px;
+    margin: 0 0 8px;
+    padding: 8px 12px;
+    border: 1px solid rgba(255,184,77,.72);
+    border-radius: 4px;
+    background: rgba(42,29,13,.88);
+    color: #ffe3b0;
+    font-size: 9.5px;
+    font-weight: 900;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+  }
+  #pause .spatial-return-studio:hover {
+    background: #ffb84d;
+    color: #0b141d;
+    transform: none;
+  }
+
+  @media (max-width: 1020px) {
+    .cod-topbar { grid-template-columns: 1fr auto; padding: 10px 14px; }
+    .cod-topbar .cod-tabs { grid-column: 1 / -1; justify-self: center; }
+    .cod-class-stack { width: 320px; }
+    .gs-hud-stats { width: 360px; left: 14px; }
+    .gs-drawer { width: 300px; right: 14px; }
+    #overlayCard.studio-full #armoryPanel .arm-inv-grid { grid-template-columns: 320px minmax(0,1fr); }
+    #overlayCard.studio-full #armoryPanel .arm-inspect-hud { grid-template-columns: 1fr; gap: 10px; }
+    #overlayCard.studio-full #armoryPanel .arm-reveal-grid { grid-template-columns: 1fr; height: auto; }
+  }
+  @media (max-width: 720px) {
+    .cod-class-body { flex-direction: column; padding: 10px 12px; }
+    .cod-num-rail { width: 100%; flex: 0 0 auto; flex-direction: row; }
+    #overlay .cod-num-btn { height: 42px; }
+    .cod-class-stack { width: 100%; max-width: 100%; }
+    .cod-runner-badge { display: none; }
+    .gs-hud-stats { display: none; }
+    .gs-node[data-slot="barrel"]      { left: 26%; top: 18%; }
+    .gs-node[data-slot="optic"]       { left: 72%; top: 16%; }
+    .gs-node[data-slot="muzzle"]      { left: 22%; top: 38%; }
+    .gs-node[data-slot="stock"]       { left: 78%; top: 34%; }
+    .gs-node[data-slot="rearGrip"]    { left: 76%; top: 54%; }
+    .gs-node[data-slot="underbarrel"] { left: 26%; top: 58%; }
+    .gs-node[data-slot="magazine"]    { left: 32%; top: 74%; }
+    .gs-node[data-slot="ammo"]        { left: 72%; top: 74%; }
+    #overlayCard.studio-full #armoryPanel .arm-inv-grid { grid-template-columns: 1fr; }
+    #overlayCard.studio-full #armoryPanel .arm-inv-stage-wrap { display: none; }
+  }
 
 </style>
 </head>
@@ -2384,25 +3701,28 @@
       </div>
     </div>
 
-    <div id="armoryPanel" style="display:none">
-      <div class="hub-head">
-        <div>
-          <div class="eyebrow">WEAPONS, KNIVES, GLOVES &amp; CASE SHOP</div>
-          <h2 class="hub-title">Armory &amp; Case Shop</h2>
+    <div id="armoryPanel" class="cod-studio-root" style="display:none">
+      <header class="cod-topbar">
+        <div class="cod-top-left">
+          <button type="button" class="cod-back-icon" id="armoryBackIconBtn" aria-label="Back">‹</button>
+          <div>
+            <div class="cod-crumb">VELOCITY STUDIO / ARMORY</div>
+            <h2 class="cod-heading">Armory &amp; Case Shop</h2>
+          </div>
         </div>
-        <div class="hub-actions">
+        <div class="cod-tabs" role="tablist" aria-label="Armory sections">
+          <button type="button" class="cod-tab active" data-arm-tab="cases" id="armTabCases" role="tab" aria-selected="true">CASE SHOP</button>
+          <button type="button" class="cod-tab" data-arm-tab="inventory" id="armTabInventory" role="tab" aria-selected="false">INVENTORY (5)</button>
+        </div>
+        <div class="cod-top-right">
           <span class="arm-coin-bal" id="armoryCoinBalance">150 COINS</span>
           <span class="set-sync" id="armorySyncNote">LOCAL ONLY</span>
+          <button type="button" class="btn-inline" id="armoryLoadoutsBtn">LOADOUTS</button>
           <button type="button" class="btn-inline" id="armoryBackBtn">MENU</button>
         </div>
-      </div>
+      </header>
 
-      <div class="set-tabs" role="tablist" aria-label="Armory sections">
-        <button type="button" class="set-tab active" data-arm-tab="cases" id="armTabCases" role="tab" aria-selected="true">CASE SHOP</button>
-        <button type="button" class="set-tab" data-arm-tab="inventory" id="armTabInventory" role="tab" aria-selected="false">INVENTORY (5)</button>
-      </div>
-
-      <div class="set-pane" data-arm-pane="cases">
+      <div class="set-pane arm-pane-body" data-arm-pane="cases">
         <div id="armoryCasesSelect">
           <div class="arm-case-grid" id="armoryCaseGrid"></div>
           <div class="case-detail-bar">
@@ -2534,9 +3854,9 @@
         </div>
       </div>
 
-      <div class="set-pane" data-arm-pane="inventory" style="display:none">
+      <div class="set-pane arm-pane-body inv-full" data-arm-pane="inventory" style="display:none">
         <div class="arm-inv-grid">
-          <div>
+          <div class="arm-inv-left">
             <div class="arm-cat-row" role="tablist" aria-label="Inventory category">
               <button type="button" class="arm-cat-btn active" id="invCatWeapons" data-inv-cat="weapons" role="tab" aria-selected="true">WEAPONS (3)</button>
               <button type="button" class="arm-cat-btn" id="invCatKnives" data-inv-cat="knives" role="tab" aria-selected="false">KNIVES (1)</button>
@@ -2561,7 +3881,7 @@
             <div class="inv-grid" id="armoryInvGrid"></div>
           </div>
 
-          <div class="arm-spec-box">
+          <div class="arm-inv-stage-wrap">
             <div class="arm-stage" id="armoryInspectStage">
               <div class="arm-stage-bar" id="invStageBar"></div>
               <div class="arm-stage-tools" id="invStageTools">
@@ -2571,25 +3891,27 @@
               <canvas id="armoryPreviewCanvas" class="arm-canvas"></canvas>
               <div class="arm-stage-caption"><span id="invStageCaption">LIVE COMBO 3D PREVIEW</span><span>DRAG TO ROTATE</span></div>
             </div>
-            <div class="arm-rar-label" id="invRarity">MIL-SPEC</div>
-            <h3 class="arm-item-title" id="invTitle">Default Knife | Vanilla</h3>
-            <div class="arm-special-tag" id="invSpecialTag" style="display:none"></div>
-            <div class="arm-spec-grid">
-              <div class="arm-spec-cell"><div class="arm-spec-k">Wear Grade</div><div class="arm-spec-v" id="invWear">MW</div></div>
-              <div class="arm-spec-cell"><div class="arm-spec-k">Float Value</div><div class="arm-spec-v" id="invFloat">0.1200</div></div>
-              <div class="arm-spec-cell"><div class="arm-spec-k">Pattern Seed</div><div class="arm-spec-v" id="invSeed">#0</div></div>
-              <div class="arm-spec-cell"><div class="arm-spec-k" id="invExtraK">Container</div><div class="arm-spec-v" id="invExtraV">Starter</div></div>
-            </div>
-            <div class="float-bar-wrap">
-              <div class="float-bar"><div class="float-marker" id="invFloatMarker" style="left:12%"></div></div>
-            </div>
-            <div class="arm-btn-row">
-              <button type="button" id="invEquipBtn">EQUIPPED</button>
-              <button type="button" class="arm-btn-coin" id="invSellBtn">STARTER ITEM</button>
-            </div>
-            <div class="arm-btn-row">
-              <button type="button" class="alt" id="invTrickBtn">PLAY TRICK</button>
-              <button type="button" class="arm-btn-mythic" id="invMythicBtn">MYTHIC ★</button>
+            <div class="arm-inspect-hud">
+              <div>
+                <div class="arm-rar-label" id="invRarity">MIL-SPEC</div>
+                <h3 class="arm-item-title" id="invTitle">Default Knife | Vanilla</h3>
+                <div class="arm-special-tag" id="invSpecialTag" style="display:none"></div>
+                <div class="float-bar-wrap">
+                  <div class="float-bar"><div class="float-marker" id="invFloatMarker" style="left:12%"></div></div>
+                </div>
+              </div>
+              <div class="arm-spec-grid">
+                <div class="arm-spec-cell"><div class="arm-spec-k">Wear</div><div class="arm-spec-v" id="invWear">MW</div></div>
+                <div class="arm-spec-cell"><div class="arm-spec-k">Float</div><div class="arm-spec-v" id="invFloat">0.1200</div></div>
+                <div class="arm-spec-cell"><div class="arm-spec-k">Seed</div><div class="arm-spec-v" id="invSeed">#0</div></div>
+                <div class="arm-spec-cell"><div class="arm-spec-k" id="invExtraK">Source</div><div class="arm-spec-v" id="invExtraV">Starter</div></div>
+              </div>
+              <div class="arm-inspect-actions">
+                <button type="button" id="invEquipBtn">EQUIPPED</button>
+                <button type="button" class="arm-btn-coin" id="invSellBtn">STARTER ITEM</button>
+                <button type="button" class="alt" id="invTrickBtn">PLAY TRICK</button>
+                <button type="button" class="arm-btn-mythic" id="invMythicBtn">MYTHIC ★</button>
+              </div>
             </div>
           </div>
         </div>
@@ -2630,7 +3952,15 @@
           </div>
 
           <div class="srv-warmup-box">
-            <div class="section-label">Solo Arena Warmup (Practice Bots · Live P2P Servers Award Coins)</div>
+            <div class="section-label">Solo Arena Warmup &amp; Bot Difficulty (Bots Award Gun XP)</div>
+            <div class="bot-diff-wrap">
+              <div class="bot-diff-head">
+                <span class="bot-diff-title">AI DIFFICULTY</span>
+                <span class="bot-diff-meta" id="srvBotDiffMeta">ADAPTIVE · +12/+18 XP</span>
+              </div>
+              <div class="bot-diff-strip" id="srvBotDiffStrip" role="radiogroup" aria-label="Bot AI Difficulty"></div>
+              <div class="bot-diff-desc" id="srvBotDiffDesc">Auto-scales to your K/D · applies to Warmup, Sandbox &amp; Arena Bot Fill</div>
+            </div>
             <div class="srv-warmup-grid">
               <button type="button" class="alt srv-warmup-btn" id="warmupSurfBtn" style="margin-top:0">
                 <span>SURF DUEL WARMUP</span>
@@ -2677,80 +4007,152 @@
       </div>
     </div>
 
-    <div id="loadoutsPanel" style="display:none">
-      <div class="hub-head">
-        <div>
-          <div class="eyebrow" id="loadoutsEyebrow">TACTICAL LOADOUTS &amp; 3D GUNSMITH</div>
-          <h2 class="hub-title" id="loadoutsTitle">Custom Loadouts</h2>
-        </div>
-        <div class="hub-actions">
-          <span class="set-sync" id="loadoutsSyncNote">LOCAL ONLY</span>
-          <button type="button" class="btn-inline" id="loadoutsArmoryBtn">ARMORY</button>
-          <button type="button" class="btn-inline" id="loadoutsBackBtn">MENU</button>
-        </div>
-      </div>
-
+    <div id="loadoutsPanel" class="cod-studio-root" style="display:none">
+      <!-- VIEW 1: COD CREATE-A-CLASS WITH 3D RUNNER SHOWCASE -->
       <div id="loadoutsOverviewView">
-        <div class="ld-overview-grid">
-          <div>
-            <div class="section-label">5 Custom Loadouts</div>
-            <div class="ld-rail" id="loadoutsRail" role="tablist" aria-label="Custom Loadouts"></div>
-          </div>
-          <div>
-            <div class="ld-bar">
-              <div class="ld-name-wrap">
-                <label class="section-label" for="loadoutNameInput" style="margin:0">Name</label>
-                <input id="loadoutNameInput" class="ld-name-input" type="text" maxlength="24" autocomplete="off">
-              </div>
-              <div class="ld-bar-actions">
-                <button type="button" class="btn-inline" id="loadoutDuplicateBtn">COPY TO NEXT</button>
-                <button type="button" class="btn-inline" id="loadoutResetBtn">RESET SLOT</button>
+        <canvas id="loadoutsRunnerCanvas" class="cod-stage-canvas" aria-label="Interactive 3D Tactical Runner showcase"></canvas>
+        <div class="cod-stage-vignette"></div>
+
+        <header class="cod-topbar two-col">
+          <div class="cod-top-left">
+            <button type="button" class="cod-back-icon" id="loadoutsBackIconBtn" aria-label="Back">‹</button>
+            <div>
+              <div class="cod-crumb" id="loadoutsEyebrow">CREATE A CLASS / EDIT LOADOUT</div>
+              <div class="cod-heading-row">
+                <h2 class="cod-heading" id="loadoutsTitle" style="display:none">Custom Loadouts</h2>
+                <input id="loadoutNameInput" class="ld-name-inline" type="text" maxlength="24" autocomplete="off" aria-label="Loadout name">
+                <button type="button" class="btn-inline" id="loadoutDuplicateBtn">COPY</button>
+                <button type="button" class="btn-inline" id="loadoutResetBtn">RESET</button>
               </div>
             </div>
-            <div class="ld-slots-grid" id="loadoutsSlotsGrid"></div>
           </div>
+          <div class="cod-top-right">
+            <span class="set-sync" id="loadoutsSyncNote">LOCAL ONLY</span>
+            <button type="button" class="btn-inline" id="loadoutsArmoryBtn">ARMORY</button>
+            <button type="button" class="btn-inline" id="loadoutsBackBtn">MENU</button>
+          </div>
+        </header>
+
+        <div class="cod-class-body">
+          <nav class="cod-num-rail" id="loadoutsRail" role="tablist" aria-label="Custom Loadouts"></nav>
+          <section class="cod-class-stack" id="loadoutsSlotsGrid" aria-label="Loadout equipment slots"></section>
         </div>
+
+        <div class="cod-runner-badge">
+          <div class="cod-runner-kicker">VELOCITY RUNNER // LIVE RIG</div>
+          <div class="cod-runner-title" id="ldRunnerWeaponTitle">V-47 RIFLE</div>
+          <div class="cod-runner-sub" id="ldRunnerMeta">0/5 ATTACHMENTS · FACTORY ISSUE</div>
+        </div>
+
+        <footer class="cod-footer">
+          <div class="cod-footer-left">
+            <button type="button" class="cod-range-btn" id="ldFiringRangeBtn">
+              <span class="cod-keycap">1</span>
+              <span>FIRING RANGE</span>
+            </button>
+          </div>
+          <div class="cod-footer-right">
+            <div class="cod-hints">
+              <span>DRAG TO ROTATE</span>
+              <span><span class="cod-keycap">ESC</span> BACK</span>
+            </div>
+          </div>
+        </footer>
       </div>
 
+      <!-- VIEW 2: COD SPATIAL 3D GUNSMITH -->
       <div id="gunsmithView" style="display:none">
-        <div class="gs-topbar">
-          <div class="gs-title-block">
-            <button type="button" class="btn-inline" id="gsBackToLoadoutsBtn">← LOADOUTS</button>
-            <h3 class="gs-weapon-title" id="gsWeaponTitle">V-47 Rifle</h3>
-            <div class="gs-xp-block">
-              <span id="gsWeaponLevelLabel">LV. 1</span>
-              <div class="gs-xp-bar"><div class="gs-xp-fill" id="gsWeaponXpFill"></div></div>
-              <span id="gsWeaponXpText">0 / 100 XP</span>
+        <canvas id="gunsmithCanvas" class="cod-stage-canvas" aria-label="Interactive 3D Gunsmith preview"></canvas>
+        <div class="cod-stage-vignette gunsmith-vig"></div>
+
+        <header class="cod-topbar">
+          <div class="cod-top-left">
+            <button type="button" class="cod-back-icon" id="gsBackToLoadoutsBtn" aria-label="Back to Loadouts">‹</button>
+            <div style="min-width:0">
+              <div class="cod-crumb" id="gsCrumb">CREATE A CLASS / GUNSMITH</div>
+              <div class="cod-heading-row">
+                <h2 class="cod-heading" id="gsWeaponTitle">V-47 Rifle</h2>
+                <div class="gs-xp-inline">
+                  <span class="cod-submeta" style="margin:0"><strong id="gsWeaponLevelLabel">LV. 1</strong></span>
+                  <div class="gs-xp-bar"><div class="gs-xp-fill" id="gsWeaponXpFill"></div></div>
+                  <span class="cod-submeta" style="margin:0" id="gsWeaponXpText">0 / 80 XP</span>
+                </div>
+              </div>
+              <div class="cod-submeta" id="gsWeaponSub">Assault Rifle · 0 / 36 UNLOCKS</div>
             </div>
           </div>
-          <div class="hub-actions">
-            <span class="gs-budget" id="gsBudgetBadge">ATTACHMENTS 0 / 5</span>
-            <button type="button" class="btn-inline" id="gsSkinsToggleBtn">SKINS</button>
-            <button type="button" class="btn-inline" id="gsClearAllBtn">CLEAR ALL</button>
+
+          <div class="cod-tabs" role="tablist" aria-label="Gunsmith sections">
+            <button type="button" class="cod-tab active" data-gs-tab="gunsmith" role="tab" aria-selected="true">GUNSMITH</button>
+            <button type="button" class="cod-tab" data-gs-tab="appearance" role="tab" aria-selected="false">APPEARANCE</button>
+            <button type="button" class="cod-tab" data-gs-tab="progression" role="tab" aria-selected="false">PROGRESSION</button>
           </div>
+
+          <div class="cod-top-right">
+            <button type="button" class="btn-inline" id="gsClearAllBtn">CLEAR ALL</button>
+            <button type="button" class="btn-inline" id="gsArmoryBtn">ARMORY</button>
+          </div>
+        </header>
+
+        <div class="gs-stage-workspace">
+          <!-- Floating 8 Perimeter Callout Nodes + Bottom Center APEX Diamond -->
+          <div class="gs-spatial-nodes" id="gsSpatialNodes"></div>
+
+          <!-- Slide-In Right Attachment Drawer -->
+          <aside class="gs-drawer" id="gsAttDrawer" style="display:none" aria-label="Attachment selection">
+            <div class="gs-drawer-head">
+              <div>
+                <div class="gs-drawer-title" id="gsPickerHeading">OPTIC</div>
+                <div class="gs-drawer-sub" id="gsPickerDesc">Sights, holos &amp; variable sniper scopes</div>
+              </div>
+              <button type="button" class="gs-drawer-close" id="gsDrawerCloseBtn" aria-label="Close slot drawer">×</button>
+            </div>
+            <div class="gs-drawer-list" id="gsAttachmentList"></div>
+          </aside>
+
+          <!-- Bottom-Left Telemetry HUD (5 Pips + Apex + Horizontal Bars + Numeric Column) -->
+          <section class="gs-hud-stats" id="gsStatsHud" aria-label="Weapon build telemetry">
+            <div class="gs-hud-head">
+              <div class="gs-hud-budget" id="gsBudgetBadge">ATTACHMENTS 0 / 5</div>
+              <div class="cod-pips" id="gsAttPips"></div>
+            </div>
+            <div id="gsStatsBox"></div>
+          </section>
+
+          <!-- APPEARANCE Bottom Tray (Owned Skins) -->
+          <section class="gs-bottom-tray" id="gsAppearanceTray" style="display:none" aria-label="Weapon finishes">
+            <div class="gs-tray-head">
+              <div class="section-label" style="margin:0" id="gsAppearanceHeading">OWNED WEAPON FINISHES</div>
+              <button type="button" class="btn-inline" id="gsOpenCasesBtn">OPEN CASE SHOP ↗</button>
+            </div>
+            <div class="gs-skins-strip" id="gsSkinsGrid"></div>
+          </section>
+
+          <!-- PROGRESSION Bottom Track (Lv. 1-12 Mastery Unlocks) -->
+          <section class="gs-bottom-tray" id="gsProgressionTray" style="display:none" aria-label="Weapon progression track">
+            <div class="gs-tray-head">
+              <div class="section-label" style="margin:0" id="gsProgressionHeading">WEAPON MASTERY TRACK (LV. 1–12)</div>
+              <div class="cod-submeta" style="margin:0" id="gsProgressionNote">EARN XP ON TARGETS, BOTS &amp; ARENA ELIMINATIONS</div>
+            </div>
+            <div class="gs-prog-track" id="gsProgTrack"></div>
+          </section>
         </div>
 
-        <div class="gs-grid">
-          <div>
-            <div class="section-label" id="gsRailLabel">8 Attachment Slots</div>
-            <div class="gs-cat-rail" id="gsCategoryRail"></div>
+        <footer class="cod-footer">
+          <div class="cod-footer-left">
+            <button type="button" class="cod-range-btn" id="gsFiringRangeBtn">
+              <span class="cod-keycap">1</span>
+              <span>FIRING RANGE</span>
+            </button>
           </div>
-          <div>
-            <div class="section-label" id="gsPickerHeading">Optic</div>
-            <div class="gs-att-list" id="gsAttachmentList"></div>
-            <div class="gs-skin-grid" id="gsSkinsGrid" style="display:none"></div>
-          </div>
-          <div class="gs-right">
-            <div class="gs-stage">
-              <canvas id="gunsmithCanvas" aria-label="Interactive 3D Gunsmith preview"></canvas>
-              <div class="gs-stage-caption">
-                <span id="gsStageLabel">LIVE 3D GUNSMITH</span>
-                <span>DRAG TO ROTATE</span>
-              </div>
+          <div class="cod-footer-right">
+            <div class="cod-hints">
+              <span id="gsStageLabel">DRAG TO ROTATE</span>
+              <span>CLICK SLOT TO MODIFY</span>
+              <span><span class="cod-keycap">ESC</span> BACK</span>
             </div>
-            <div class="gs-stats-box" id="gsStatsBox"></div>
           </div>
-        </div>
+        </footer>
       </div>
     </div>
 
@@ -2780,13 +4182,26 @@
           <div class="ld-quick-strip" id="pauseLoadoutStrip"></div>
         </div>
 
+        <div class="ld-pause-box spatial-loadout" id="pauseBotDiffBox" style="display:none">
+          <div class="ld-quick-head">
+            <span class="ld-quick-label">BOT AI DIFFICULTY</span>
+            <span class="ld-quick-summary" id="pauseBotDiffSummary">ADAPTIVE · +12/+18 XP</span>
+          </div>
+          <div class="ld-quick-strip" id="pauseBotDiffStrip" role="radiogroup" aria-label="Bot AI Difficulty"></div>
+        </div>
+
         <button type="button" id="resume" class="spatial-resume">
           <span>RESUME RUN</span><span class="spatial-button-key">↵</span>
+        </button>
+
+        <button type="button" id="pauseReturnStudioBtn" class="spatial-return-studio" style="display:none">
+          <span>← RETURN TO GUNSMITH</span><span>STUDIO</span>
         </button>
 
         <div class="spatial-action-grid" aria-label="Pause menu options">
           <button type="button" class="alt" id="restart">RESTART RUN</button>
           <button type="button" class="alt" id="pauseLoadouts">LOADOUTS</button>
+          <button type="button" class="alt" id="pauseSandboxBots" style="display:none">SPAWN BOTS</button>
           <button type="button" class="alt" id="pauseChangeMap" style="display:none">CHANGE MAP</button>
           <button type="button" class="alt" id="pauseServers">ARENAS</button>
           <button type="button" class="alt" id="pauseArmory">ARMORY</button>
@@ -2856,6 +4271,7 @@
   <div id="centerMessage">RUN STARTED</div>
 </div>
 <div id="damageVignette"></div>
+<div id="chronoVignette"></div>
 <div id="awpScopeOverlay" data-optic="sniper">
   <div class="scope-mask"></div>
   <div class="scope-h"></div>
@@ -2892,7 +4308,7 @@ import(new URL('js/firebase-daily.js', document.baseURI).href).catch((err) => {
 });
 
 try {
-  for (const f of ['core', 'settings', 'knives-data', 'loadouts-data', 'viewmodel', 'combat', 'surf', 'world', 'sandbox', 'course', 'course-preview', 'arenas', 'daily', 'ghost', 'netcode', 'player', 'main']) {
+  for (const f of ['core', 'settings', 'knives-data', 'loadouts-data', 'viewmodel', 'bot-ai', 'combat', 'surf', 'world', 'sandbox', 'course', 'course-preview', 'arenas', 'daily', 'ghost', 'netcode', 'player', 'main']) {
     await new Promise((ok, fail) => {
       const s = document.createElement('script');
       s.src = new URL('js/' + f + '.js', document.baseURI).href;

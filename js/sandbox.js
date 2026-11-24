@@ -77,6 +77,14 @@ const rangeTargets = [
       resetYaw:Math.PI,
       boardPos:[-75.8, 7.6, -74],
       boardYaw:Math.PI / 2
-    }
+    },
+    botSpawns:[
+      { x: 0, y: 0.05, z: -83, yaw: Math.PI },
+      { x: 0, y: 6.05, z: 0, yaw: 0 },
+      { x: 27, y: 9.05, z: -36, yaw: 0.8 },
+      { x: -26, y: 6.05, z: 36, yaw: -2.4 },
+      { x: 52, y: 7.05, z: 0, yaw: 1.57 },
+      { x: 0, y: 4.05, z: 55, yaw: Math.PI }
+    ]
   };
 }

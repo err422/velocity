@@ -201,7 +201,8 @@
         x: 0,
         y: 0,
         z: 0,
-        yaw: 0
+        yaw: 0,
+        ct: 0
       };
       state.players.set(uid, rec);
     } else if (name) {
@@ -228,7 +229,8 @@
         x: Number.isFinite(p.x) ? p.x : 0,
         y: Number.isFinite(p.y) ? p.y : 0,
         z: Number.isFinite(p.z) ? p.z : 0,
-        yaw: Number.isFinite(p.yaw) ? p.yaw : 0
+        yaw: Number.isFinite(p.yaw) ? p.yaw : 0,
+        ct: Number(p.ct) || 0
       });
     }
     return arr;
@@ -346,17 +348,18 @@
     const openSlots = Math.max(0, capacity - state.players.size);
     if (openSlots <= 0) return false;
 
-    const names = ['BOT · RUSHER', 'BOT · RIFLE', 'BOT · SKIRMISHER'];
+    const names = ['AI · VEX', 'AI · KIRA', 'AI · ZERO', 'AI · NOVA'];
+    const weapons = ['rifle', 'smg', 'awp', 'shotgun'];
     const added = [];
     for (let i = 0; i < openSlots; i++) {
-      const botType = i % 3;
+      const botType = i % 4;
       const uid = `ai_${state.lobby.lobbyId}_${i}`;
       const bot = ensurePlayerRecord(uid, names[botType], i + 1);
       bot.isBot = true;
       bot.botType = botType;
       bot.hp = 100;
       bot.alive = true;
-      bot.slot = ['smg', 'rifle', 'deagle'][botType];
+      bot.slot = weapons[botType];
       bot.spawnIdx = i + 1;
       const spawn = getSpawnForIndex(bot.spawnIdx);
       bot.x = spawn.x;
@@ -485,15 +488,18 @@
       ((state.role === 'host' || state.role === 'client') && state.phase === 'warmup');
     if (!isWarmup || !state.localAlive || state.localHp <= 0) return false;
 
-    const cleanDmg = Math.max(1, Math.min(35, Math.round(Number(damage) || 0)));
+    const cleanDmg = Math.max(1, Math.min(260, Math.round(Number(damage) || 0)));
     state.localHp = Math.max(0, state.localHp - cleanDmg);
     const killed = state.localHp <= 0;
     if (killed) {
       state.localAlive = false;
       state.respawnTimer = WARMUP_RESPAWN_SEC;
-      const attackerName = String(botName || 'HOLOGRAM').slice(0, 24);
+      const attackerName = String(botName || 'AI BOT').slice(0, 24);
+      if (root.BotAISystem && typeof root.BotAISystem.recordPlayerDeath === 'function') {
+        root.BotAISystem.recordPlayerDeath();
+      }
       pushKillFeed(attackerName, state.localName || 'Runner', weapon || 'rifle', isHeadshot);
-      showBanner('ELIMINATED', 'OUTPLAYED BY ' + attackerName.toUpperCase() + ' · RESPAWNING', 1900);
+      showBanner('ELIMINATED', (isHeadshot ? 'HEADSHOT BY ' : 'OUTPLAYED BY ') + attackerName.toUpperCase() + ' · RESPAWNING', 1900);
     }
 
     const localRecord = state.players.get(state.localUid);
@@ -540,6 +546,13 @@
       attacker.kills += 1;
       if (state.mode === 'ffa_4p') {
         attacker.score = attacker.kills;
+      }
+      if (root.BotAISystem) {
+        if (!attacker.isBot && victim.isBot && typeof root.BotAISystem.recordPlayerKill === 'function') {
+          root.BotAISystem.recordPlayerKill();
+        } else if (attacker.isBot && !victim.isBot && typeof root.BotAISystem.recordPlayerDeath === 'function') {
+          root.BotAISystem.recordPlayerDeath();
+        }
       }
     }
 
@@ -750,6 +763,7 @@
       if (Number.isFinite(item.y)) rec.y = item.y;
       if (Number.isFinite(item.z)) rec.z = item.z;
       if (Number.isFinite(item.yaw)) rec.yaw = item.yaw;
+      rec.ct = Number(item.ct) || 0;
       if (item.uid === state.localUid) {
         state.localHp = item.hp;
         state.localAlive = item.alive;
@@ -764,7 +778,8 @@
           yaw: item.yaw,
           hp: item.hp,
           alive: item.alive,
-          slot: item.slot
+          slot: item.slot,
+          ct: rec.ct
         });
       }
     }
@@ -874,26 +889,28 @@
     // Pose channels can open just before the reliable game channel; wait for
     // the authoritative player record instead of creating an untyped avatar.
     if (!rec) return;
+    const ct = Number(msg.ct) || 0;
     if (rec) {
       if (msg.slot) rec.slot = msg.slot;
       rec.x = msg.x;
       rec.y = msg.y;
       rec.z = msg.z;
       rec.yaw = msg.yaw || 0;
+      rec.ct = ct;
     }
     if (root.CombatSystem) {
       root.CombatSystem.upsertRemoteAvatar(peerUid, {
         name: rec ? rec.name : 'Player',
         isBot: Boolean(rec && rec.isBot),
         botType: rec ? rec.botType : null,
-        x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw || 0, slot: msg.slot || 'rifle'
+        x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw || 0, slot: msg.slot || 'rifle', ct
       });
     }
     // Fan out pose to all other peers in star topology
     broadcastPose({
       t: 'p',
       uid: peerUid,
-      x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw || 0, slot: msg.slot || 'rifle'
+      x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw || 0, slot: msg.slot || 'rifle', ct
     }, peerUid);
   }
 
@@ -1006,13 +1023,21 @@
     if (!msg || !msg.uid || msg.uid === state.localUid || typeof msg.x !== 'number') return;
     const rec = state.players.get(msg.uid);
     if (!rec) return;
+    const ct = Number(msg.ct) || 0;
+    rec.ct = ct;
     if (root.CombatSystem) {
-      root.CombatSystem.upsertRemoteAvatar(msg.uid, {
+      const payload = {
         name: rec ? rec.name : 'Player',
         isBot: Boolean(rec && rec.isBot),
         botType: rec ? rec.botType : null,
-        x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw || 0, slot: msg.slot || 'rifle'
-      });
+        x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw || 0, slot: msg.slot || 'rifle', ct
+      };
+      if (typeof msg.gx === 'number' && typeof msg.gy === 'number' && typeof msg.gz === 'number') {
+        payload.gx = msg.gx; payload.gy = msg.gy; payload.gz = msg.gz;
+      } else {
+        payload.clearGrapple = true;
+      }
+      root.CombatSystem.upsertRemoteAvatar(msg.uid, payload);
     }
   }
 
@@ -1208,13 +1233,13 @@
     leaveSession(true);
     const id = getLocalIdentity();
     state.role = 'warmup';
-    state.mapId = mapId === 'arena_surf' ? 'arena_surf' : 'arena_aim';
+    state.mapId = mapId === 'arena_surf' ? 'arena_surf' : (mapId === 'sandbox' ? 'sandbox' : 'arena_aim');
     state.mode = mode === 'ffa_4p' ? 'ffa_4p' : 'duel_1v1';
     state.lobby = null;
     state.localUid = id.uid;
     state.localName = id.name;
     state.phase = 'warmup';
-    state.statusText = 'SOLO WARMUP · HOLOGRAM BOTS';
+    state.statusText = state.mapId === 'sandbox' ? 'SANDBOX SPARRING · ADAPTIVE AI' : 'SOLO WARMUP · ADAPTIVE AI';
     resetMatchStructures();
     ensurePlayerRecord(id.uid, id.name, 0);
     emitState();
@@ -1421,15 +1446,23 @@
     rec.z = Number(pose.z) || 0;
     rec.yaw = Number(pose.yaw) || 0;
     rec.slot = pose.slot || rec.slot || 'rifle';
-    broadcastPose({
+    rec.ct = Number(pose.ct) || 0;
+    const pkt = {
       t: 'p',
       uid,
       x: Number(rec.x.toFixed(2)),
       y: Number(rec.y.toFixed(2)),
       z: Number(rec.z.toFixed(2)),
       yaw: Number(rec.yaw.toFixed(3)),
-      slot: rec.slot
-    });
+      slot: rec.slot,
+      ct: rec.ct
+    };
+    if (typeof pose.gx === 'number' && typeof pose.gy === 'number' && typeof pose.gz === 'number') {
+      pkt.gx = Number(pose.gx.toFixed(2));
+      pkt.gy = Number(pose.gy.toFixed(2));
+      pkt.gz = Number(pose.gz.toFixed(2));
+    }
+    broadcastPose(pkt);
   }
 
   function reportBotShot(uid, origin, endPoint, weapon) {
@@ -1491,7 +1524,8 @@
       y: Number(pose.y.toFixed(2)),
       z: Number(pose.z.toFixed(2)),
       yaw: Number(pose.yaw.toFixed(3)),
-      slot: pose.slot || 'rifle'
+      slot: pose.slot || 'rifle',
+      ct: Number(pose.ct) || 0
     };
     if (state.role === 'host') {
       broadcastPose(msg);
@@ -1538,6 +1572,7 @@
         local.y = playerPose.y;
         local.z = playerPose.z;
         local.yaw = playerPose.yaw || 0;
+        local.ct = Number(playerPose.ct) || 0;
       }
     }
 

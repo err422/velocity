@@ -813,8 +813,8 @@ service cloud.firestore {
 
     function isValidAttachmentMap(a) {
       return a is map
-        && a.size() <= 5
-        && a.keys().hasOnly(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock']);
+        && (a.size() <= 5 || (a.size() == 6 && 'apex' in a.keys()))
+        && a.keys().hasOnly(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex']);
     }
 
     function isValidLoadoutSlot(slot, allowedWeapons) {
