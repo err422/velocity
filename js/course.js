@@ -1214,9 +1214,31 @@
     const chA=[d2[0]+bbt[0]*14,d2[1]-0.5,d2[2]+bbt[2]*14];
     const chB=[chA[0]+bbt[0]*116,chA[1]-18,chA[2]+bbt[2]*116];
     b.addSurfChannel(chA,chB,{halfGap:8.1,faceWidth:7.6,slopeDeg:56,ribs:7,lipStart:true,lipEnd:true});
+
+    // TETHER LATTICE — high, alternating anchors are deliberately in the
+    // open channel sightline. Latch, build swing speed, then release cleanly.
+    for(let i=0;i<3;i++){
+      const along=30+i*34,side=i%2===0?-1:1;
+      const ax=chA[0]+bbt[0]*along+bbt[2]*side*10;
+      const az=chA[2]+bbt[2]*along-bbt[0]*side*10;
+      const ay=chA[1]+25-(along/116)*18;
+      b.addBox(ax,ay,az,4.2,4.2,4.2,b.mats.lip,true);
+      b.addRing(ax,ay+3,az,2.8,0x65efff);
+    }
     const ringPos=[chB[0]+bbt[0]*12,chB[1]-1,chB[2]+bbt[2]*12];
     b.addBoostRing(ringPos,[bbt[0],0.16,bbt[2]],{radius:4.1,minSpeed:58,speedBoost:32,upBoost:10});
-    const wrap=b.addSurfCurve({start:[ringPos[0]+bbt[0]*16,ringPos[1]-1,ringPos[2]+bbt[2]*16],yawStart:Math.atan2(bbt[0],bbt[2]),yawDelta:-Math.PI*0.92,radius:48,pitchDrop:-22,segments:22,faceWidth:7.3,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
+
+    // BURST-SKIP — leave the flick with stored surf speed, then use Q in
+    // the air to bridge the deliberate gap to a narrow catch bank.
+    const runYaw=Math.atan2(bbt[0],bbt[2]);
+    const launch=b.addSurfFlick({start:[ringPos[0]+bbt[0]*16,ringPos[1]-0.6,ringPos[2]+bbt[2]*16],yaw:runYaw,length:32,rise:10,faceWidth:7.2,slopeDeg:57,side:'both'});
+    const launchEnd=launch.spec.b;
+    const catchA=[launchEnd[0]+bbt[0]*40,launchEnd[1]-9,launchEnd[2]+bbt[2]*40];
+    const catchB=[catchA[0]+bbt[0]*78,catchA[1]-15,catchA[2]+bbt[2]*78];
+    b.addSurfWedge(catchA,catchB,{faceWidth:7.1,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
+    b.gateText('TETHER  /  BURST WINDOW',catchA[0],catchA[1]+20,catchA[2]+12,'#65efff');
+    const wrapStart=[catchB[0]+bbt[0]*14,catchB[1]-1,catchB[2]+bbt[2]*14];
+    const wrap=b.addSurfCurve({start:wrapStart,yawStart:runYaw,yawDelta:-Math.PI*0.92,radius:48,pitchDrop:-22,segments:22,faceWidth:7.3,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
     const we=wrap.curve.end,wt=wrap.curve.endTangent;
     const d3=[we[0]+wt[0]*20,we[1]-7,we[2]+wt[2]*20];
     deck(...d3,20,22);
@@ -1271,8 +1293,11 @@
       b.addBox(190-side*19,116,z+10,3,3,3,b.mats.dark,true);
     }
     b.addBoostRing([190,77,180],[0,0.18,1],{radius:4.8,minSpeed:55,speedBoost:28,upBoost:9});
-    b.addSurfFlick({start:[190,76,194],yaw:0,length:38,rise:10,faceWidth:8,slopeDeg:56,side:'both'});
-    buildSurfDeck(b,190,67,242,270,24,'start');
+    const s2Flick=b.addSurfFlick({start:[190,76,194],yaw:0,length:38,rise:11,faceWidth:8,slopeDeg:56,side:'both'});
+    b.gateText('AIR BURST TO CATCH',190,91,253,'#65efff');
+    // The catch deck is set well beyond the flick lip; preserve speed and
+    // spend the kinetic burst late rather than immediately on takeoff.
+    buildSurfDeck(b,190,66,276,304,22,'start');
 
     // Stage 3: high-speed double-wall channel with a narrow central aperture.
     room(2,380,104,0,10); buildSurfDeck(b,380,104,-18,14,24,'end');
@@ -1285,8 +1310,18 @@
     room(3,570,118,0,8); buildSurfDeck(b,570,118,-18,14,24,'end');
     const sp=b.addSurfSpiral({start:[570,117,18],yawStart:0,yawDelta:Math.PI*3,radiusStart:34,radiusEnd:23,pitchDrop:-48,segments:42,faceWidth:7.5,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
     const se=sp.spiral.end,st=sp.spiral.endTangent;
-    b.addSurfFlick({start:[se[0]+st[0]*12,se[1]-2,se[2]+st[2]*12],yaw:sp.spiral.endYaw,length:40,rise:11,faceWidth:7.4,slopeDeg:57,side:'both'});
-    const s4=[se[0]+st[0]*56,se[1]-8,se[2]+st[2]*56]; b.addDeck(s4[0],s4[1],s4[2],24,24);
+    const s4Flick=b.addSurfFlick({start:[se[0]+st[0]*12,se[1]-2,se[2]+st[2]*12],yaw:sp.spiral.endYaw,length:40,rise:11,faceWidth:7.4,slopeDeg:57,side:'both'});
+    // Two exposed tether anchors sit outside the spiral exit. Swing to line up,
+    // release, then time Q across the extended gap to the small catch deck.
+    for(let i=0;i<2;i++){
+      const along=16+i*22,side=i===0?-1:1;
+      const ax=se[0]+st[0]*along+st[2]*side*12;
+      const az=se[2]+st[2]*along-st[0]*side*12;
+      b.addBox(ax,se[1]+27,az,4.4,4.4,4.4,b.mats.lip,true);
+      b.addRing(ax,se[1]+30,az,2.9,0x65efff);
+    }
+    b.gateText('TETHER  →  RELEASE  →  BURST',570,151,78,'#b99cff');
+    const s4=[se[0]+st[0]*78,se[1]-11,se[2]+st[2]*78]; b.addDeck(s4[0],s4[1],s4[2],22,22);
 
     // Stage 5: final braid: counter-rotating corkscrew into a needle gate.
     room(4,760,128,0,6); buildSurfDeck(b,760,128,-18,14,24,'end');
@@ -1300,13 +1335,13 @@
     const gates=b.buildGates([
       [0,95,6,8],
       [0,43,328,10,190,98,-9],
-      [190,71,258,10,380,104,-9],
+      [190,70,290,10,380,104,-9],
       [380,64,302,10,570,118,-9],
       [s4[0],s4[1]+4,s4[2],10,760,128,-9],
       [finish[0],finish[1]+4,finish[2],12]
     ]);
     b.addStageTeleporter([0,39,336],[14,11,6],[190,98,-9],Math.PI,{gateIndex:1,label:'STAGE 2 / 5'});
-    b.addStageTeleporter([190,67,264],[14,11,6],[380,104,-9],Math.PI,{gateIndex:2,label:'STAGE 3 / 5'});
+    b.addStageTeleporter([190,66,296],[14,11,6],[380,104,-9],Math.PI,{gateIndex:2,label:'STAGE 3 / 5'});
     b.addStageTeleporter([380,60,308],[14,11,6],[570,118,-9],Math.PI,{gateIndex:3,label:'STAGE 4 / 5'});
     b.addStageTeleporter([s4[0],s4[1],s4[2]],[16,11,10],[760,128,-9],Math.PI,{gateIndex:4,label:'STAGE 5 / 5'});
     b.gateText('BLACK ICE PROTOCOL',0,102,6,'#b99cff');
@@ -1648,16 +1683,16 @@
       id: 'surf_event_horizon', category: 'surf', name: 'Event Horizon', code: 'surf_event_horizon',
       author: 'Velocity Core', tier: 5, format: 'linear', cpCount: 4,
       parGold: 88.0, parSilver: 118.0, theme: 'abyssal',
-      pieces: ['450° Helical Drop', 'Offset Braid', 'Needle Transfer', 'Counter-Rotating Spirals'],
-      description: 'A punishing precision marathon of narrow banks, a split-lane braid, a high-speed V-channel and a double-spiral finale.',
+      pieces: ['450° Helical Drop', 'Offset Braid', 'Tether Lattice', 'Burst-Skip Catch', 'Counter-Rotating Spirals'],
+      description: 'A punishing hybrid marathon: razor-precise banks, an offset braid, grapple-anchor lattice, a kinetic-burst gap and a double-spiral finale.',
       build: buildSurfEventHorizon
     },
     {
       id: 'surf_black_ice', category: 'surf', name: 'Black Ice Protocol', code: 'surf_black_ice',
       author: 'Velocity Core', tier: 5, format: 'staged', cpCount: 5,
       parGold: 78.0, parSilver: 104.0, theme: 'abyssal',
-      pieces: ['Anchor Harp Grapple', 'Razor Bank Ladder', 'Boost Aperture', '540° Spiral', 'Counter-Rotating Finale'],
-      description: 'Five expert movement exams combining razor banks, optional grapple anchor choices, boost timing, channels and corkscrew transfers.',
+      pieces: ['Anchor Harp Grapple', 'Razor Bank Ladder', 'Air-Burst Catch', 'Tether-Release Spiral', 'Counter-Rotating Finale'],
+      description: 'Five expert hybrid exams combining razor banks, grapple-anchor choices, deliberate air-burst gaps, tight channels and corkscrew transfers.',
       build: buildSurfBlackIce
     },
 
