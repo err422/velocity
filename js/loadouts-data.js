@@ -217,6 +217,40 @@
       allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'magazine', 'ammo', 'rearGrip', 'apex']),
       allowedOptics: Object.freeze(['reflex_dot'])
     },
+    revolver: {
+      id: 'revolver',
+      slotCategory: 'secondary',
+      classLabel: 'Heavy Revolver',
+      name: 'R-8 Sovereign',
+      shortName: 'R-8',
+      hudTag: 'REV',
+      description: 'Six-shot precision revolver with a deliberate trigger pull and devastating full-range body damage.',
+      auto: false,
+      pellets: 1,
+      pelletSpread: 0,
+      damageBody: 100,
+      damageHead: 100,
+      falloffStart: 999999,
+      falloffEnd: 1000000,
+      minFalloffMul: 1,
+      armorPen: 1.0,
+      rpm: 120,
+      magSize: 6,
+      reloadTime: 2.8,
+      range: 999999,
+      spreadHip: 0,
+      spreadAds: 0,
+      spreadMove: 0,
+      recoilPitch: 0.072,
+      recoilYaw: 0.012,
+      adsTimeSec: 0.19,
+      triggerDelaySec: 0.20,
+      baseWeightKg: 2.15,
+      defaultOptic: 'iron',
+      ammoClass: 'bullet',
+      allowedSlots: Object.freeze(['muzzle', 'barrel', 'ammo', 'rearGrip']),
+      allowedOptics: Object.freeze([])
+    },
     pistol: {
       id: 'pistol',
       slotCategory: 'secondary',
@@ -1059,6 +1093,7 @@
       recoilPitch,
       recoilYaw,
       adsTimeSec,
+      triggerDelaySec: spec.triggerDelaySec || 0,
       weightKg,
       mobilityMult,
       surfAirMult,
@@ -1096,6 +1131,7 @@
   function computeDistanceDamage(build, distMeters, isHeadshot, isBotTarget) {
     if (!build) return 0;
     const base = isHeadshot ? build.damageHead : build.damageBody;
+    if (build.weaponId === 'revolver') return Math.max(1, Math.round(base));
     let mul = 1;
     if (distMeters > build.falloffStart) {
       const span = Math.max(1, build.falloffEnd - build.falloffStart);
