@@ -3609,6 +3609,216 @@
     }
   }
 
+
+  /* Armory inventory: full-width categories, scroll-only skin list, stacked inspector. */
+  #overlayCard.studio-full #armoryPanel .arm-pane-body.inv-full {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    height: 0;
+    margin: 0;
+    padding: 12px 18px 18px;
+    overflow: hidden;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inv-grid {
+    display: grid;
+    grid-template-columns: minmax(250px, 0.72fr) minmax(0, 1.5fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    column-gap: 18px;
+    row-gap: 8px;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inv-left {
+    display: contents;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-cat-row {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0 0 4px;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-cat-btn {
+    min-height: 38px;
+    padding: 9px 12px;
+    font-size: 11px;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-filter-row {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    min-width: 0;
+    margin: 0;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-filter-bar {
+    min-width: 0;
+  }
+  #overlayCard.studio-full #armoryPanel .inv-bulk-bar {
+    grid-column: 1;
+    grid-row: 3;
+    min-width: 0;
+    margin: 0;
+  }
+  #overlayCard.studio-full #armoryPanel .inv-grid {
+    grid-column: 1;
+    grid-row: 4;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 9px;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    padding: 0 6px 8px 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  #overlayCard.studio-full #armoryPanel .inv-card {
+    width: 100%;
+    min-width: 0;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inv-stage-wrap {
+    grid-column: 2;
+    grid-row: 2 / 5;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 12px;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  #overlayCard.studio-full #armoryPanel #armoryInspectStage {
+    flex: 0 0 min(43%, 340px);
+    width: 100%;
+    height: min(43%, 340px);
+    min-height: 245px;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud {
+    position: static;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud > div:first-child {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 3px;
+    min-width: 0;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud .arm-rar-label {
+    grid-column: 1 / -1;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud .arm-item-title {
+    min-width: 0;
+    margin: 0;
+    font-size: clamp(16px, 1.5vw, 21px);
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud .float-bar-wrap {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud .arm-spec-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud .arm-spec-cell {
+    min-width: 0;
+    padding: 8px 10px;
+    background: rgba(8,19,31,.82);
+    border: 1px solid rgba(111,210,238,.16);
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-hud .arm-spec-v {
+    overflow-wrap: anywhere;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inspect-actions button {
+    min-width: 0;
+    padding: 10px 8px;
+    font-size: 10px;
+  }
+
+  @media (max-width: 900px) {
+    #overlayCard.studio-full #armoryPanel .arm-inv-grid {
+      grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr);
+      column-gap: 12px;
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inspect-hud .arm-spec-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inspect-actions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 680px) {
+    #overlayCard.studio-full #armoryPanel .arm-pane-body.inv-full {
+      overflow-y: auto;
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inv-grid {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+      min-height: 100%;
+      overflow: visible;
+    }
+    #overlayCard.studio-full #armoryPanel .arm-cat-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    #overlayCard.studio-full #armoryPanel .arm-filter-row,
+    #overlayCard.studio-full #armoryPanel .inv-bulk-bar,
+    #overlayCard.studio-full #armoryPanel .inv-grid,
+    #overlayCard.studio-full #armoryPanel .arm-inv-stage-wrap {
+      width: 100%;
+    }
+    #overlayCard.studio-full #armoryPanel .inv-grid {
+      min-height: 240px;
+      max-height: 42vh;
+      overflow-y: auto;
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inv-stage-wrap {
+      height: auto;
+      min-height: 0;
+      overflow: visible;
+    }
+    #overlayCard.studio-full #armoryPanel #armoryInspectStage {
+      flex: none;
+      height: 300px;
+    }
+  }
+
 </style>
 </head>
 <body>
