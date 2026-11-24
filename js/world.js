@@ -7,6 +7,8 @@ const solidMeshes=[], solids=[];
 const raycaster=new THREE.Raycaster();
 function registerSolid(m,extra){
   m.updateMatrixWorld(true);
+  m.userData=m.userData||{};
+  m.userData.isSurf=!!(extra&&extra.isSurf);
   const g=m.geometry.parameters;
   solids.push({
     half:V3(g.width/2,g.height/2,g.depth/2),
