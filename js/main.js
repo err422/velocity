@@ -101,7 +101,7 @@ ghostVisual=GhostSystem.createGhostMesh(THREE,scene);
 CombatSystem.ensureInit(scene);
 ViewmodelSystem.init(renderer);
 ViewmodelSystem.applySettings(window.activeSettings);
-const ALL_WEAPON_TYPES=['rifle','smg','shotgun','awp','deagle','pistol'];
+const ALL_WEAPON_TYPES=['rifle','smg','shotgun','awp','deagle','pistol','revolver'];
 function syncEquippedWeaponsToViewmodel(){
   for(const wt of ALL_WEAPON_TYPES){
     const skinItem=KnivesSystem.getEquippedWeapon(window.activeInventory,wt);
@@ -1674,6 +1674,7 @@ function weaponEquipField(weaponType){
   if(weaponType==='awp')return 'equippedAwpId';
   if(weaponType==='deagle')return 'equippedDeagleId';
   if(weaponType==='pistol')return 'equippedPistolId';
+  if(weaponType==='revolver')return 'equippedRevolverId';
   return 'equippedRifleId';
 }
 
