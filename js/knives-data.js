@@ -810,7 +810,8 @@
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'ultraviolet' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'ultraviolet' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'ultraviolet' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'damascus' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'damascus' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'ultraviolet' }
         ],
         restricted: [
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'redline' },
@@ -819,7 +820,8 @@
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'damascus' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'redline' },
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'damascus' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'crimson_web' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'crimson_web' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'case_hardened' }
         ],
         classified: [
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'vulcan' },
@@ -827,6 +829,7 @@
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'blaze' },
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'redline' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'blaze' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'blaze' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'crimson_web' }
         ],
         covert: [
@@ -884,7 +887,8 @@
           { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'hyper_chroma' },
           { itemKind: 'weapon', weaponType: 'pistol', skinId: 'hyper_chroma' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'hyper_chroma' },
-          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'hyper_chroma' }
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'hyper_chroma' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'printstream' }
         ],
         covert: [
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'printstream' },
@@ -1056,6 +1060,7 @@
           { itemKind: 'weapon', weaponType: 'rifle', skinId: 'voidglass' },
           { itemKind: 'weapon', weaponType: 'awp', skinId: 'nitro' },
           { itemKind: 'weapon', weaponType: 'deagle', skinId: 'solarflare' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'solarflare' },
           { itemKind: 'weapon', weaponType: 'smg', skinId: 'redshift' }
         ],
         gold: [
