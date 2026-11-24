@@ -181,6 +181,7 @@ document.addEventListener('keyup',e=>{
   if(e.code==='Tab'){window.isScoreboardHeld=false;}
   keys[e.code]=false;
   if(e.code===getSettings().keybinds.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
+  if(e.code===getSettings().keybinds.fire)revolverChargeTimer=0;
 });
 // Mouse events report each button independently, including when multiple
 // buttons are held together (e.g. RMB aim + LMB fire).
