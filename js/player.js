@@ -266,8 +266,22 @@ function headBlocked(){
 }
 
 // ---------- abilities ----------
+// Dedicated surf maps are pure-surf: no player-triggered grapple or burst.
+function isDedicatedSurfMap(){
+  if(typeof level==='undefined'||!level||!level.id)return false;
+  const catalog=window.CourseCatalog;
+  if(!catalog||typeof catalog.getCourseMeta!=='function')return false;
+  const meta=catalog.getCourseMeta(level.id);
+  return !!(meta&&meta.category==='surf');
+}
 function toggleGrapple(){
   const p=player;
+  if(isDedicatedSurfMap()){
+    p.grapple=null;
+    grappleEl.textContent='GRAPPLE DISABLED';
+    showToast('GRAPPLE DISABLED IN SURF MAPS');
+    return;
+  }
   if(p.grapple){p.grapple=null;grappleEl.textContent='GRAPPLE READY';return;}
   const cp=Math.cos(p.pitch),dir=V3(-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp);
   raycaster.set(V3(p.pos.x,p.pos.y+p.eye,p.pos.z),dir);raycaster.far=CFG.grappleRange;
@@ -276,6 +290,10 @@ function toggleGrapple(){
   else showToast('NO GRAPPLE ANCHOR');
 }
 function burst(){
+  if(isDedicatedSurfMap()){
+    showToast('KINETIC BURST DISABLED IN SURF MAPS');
+    return;
+  }
   if(burstCd>0)return;
   const d=wish.lengthSq()>0?wish.clone():V3(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
   player.vel.addScaledVector(d.normalize(),CFG.burstImpulse);
@@ -293,7 +311,7 @@ function resetPlayer(){
     window.CombatSystem.resetAmmo();
     window.CombatSystem.clearScope();
   }
-  refreshGates();cpEl.textContent='';timerEl.textContent='00:00.000';grappleEl.textContent='GRAPPLE READY';showToast('POSITION RESET');
+  refreshGates();cpEl.textContent='';timerEl.textContent='00:00.000';grappleEl.textContent=isDedicatedSurfMap()?'GRAPPLE DISABLED':'GRAPPLE READY';showToast('POSITION RESET');
 }
 
 // ---------- movement ----------
