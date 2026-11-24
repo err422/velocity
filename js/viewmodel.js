@@ -4245,35 +4245,46 @@
           if (t > 0.70) cue(2, () => CaseAudio.balisongClack(1.12));
           if (t > 0.84) cue(4, () => CaseAudio.balisongClack(0.92));
         } else {
-          // NORMAL: compact balisong flourish.
-          // 1) thumb-flick the bite handle open, 2) roll the open knife once,
-          // 3) snap both handles home and settle into the normal grip.
-          const open = smoothstep(0.04, 0.25, t);
-          const roll = smoothstep(0.24, 0.72, t);
-          const close = smoothstep(0.70, 0.88, t);
+          // CS-inspired standard butterfly inspect:
+          // lift -> fan the handles -> controlled wrist roll -> snap shut -> present.
+          // Keep the knife attached to the hand; the movement comes from the
+          // balisong pivots and a restrained wrist roll, not an aerial toss.
+          const lift = smoothstep(0.02, 0.22, t);
+          const fan = smoothstep(0.12, 0.34, t);
+          const roll = smoothstep(0.34, 0.70, t);
+          const close = smoothstep(0.68, 0.86, t);
           const settle = smoothstep(0.84, 1.0, t);
+          const flourish = Math.sin(roll * Math.PI);
 
-          const fan = 1 - close;
-          out.baliBladeAngle = 0.92 * open * fan;
-          out.baliBiteAngle = 2.62 * open * fan;
+          // Raise the knife into view, then turn the wrist to show the blade.
+          out.rx -= lift * 0.034;
+          out.ry += lift * 0.012;
+          out.rRotX += lift * 0.12 + flourish * 0.16;
+          out.rRotY += lift * 0.10 + flourish * 0.20;
+          out.rRotZ += lift * 0.18 + flourish * 0.30 - settle * 0.10;
+          out.kPosX += lift * 0.018 - settle * 0.010;
+          out.kPosY += lift * 0.028 + Math.sin(roll * Math.PI) * 0.012;
+
+          // The two handles move independently around their pivots.
+          out.baliBladeAngle = fan * (1 - close) * 2.72;
+          out.baliBiteAngle = fan * (1 - close) * 3.05;
           out.kRotZ -= roll * Math.PI * 2;
 
-          // The hand follows the knife's momentum, then counter-rotates into
-          // the catch. Keep the palm readable rather than opening every finger.
-          out.rRotZ += Math.sin(roll * Math.PI) * 0.34 - settle * 0.08;
-          out.rRotY += Math.sin(roll * Math.PI) * 0.22;
-          out.rRotX += Math.sin(roll * Math.PI) * 0.08;
+          // Relax the fingers just enough to let the handle roll, then catch.
+          const release = smoothstep(0.18, 0.34, t) * (1 - smoothstep(0.68, 0.86, t));
+          rp.index = THREE.MathUtils.lerp(0.96, 0.78, release);
+          rp.middle = THREE.MathUtils.lerp(0.98, 0.68, release);
+          rp.ring = THREE.MathUtils.lerp(0.98, 0.64, release);
+          rp.pinky = THREE.MathUtils.lerp(0.96, 0.68, release);
+          rp.thumb = THREE.MathUtils.lerp(0.88, 0.56, release);
 
-          const release = smoothstep(0.16, 0.30, t) * (1 - smoothstep(0.70, 0.86, t));
-          rp.index = THREE.MathUtils.lerp(0.96, 0.76, release);
-          rp.middle = THREE.MathUtils.lerp(0.98, 0.62, release);
-          rp.ring = THREE.MathUtils.lerp(0.98, 0.58, release);
-          rp.pinky = THREE.MathUtils.lerp(0.96, 0.62, release);
-          rp.thumb = THREE.MathUtils.lerp(0.88, 0.52, release);
+          // Small recoil on the latch, followed by a steady blade-forward pose.
+          out.ry -= bell(t, 0.78, 0.91) * 0.018;
+          out.rRotZ -= bell(t, 0.78, 0.91) * 0.12;
 
-          if (t > 0.25) cue(1, () => CaseAudio.spinWhoosh(1.02));
-          if (t > 0.69) cue(2, () => CaseAudio.balisongClack(1.10));
-          if (t > 0.86) cue(4, () => CaseAudio.balisongClack(0.88));
+          if (t > 0.30) cue(1, () => CaseAudio.spinWhoosh(0.96));
+          if (t > 0.70) cue(2, () => CaseAudio.balisongClack(1.12));
+          if (t > 0.86) cue(4, () => CaseAudio.balisongClack(0.94));
         }
       } else {
         if (isUncommon) {
@@ -4311,7 +4322,7 @@
       if (kt === 'm9') return 3.60;
       return 3.65;
     }
-    if (kt === 'butterfly') return tier === 'uncommon' ? 2.55 : 2.25;
+    if (kt === 'butterfly') return tier === 'uncommon' ? 3.25 : 4.0;
     if (kt === 'karambit') return tier === 'uncommon' ? 2.15 : 1.85;
     if (kt === 'skeleton') return tier === 'uncommon' ? 2.25 : 1.95;
     return tier === 'uncommon' ? 2.15 : 2.10;
