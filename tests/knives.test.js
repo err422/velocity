@@ -197,7 +197,7 @@ test('sanitizeInventory and cloud payloads enforce strict schema bounds includin
   const summaryPayload = KnivesSystem.toCloudInventoryPayload(clean, 'user_123');
   assert.deepEqual(
     Object.keys(summaryPayload).sort(),
-    ['caseCounts', 'coins', 'equippedAwpId', 'equippedDeagleId', 'equippedGloveId', 'equippedKnifeId', 'equippedRifleId', 'lastDailyDropDate', 'totalOpened', 'uid']
+    ['caseCounts', 'coins', 'equippedAwpId', 'equippedDeagleId', 'equippedGloveId', 'equippedKnifeId', 'equippedRevolverId', 'equippedRifleId', 'lastDailyDropDate', 'totalOpened', 'uid']
   );
   assert.equal(summaryPayload.uid, 'user_123');
   assert.equal(summaryPayload.coins, 9999999);
@@ -205,6 +205,7 @@ test('sanitizeInventory and cloud payloads enforce strict schema bounds includin
   assert.equal(summaryPayload.equippedRifleId, 'starter_rifle_slate');
   assert.equal(summaryPayload.equippedAwpId, 'starter_awp_slate');
   assert.equal(summaryPayload.equippedDeagleId, 'starter_deagle_slate');
+  assert.equal(summaryPayload.equippedRevolverId, 'starter_revolver_slate');
 
   const knifePayload = KnivesSystem.toCloudKnifePayload(clean.knives[1], 'user_123');
   assert.deepEqual(
