@@ -199,6 +199,28 @@
       inspectName: 'Slide Spin & Balance',
       description: 'Heavy .50 cal semi-auto hand cannon built for mid-air flicks and 1-tap headshots.'
     },
+    revolver: {
+      id: 'revolver',
+      name: 'R-8 Sovereign',
+      shortName: 'R-8',
+      slot: 2,
+      magSize: 6,
+      rpm: 120,
+      fireInterval: 0.50,
+      damageBody: 100,
+      damageHead: 100,
+      reloadTime: 2.8,
+      auto: false,
+      scoped: false,
+      range: 999999,
+      spreadBase: 0,
+      spreadHip: 0,
+      spreadMove: 0,
+      recoilPitch: 0.072,
+      recoilYaw: 0.012,
+      inspectName: 'Cylinder Spin & Mechanical Check',
+      description: 'Six-shot precision revolver with a deliberate trigger pull and devastating full-range body damage.'
+    },
     pistol: {
       id: 'pistol',
       name: 'USP-9 Tactical',
@@ -1532,7 +1554,8 @@
       createStarterWeapon('shotgun'),
       createStarterWeapon('awp'),
       createStarterWeapon('deagle'),
-      createStarterWeapon('pistol')
+      createStarterWeapon('pistol'),
+      createStarterWeapon('revolver')
     ];
   }
 
@@ -1550,6 +1573,7 @@
       equippedAwpId: 'starter_awp_slate',
       equippedDeagleId: 'starter_deagle_slate',
       equippedPistolId: 'starter_pistol_slate',
+      equippedRevolverId: 'starter_revolver_slate',
       caseCounts: Object.fromEntries(CASE_IDS.map((id) => [id, 0])),
       totalOpened: 0,
       lastDailyDropDate: '',
@@ -1753,6 +1777,7 @@
     const equippedAwpId = findValidWeaponId(raw.equippedAwpId, 'awp');
     const equippedDeagleId = findValidWeaponId(raw.equippedDeagleId, 'deagle');
     const equippedPistolId = findValidWeaponId(raw.equippedPistolId, 'pistol');
+    const equippedRevolverId = findValidWeaponId(raw.equippedRevolverId, 'revolver');
 
     return {
       coins,
@@ -1764,6 +1789,7 @@
       equippedAwpId,
       equippedDeagleId,
       equippedPistolId,
+      equippedRevolverId,
       caseCounts,
       totalOpened,
       lastDailyDropDate,
@@ -1792,7 +1818,8 @@
       shotgun: inv.equippedShotgunId,
       awp: inv.equippedAwpId,
       deagle: inv.equippedDeagleId,
-      pistol: inv.equippedPistolId
+      pistol: inv.equippedPistolId,
+      revolver: inv.equippedRevolverId
     };
     const eqId = keyMap[wt] || inv.equippedRifleId;
     return inv.weapons.find((w) => w.id === eqId && w.weaponType === wt)
@@ -1834,6 +1861,7 @@
       if (item.weaponType === 'awp') return inventory.equippedAwpId === item.id;
       if (item.weaponType === 'deagle') return inventory.equippedDeagleId === item.id;
       if (item.weaponType === 'pistol') return inventory.equippedPistolId === item.id;
+      if (item.weaponType === 'revolver') return inventory.equippedRevolverId === item.id;
       return inventory.equippedRifleId === item.id;
     }
     if (isGloveItem(item)) return inventory.equippedGloveId === item.id;
