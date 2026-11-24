@@ -359,6 +359,44 @@ test('skin valuation scales properly by rarity, wear, item type, and special tag
   assert.ok(v5 < v6, `Blue Gem Karambit (${v6}) should beat standard Gold Karambit (${v5})`);
 });
 
+
+test('bulk case purchases are atomic and respect the 999-case inventory cap', () => {
+  const inv = KnivesSystem.createStarterInventory();
+  inv.coins = 5000;
+
+  const bulk = KnivesSystem.buyCases(inv, 'velocity', 25);
+  assert.equal(bulk.purchased, true);
+  assert.equal(bulk.quantity, 25);
+  assert.equal(bulk.price, KnivesSystem.getCasePrice('velocity'));
+  assert.equal(bulk.totalCost, 25 * KnivesSystem.getCasePrice('velocity'));
+  assert.equal(bulk.inventory.caseCounts.velocity, 25);
+  assert.equal(bulk.inventory.coins, 5000 - bulk.totalCost);
+
+  const poorInv = KnivesSystem.createStarterInventory();
+  poorInv.coins = 999;
+  const insufficient = KnivesSystem.buyCases(poorInv, 'velocity', 10);
+  assert.equal(insufficient.purchased, false);
+  assert.equal(insufficient.reason, 'INSUFFICIENT_COINS');
+  assert.equal(insufficient.deficit, 1);
+  assert.equal(insufficient.inventory.coins, 999);
+  assert.equal(insufficient.inventory.caseCounts.velocity, 0);
+
+  const cappedInv = KnivesSystem.createStarterInventory();
+  cappedInv.coins = 100000;
+  cappedInv.caseCounts.velocity = 997;
+  const fillLastSlots = KnivesSystem.buyCases(cappedInv, 'velocity', 2);
+  assert.equal(fillLastSlots.purchased, true);
+  assert.equal(fillLastSlots.inventory.caseCounts.velocity, 999);
+  const overCap = KnivesSystem.buyCases(fillLastSlots.inventory, 'velocity', 1);
+  assert.equal(overCap.purchased, false);
+  assert.equal(overCap.reason, 'CASE_CAPACITY');
+  assert.equal(overCap.available, 0);
+
+  const invalid = KnivesSystem.buyCases(inv, 'velocity', 0);
+  assert.equal(invalid.purchased, false);
+  assert.equal(invalid.reason, 'INVALID_QUANTITY');
+});
+
 test('buyCase, sellItems, starter/equipped protection, duplicate finder, and arena coin rewards work end-to-end', () => {
   let inv = KnivesSystem.createStarterInventory(); // 150 coins
 
