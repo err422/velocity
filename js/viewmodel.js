@@ -4220,54 +4220,60 @@
         }
       } else if (kt === 'butterfly') {
         if (isUncommon) {
-          const palmUp = smoothstep(0.06, 0.22, t) * (1 - smoothstep(0.72, 0.90, t));
-          out.rRotZ += palmUp * 1.05;
-          out.rRotX += palmUp * 0.26;
-          const fingersOpen = smoothstep(0.14, 0.24, t) * (1 - smoothstep(0.70, 0.82, t));
-          rp.index = THREE.MathUtils.lerp(0.96, 0.14, fingersOpen);
-          rp.middle = THREE.MathUtils.lerp(0.98, 0.12, fingersOpen);
-          rp.ring = THREE.MathUtils.lerp(0.98, 0.12, fingersOpen);
-          rp.pinky = THREE.MathUtils.lerp(0.96, 0.14, fingersOpen);
-          rp.thumb = THREE.MathUtils.lerp(0.88, 0.18, fingersOpen);
+          // UNCOMMON: a single clean aerial rollover, with the handles fanning
+          // around the pivot instead of spinning the whole knife like a propeller.
+          const release = smoothstep(0.10, 0.24, t) * (1 - smoothstep(0.70, 0.84, t));
+          const catchAmt = smoothstep(0.68, 0.86, t);
+          const palmUp = bell(t, 0.18, 0.82);
+          out.rRotZ += palmUp * 0.62;
+          out.rRotX += palmUp * 0.16;
+          rp.index = THREE.MathUtils.lerp(0.96, 0.42, release);
+          rp.middle = THREE.MathUtils.lerp(0.98, 0.20, release);
+          rp.ring = THREE.MathUtils.lerp(0.98, 0.18, release);
+          rp.pinky = THREE.MathUtils.lerp(0.96, 0.22, release);
+          rp.thumb = THREE.MathUtils.lerp(0.88, 0.30, release);
 
-          out.kPosY += bell(t, 0.20, 0.74) * 0.072;
-          const airSpin = smoothstep(0.20, 0.74, t);
-          out.kRotZ += airSpin * Math.PI * 4;
-          out.baliBladeAngle = Math.sin(airSpin * Math.PI * 2) * 1.55;
-          out.baliBiteAngle = Math.sin(airSpin * Math.PI * 2 + 0.65) * 2.2;
+          const arc = bell(t, 0.18, 0.80);
+          const spin = smoothstep(0.18, 0.80, t);
+          out.kPosY += arc * 0.052;
+          out.kRotZ -= spin * Math.PI * 2;
+          out.baliBladeAngle = THREE.MathUtils.lerp(0.0, 2.55, smoothstep(0.10, 0.34, t)) * (1 - catchAmt);
+          out.baliBiteAngle = THREE.MathUtils.lerp(0.0, 2.75, smoothstep(0.12, 0.38, t)) * (1 - catchAmt);
+          out.rRotY += Math.sin(spin * Math.PI) * 0.18;
 
-          if (t > 0.22) cue(1, () => CaseAudio.spinWhoosh(1.22));
-          if (t > 0.48) cue(2, () => CaseAudio.balisongClack(1.25));
-          if (t > 0.74) cue(4, () => CaseAudio.balisongClack(0.92));
+          if (t > 0.20) cue(1, () => CaseAudio.spinWhoosh(1.08));
+          if (t > 0.70) cue(2, () => CaseAudio.balisongClack(1.12));
+          if (t > 0.84) cue(4, () => CaseAudio.balisongClack(0.92));
         } else {
-          const openF = smoothstep(0.04, 0.14, t) * (1 - smoothstep(0.68, 0.78, t));
-          rp.middle = THREE.MathUtils.lerp(0.98, 0.26, openF);
-          rp.ring = THREE.MathUtils.lerp(0.98, 0.22, openF);
-          rp.pinky = THREE.MathUtils.lerp(0.96, 0.20, openF);
-          rp.thumb = THREE.MathUtils.lerp(0.88, 0.34, openF);
+          // NORMAL: compact balisong flourish.
+          // 1) thumb-flick the bite handle open, 2) roll the open knife once,
+          // 3) snap both handles home and settle into the normal grip.
+          const open = smoothstep(0.04, 0.25, t);
+          const roll = smoothstep(0.24, 0.72, t);
+          const close = smoothstep(0.70, 0.88, t);
+          const settle = smoothstep(0.84, 1.0, t);
 
-          if (t < 0.28) {
-            const u = smoothstep(0.0, 0.28, t);
-            out.baliBladeAngle = u * 1.15;
-            out.baliBiteAngle = u * 2.45;
-            out.rRotZ += Math.sin(u * Math.PI * 0.5) * 0.42;
-          } else if (t < 0.62) {
-            const u = smoothstep(0.28, 0.62, t);
-            out.kRotZ -= u * Math.PI * 2;
-            out.baliBladeAngle = THREE.MathUtils.lerp(1.15, Math.PI, Math.sin(u * Math.PI));
-            out.baliBiteAngle = THREE.MathUtils.lerp(2.45, Math.PI * 2.0, u);
-            out.rRotZ += 0.42 - u * 0.62;
-            out.rRotY += Math.sin(u * Math.PI) * 0.38;
-            if (t > 0.34) cue(1, () => CaseAudio.spinWhoosh(1.16));
-            if (t > 0.52) cue(2, () => CaseAudio.balisongClack(1.12));
-          } else {
-            const u = smoothstep(0.62, 0.76, t);
-            out.baliBladeAngle = THREE.MathUtils.lerp(1.15, 0.0, u);
-            out.baliBiteAngle = 0;
-            out.rRotZ += THREE.MathUtils.lerp(-0.20, 0.16, bell(t, 0.62, 0.96));
-            out.rRotY += bell(t, 0.62, 0.96) * 0.44;
-            if (t > 0.73) cue(4, () => CaseAudio.balisongClack(0.90));
-          }
+          const fan = 1 - close;
+          out.baliBladeAngle = 0.92 * open * fan;
+          out.baliBiteAngle = 2.62 * open * fan;
+          out.kRotZ -= roll * Math.PI * 2;
+
+          // The hand follows the knife's momentum, then counter-rotates into
+          // the catch. Keep the palm readable rather than opening every finger.
+          out.rRotZ += Math.sin(roll * Math.PI) * 0.34 - settle * 0.08;
+          out.rRotY += Math.sin(roll * Math.PI) * 0.22;
+          out.rRotX += Math.sin(roll * Math.PI) * 0.08;
+
+          const release = smoothstep(0.16, 0.30, t) * (1 - smoothstep(0.70, 0.86, t));
+          rp.index = THREE.MathUtils.lerp(0.96, 0.76, release);
+          rp.middle = THREE.MathUtils.lerp(0.98, 0.62, release);
+          rp.ring = THREE.MathUtils.lerp(0.98, 0.58, release);
+          rp.pinky = THREE.MathUtils.lerp(0.96, 0.62, release);
+          rp.thumb = THREE.MathUtils.lerp(0.88, 0.52, release);
+
+          if (t > 0.25) cue(1, () => CaseAudio.spinWhoosh(1.02));
+          if (t > 0.69) cue(2, () => CaseAudio.balisongClack(1.10));
+          if (t > 0.86) cue(4, () => CaseAudio.balisongClack(0.88));
         }
       } else {
         if (isUncommon) {
