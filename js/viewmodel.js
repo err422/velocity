@@ -3732,10 +3732,10 @@
   function applyContactGripSocket(knifeMesh, kt) {
     knifeMesh.rotation.order = 'XYZ';
     if (kt === 'karambit') {
-      // Keep the hooked blade visible, but roll its local grip orientation
-      // against the wrist cant so the blade projects horizontally to screen-right.
-      knifeMesh.position.set(-0.0205, -0.0085, -0.043);
-      knifeMesh.rotation.set(1.05, 0.04, 0.80);
+      // Keep the hooked blade clear of the forearm by giving its screen-right
+      // presentation a little more upward angle.
+      knifeMesh.position.set(-0.0205, -0.0045, -0.043);
+      knifeMesh.rotation.set(1.05, 0.04, 1.08);
       knifeMesh.scale.setScalar(1.10);
     } else if (kt === 'skeleton') {
       knifeMesh.position.set(-0.0255, -0.0215, -0.041);
