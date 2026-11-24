@@ -359,7 +359,7 @@
         return;
       }
       if (slot === 'awp') fireAwp();
-      else if (slot === 'deagle') fireDeagle();
+      else if (slot === 'deagle' || slot === 'revolver') fireDeagle();
       else if (slot === 'smg') fireSmg();
       else if (slot === 'shotgun') fireShotgun();
       else if (slot === 'pistol') firePistol();
