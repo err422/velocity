@@ -1394,7 +1394,7 @@
     if (state.role !== 'host' || state.phase !== 'live') return false;
     const attacker = state.players.get(botUid);
     const victim = state.players.get(victimUid);
-    if (!attacker || !attacker.isBot || !victim || victim.isBot || !victim.alive) return false;
+    if (!attacker || !attacker.isBot || !victim || attackerUid === victimUid || !victim.alive) return false;
     hostResolveDamage(botUid, victimUid, damage, weapon, isHeadshot);
     return true;
   }
