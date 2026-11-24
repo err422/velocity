@@ -3307,6 +3307,68 @@
     #overlayCard.studio-full #armoryPanel .arm-inv-stage-wrap { display: none; }
   }
 
+
+  /* Armory inventory: keep the full-screen layout usable on shorter displays. */
+  #overlayCard.studio-full #armoryPanel .arm-inv-grid > * {
+    min-width: 0;
+  }
+  #overlayCard.studio-full #armoryPanel .arm-inv-stage-wrap,
+  #overlayCard.studio-full #armoryPanel .arm-inv-left {
+    min-width: 0;
+  }
+
+  @media (max-height: 820px) {
+    #overlayCard.studio-full #armoryPanel .arm-pane-body.inv-full {
+      display: block;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inv-grid {
+      height: auto;
+      min-height: calc(100dvh - 86px);
+      grid-template-columns: minmax(300px, 30vw) minmax(0, 1fr);
+      align-items: stretch;
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inv-left {
+      min-height: calc(100dvh - 86px);
+      overflow: hidden;
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inv-stage-wrap {
+      height: auto;
+      min-height: calc(100dvh - 86px);
+    }
+    #overlayCard.studio-full #armoryPanel #armoryInspectStage {
+      min-height: 300px;
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inspect-hud {
+      padding: 10px 16px 12px;
+      gap: 10px;
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inspect-hud .arm-item-title {
+      font-size: 16px;
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inspect-actions button {
+      padding: 7px 8px;
+      font-size: 8.5px;
+    }
+  }
+
+  @media (max-width: 1100px) and (min-width: 721px) {
+    #overlayCard.studio-full #armoryPanel .arm-inv-grid {
+      grid-template-columns: minmax(280px, 34vw) minmax(0, 1fr);
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inspect-hud {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    #overlayCard.studio-full #armoryPanel .arm-inspect-actions {
+      grid-column: 1 / -1;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
 </style>
 </head>
 <body>
