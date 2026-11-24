@@ -1185,14 +1185,6 @@
     const b = makeBuilder('abyssal', bOpts);
     const fw = 7.8, slope = 56;
     const deck = (x,y,z,w=20,d=26) => b.addDeck(x,y,z,w,d);
-    const railGate = (x,y,z,w=18,h=12,yaw=0) => {
-      const g = new THREE.Group(); g.position.set(x,y,z); g.rotation.y=yaw;
-      b.addBox(x-w/2,y+h/2,z,0.8,h,0.8,b.mats.dark,false);
-      b.addBox(x+w/2,y+h/2,z,0.8,h,0.8,b.mats.dark,false);
-      b.addBox(x,y+h,z,w+0.8,0.8,0.8,b.mats.accent,false);
-      return g;
-    };
-
     buildSurfDeck(b,0,196,-24,16,26,'end');
     b.addSurfWedge([0,195,18],[0,182,100],{faceWidth:fw,slopeDeg:slope,side:'both',lipStart:true,lipEnd:true});
     const sp1=b.addSurfSpiral({start:[0,181,106],yawStart:0,yawDelta:Math.PI*2.5,radiusStart:38,radiusEnd:27,pitchDrop:-48,segments:42,faceWidth:7.6,slopeDeg:56,side:'both',lipStart:true,lipEnd:true});
