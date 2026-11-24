@@ -6929,6 +6929,7 @@
     out.pumpPull = 0;
     out.lifterPush = 0;
     out.showReloadShells = false;
+    out.revolverOpen = 0; out.revolverEject = 0; out.revolverSpin = 0;
     out.slideBack = 0; out.hammerBack = 0;
     out.magDropY = 0; out.magTiltX = 0;
 
@@ -7343,7 +7344,7 @@
       revolver: KS.createStarterWeapon('revolver')
     };
     let currentWeaponAttachments = { rifle: {}, smg: {}, shotgun: {}, awp: {}, deagle: {}, pistol: {}, revolver: {} };
-    let currentWeaponBuildSig = { rifle: '', smg: {}, shotgun: {}, awp: {}, deagle: {}, pistol: {}, revolver: {} };
+    let currentWeaponBuildSig = { rifle: '', smg: '', shotgun: '', awp: '', deagle: '', pistol: '', revolver: '' };
     let activeSlot = 'knife'; // 'rifle' | 'smg' | 'shotgun' | 'awp' | 'deagle' | 'pistol' | 'knife'
     let isScoped = false;
     let adsActive = false;
