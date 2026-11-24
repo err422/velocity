@@ -22,6 +22,7 @@ test('starter inventory includes a persistent R-8 slot and starter skin', () => 
   const inv = KnivesSystem.createStarterInventory();
   assert.equal(inv.equippedRevolverId, 'starter_revolver_slate');
   assert.equal(KnivesSystem.getEquippedWeapon(inv, 'revolver').weaponType, 'revolver');
+  assert.equal(KnivesSystem.toCloudInventoryPayload(inv, 'test-user').equippedRevolverId, 'starter_revolver_slate');
   assert.ok(inv.weapons.some((item) => item.id === 'starter_revolver_slate'));
 });
 
