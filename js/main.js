@@ -464,6 +464,7 @@ const armTabCases=$('armTabCases'),armTabInventory=$('armTabInventory');
 const armoryCasesSelect=$('armoryCasesSelect'),armoryCaseGrid=$('armoryCaseGrid');
 const selectedCaseTitle=$('selectedCaseTitle'),caseOddsLine=$('caseOddsLine'),selectedCasePool=$('selectedCasePool');
 const openCaseBtn=$('openCaseBtn'),buyCaseBtn=$('buyCaseBtn'),openCaseHint=$('openCaseHint'),armoryOpenedStat=$('armoryOpenedStat');
+const bulkCaseQuantityInput=$('bulkCaseQuantity'),bulkCaseTotalEl=$('bulkCaseTotal'),bulkCaseHintEl=$('bulkCaseHint'),bulkBuyCaseBtn=$('bulkBuyCaseBtn');
 const armoryRouletteWrap=$('armoryRouletteWrap'),rouletteCaseLabel=$('rouletteCaseLabel');
 const rouletteViewport=$('rouletteViewport'),rouletteTrack=$('rouletteTrack'),rouletteStatus=$('rouletteStatus');
 const armoryRevealWrap=$('armoryRevealWrap'),armoryRevealStage=$('armoryRevealStage'),revealStageBar=$('revealStageBar');
@@ -512,6 +513,7 @@ let unsubPublicLobbies=null;
 let armoryReturnTarget='menu';
 let activeArmoryTab='cases';
 let selectedCaseId='velocity';
+let bulkCaseQuantity=10;
 let invCategory='weapons';
 let invFilterType='all';
 let invPreviewMode='combo';
@@ -1301,6 +1303,7 @@ function renderArmoryCases(){
       :`Beat courses, set PBs, win arenas, or sell skins for ${fmtCoins(deficit)} more coins`;
   }
   updateArmoryBadges();
+  updateBulkCaseBuyUI();
 }
 
 function buyCaseOnly(caseId){
@@ -1316,6 +1319,66 @@ function buyCaseOnly(caseId){
   renderArmoryCases();
   const cDef=KnivesSystem.CASES[cid];
   showToast(`PURCHASED ${cDef.name.toUpperCase()} · -${fmtCoins(res.price)} COINS`);
+}
+
+
+function updateBulkCaseBuyUI(){
+  if(!bulkCaseQuantityInput||!bulkBuyCaseBtn)return;
+  const cid=KnivesSystem.CASES[selectedCaseId]?selectedCaseId:'velocity';
+  const price=KnivesSystem.getCasePrice(cid);
+  const coins=window.activeInventory.coins||0;
+  const owned=window.activeInventory.caseCounts[cid]||0;
+  const available=Math.max(0,999-owned);
+  const raw=Number(bulkCaseQuantityInput.value);
+  const qty=Number.isSafeInteger(raw)?raw:0;
+  const validQty=qty>=1&&qty<=available;
+  const total=qty>0?price*qty:0;
+  const deficit=Math.max(0,total-coins);
+
+  bulkCaseQuantityInput.max=String(available);
+  bulkCaseTotalEl.textContent=qty>0
+    ?`${fmtCoins(qty)} CASES · ${fmtCoins(total)} COINS TOTAL`
+    :'CHOOSE HOW MANY CASES TO BUY';
+  if(bulkCaseHintEl){
+    bulkCaseHintEl.textContent=available>0
+      ?`${fmtCoins(price)} COINS EACH · ${fmtCoins(available)} INVENTORY SLOTS AVAILABLE`
+      :'CASE STORAGE FULL · OPEN SOME CASES FIRST';
+  }
+  bulkBuyCaseBtn.disabled=!validQty||coins<total;
+  bulkBuyCaseBtn.textContent=!validQty
+    ?(available===0?'CASE STORAGE FULL':qty<1?'ENTER A QUANTITY':`MAX ${fmtCoins(available)} CASES`)
+    :deficit>0
+      ?`NEED ${fmtCoins(deficit)} MORE COINS`
+      :`BUY ${fmtCoins(qty)} CASES · ${fmtCoins(total)}C`;
+
+  document.querySelectorAll('[data-case-qty]').forEach(btn=>{
+    btn.classList.toggle('active',Number(btn.dataset.caseQty)===qty);
+  });
+}
+
+function buyCasesInBulk(caseId){
+  const cid=KnivesSystem.CASES[caseId]?caseId:'velocity';
+  const requested=bulkCaseQuantityInput?Number(bulkCaseQuantityInput.value):bulkCaseQuantity;
+  const res=KnivesSystem.buyCases(window.activeInventory,cid,requested);
+  if(!res.purchased){
+    if(res.reason==='INSUFFICIENT_COINS'){
+      showToast(`NEED ${fmtCoins(res.deficit)} MORE COINS`);
+    }else if(res.reason==='CASE_CAPACITY'){
+      showToast(`ONLY ${fmtCoins(res.available)} CASE SLOTS AVAILABLE`);
+    }else{
+      showToast('ENTER A VALID CASE QUANTITY');
+    }
+    updateBulkCaseBuyUI();
+    return;
+  }
+
+  window.activeInventory=res.inventory;
+  bulkCaseQuantity=res.quantity;
+  persistInventorySummary(true);
+  CaseAudio.coinChime('buy');
+  renderArmoryCases();
+  const cDef=KnivesSystem.CASES[cid];
+  showToast(`BULK PURCHASE · ${fmtCoins(res.quantity)} ${cDef.shortName.toUpperCase()} CASES · -${fmtCoins(res.totalCost)} COINS`);
 }
 
 function showCasesView(mode){
@@ -4251,6 +4314,22 @@ document.querySelectorAll('[data-arm-tab]').forEach(btn=>{
 });
 openCaseBtn.onclick=()=>startCaseUnboxing(selectedCaseId);
 if(buyCaseBtn)buyCaseBtn.onclick=()=>buyCaseOnly(selectedCaseId);
+if(bulkCaseQuantityInput){
+  bulkCaseQuantityInput.value=String(bulkCaseQuantity);
+  bulkCaseQuantityInput.addEventListener('input',()=>{
+    const next=Number(bulkCaseQuantityInput.value);
+    bulkCaseQuantity=Number.isSafeInteger(next)?next:0;
+    updateBulkCaseBuyUI();
+  });
+}
+document.querySelectorAll('[data-case-qty]').forEach(btn=>{
+  btn.onclick=()=>{
+    bulkCaseQuantity=Number(btn.dataset.caseQty)||1;
+    if(bulkCaseQuantityInput)bulkCaseQuantityInput.value=String(bulkCaseQuantity);
+    updateBulkCaseBuyUI();
+  };
+});
+if(bulkBuyCaseBtn)bulkBuyCaseBtn.onclick=()=>buyCasesInBulk(selectedCaseId);
 $('skipRouletteBtn').onclick=()=>{
   if(rouletteFinishCb){
     const fn=rouletteFinishCb;
