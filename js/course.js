@@ -1350,6 +1350,177 @@
       previewWaypoints:[[-20,106,25],[15,72,165],[190,128,88],[380,116,115],[sp.spiral.center[0]+42,100,sp.spiral.center[2]],[790,146,40],[finish[0]+18,finish[1]+22,finish[2]]]};
   }
 
+
+  // ===================================================================
+  // TIER 5 — DEAD RECKONING (Linear · Abyssal · Zero Checkpoints)
+  // One continuous run: no bailout gates, no stage portals, no recovery
+  // platform. Precision surf feeds a grapple chain, burst gap and twin
+  // counter-rotating spirals.
+  // ===================================================================
+  function buildSurfDeadReckoning(bOpts) {
+    const b=makeBuilder('abyssal',bOpts);
+    const slope=56,fw=7.8;
+    const advance=(p,yaw,d,drop)=>[
+      p[0]+Math.sin(yaw)*d,
+      p[1]-drop,
+      p[2]+Math.cos(yaw)*d
+    ];
+
+    // OPENING — 360-degree descending helix into a small catch deck.
+    const startY=224;
+    buildSurfDeck(b,0,startY,-26,18,28,'end');
+    b.addSurfWedge([0,startY-1,20],[0,startY-14,100],{
+      faceWidth:8.3,slopeDeg:slope,side:'both',lipStart:true,lipEnd:true
+    });
+    const sp1=b.addSurfSpiral({
+      start:[0,startY-15,106],yawStart:0,yawDelta:Math.PI*2,
+      radiusStart:37,radiusEnd:27,pitchDrop:-46,segments:40,
+      faceWidth:8,slopeDeg:slope,side:'both',lipStart:true,lipEnd:true
+    });
+    const e1=sp1.spiral.end,t1=sp1.spiral.endTangent;
+    const deck1=advance(e1,sp1.spiral.endYaw,24,7);
+    buildSurfDeck(b,deck1[0],deck1[1],deck1[2]-13,deck1[2]+17,22,'end');
+
+    // SWITCHBACK COMB — a tight S-chicane followed by two offset,
+    // one-sided knife banks. The transfer is intentionally unforgiving.
+    const sc1=b.addSurfSCurve({
+      start:advance(deck1,0,17,0.5),yawStart:0,yawDelta:Math.PI/2.85,
+      radius:44,pitchDrop:-19,segmentsPerArc:14,gap:7,gapDrop:-0.8,
+      faceWidth:7.7,slopeDeg:56,bothSides:true,lipStart:true,lipEnd:true
+    });
+    const sce=sc1.scurve.end;
+    const scDeck=advance(sce,0,18,6);
+    buildSurfDeck(b,scDeck[0],scDeck[1],scDeck[2]-13,scDeck[2]+17,21,'end');
+
+    const k1a=advance(scDeck,0,16,0.5);
+    const k1b=[k1a[0]+38,k1a[1]-9,k1a[2]+82];
+    b.addSurfWedge(k1a,k1b,{faceWidth:7.2,slopeDeg:57,side:'left',lipStart:true,lipEnd:true});
+    const k2a=[k1b[0]+4,k1b[1]-0.6,k1b[2]+8];
+    const k2b=[k1b[0]-56,k1b[1]-10,k1b[2]+98];
+    b.addSurfWedge(k2a,k2b,{faceWidth:7.1,slopeDeg:57,side:'right',lipStart:true,lipEnd:true});
+    const bankDeck=[k2b[0]-8,k2b[1]-5,k2b[2]+19];
+    buildSurfDeck(b,bankDeck[0],bankDeck[1],bankDeck[2]-12,bankDeck[2]+18,21,'end');
+
+    // ANCHOR HARP — a narrow runway under three alternating tether anchors.
+    // Players must manage latch/release timing without a checkpoint safety net.
+    const runA=[bankDeck[0],bankDeck[1]-0.5,bankDeck[2]+18];
+    const runB=[bankDeck[0],bankDeck[1]-18,bankDeck[2]+146];
+    b.addSurfWedge(runA,runB,{faceWidth:7.6,slopeDeg:56,side:'both',lipStart:true,lipEnd:true});
+    for(let i=0;i<3;i++){
+      const along=30+i*42,side=i%2===0?-1:1;
+      const ax=runA[0]+side*11;
+      const az=runA[2]+along;
+      const ay=runA[1]-(18*along/128)+27;
+      b.addBox(ax,ay,az,4.4,4.4,4.4,b.mats.lip,true);
+      b.addRing(ax,ay+3,az,2.8,0x65efff);
+    }
+
+    // FLICK-TO-TETHER — leave the ramp, chain the offset anchors, and
+    // recover onto a thin landing bank well beyond a normal jump line.
+    const firstFlick=b.addSurfFlick({
+      start:[runB[0],runB[1]-1,runB[2]+12],yaw:0,
+      length:38,rise:12,faceWidth:7.4,slopeDeg:57,side:'both'
+    });
+    const fEnd=firstFlick.spec.b;
+    for(let i=0;i<3;i++){
+      const side=i===1?1:-1;
+      const along=24+i*27;
+      const ax=fEnd[0]+side*12;
+      const ay=fEnd[1]+27-(i*2);
+      const az=fEnd[2]+along;
+      b.addBox(ax,ay,az,4.5,4.5,4.5,b.mats.lip,true);
+      b.addRing(ax,ay+3,az,2.9,0xb99cff);
+    }
+    const tetherCatchA=[fEnd[0]+5,fEnd[1]-4,fEnd[2]+98];
+    const tetherCatchB=[fEnd[0]+12,fEnd[1]-19,fEnd[2]+188];
+    b.addSurfWedge(tetherCatchA,tetherCatchB,{
+      faceWidth:7.2,slopeDeg:57,side:'both',lipStart:true,lipEnd:true
+    });
+    b.gateText('LATCH  /  RELEASE  /  CATCH',tetherCatchA[0],tetherCatchA[1]+19,tetherCatchA[2]+8,'#b99cff');
+    const tetherDeck=[tetherCatchB[0]+3,tetherCatchB[1]-5,tetherCatchB[2]+17];
+    buildSurfDeck(b,tetherDeck[0],tetherDeck[1],tetherDeck[2]-12,tetherDeck[2]+18,21,'end');
+
+    // V-CHANNEL — maintain the line through a narrow ribbed trough,
+    // hit the directional booster, then take the high flick exit.
+    const chA=[tetherDeck[0],tetherDeck[1]-0.5,tetherDeck[2]+18];
+    const chB=[tetherDeck[0],tetherDeck[1]-17,tetherDeck[2]+136];
+    b.addSurfChannel(chA,chB,{
+      halfGap:8.1,faceWidth:7.8,slopeDeg:56,ribs:8,lipStart:true,lipEnd:true
+    });
+    const boostPos=[chB[0],chB[1]-1,chB[2]+11];
+    b.addBoostRing(boostPos,[0,0.18,1],{
+      radius:4.15,minSpeed:59,speedBoost:32,upBoost:10
+    });
+    const burstFlick=b.addSurfFlick({
+      start:[boostPos[0],boostPos[1]-0.6,boostPos[2]+16],yaw:0,
+      length:34,rise:12,faceWidth:7.2,slopeDeg:57,side:'both'
+    });
+
+    // BURST SLOT — an offset air gap and a narrow return bank. The Q burst
+    // is useful here, but wasting it early makes the landing much harder.
+    const burstEnd=burstFlick.spec.b;
+    const burstCatchA=[burstEnd[0]+19,burstEnd[1]-9,burstEnd[2]+54];
+    const burstCatchB=[burstEnd[0]+24,burstEnd[1]-21,burstEnd[2]+137];
+    b.addSurfWedge(burstCatchA,burstCatchB,{
+      faceWidth:7.05,slopeDeg:57,side:'left',lipStart:true,lipEnd:true
+    });
+    const returnDeck=[burstCatchB[0]+5,burstCatchB[1]-5,burstCatchB[2]+17];
+    buildSurfDeck(b,returnDeck[0],returnDeck[1],returnDeck[2]-12,returnDeck[2]+18,20,'end');
+
+    // FINAL CHICANE — another opposing S-curve, now with almost no spare
+    // width before the first of two descending corkscrews.
+    const sc2=b.addSurfSCurve({
+      start:[returnDeck[0],returnDeck[1]-0.5,returnDeck[2]+18],
+      yawStart:0,yawDelta:-Math.PI/2.7,radius:42,pitchDrop:-20,
+      segmentsPerArc:15,gap:6,gapDrop:-0.7,faceWidth:7.3,
+      slopeDeg:57,bothSides:true,lipStart:true,lipEnd:true
+    });
+    const sc2e=sc2.scurve.end;
+    const spiralDeck=advance(sc2e,0,18,6);
+    buildSurfDeck(b,spiralDeck[0],spiralDeck[1],spiralDeck[2]-12,spiralDeck[2]+18,21,'end');
+
+    const sp2=b.addSurfSpiral({
+      start:[spiralDeck[0],spiralDeck[1]-0.5,spiralDeck[2]+17],
+      yawStart:0,yawDelta:Math.PI*2,radiusStart:34,radiusEnd:24,
+      pitchDrop:-36,segments:34,faceWidth:7.2,slopeDeg:57,
+      side:'both',lipStart:true,lipEnd:true
+    });
+    const e2=sp2.spiral.end,t2=sp2.spiral.endTangent;
+    const sp3=b.addSurfSpiral({
+      start:[e2[0]+t2[0]*13,e2[1]-2,e2[2]+t2[2]*13],
+      yawStart:sp2.spiral.endYaw,yawDelta:-Math.PI*2,
+      radiusStart:27,radiusEnd:20,pitchDrop:-32,segments:34,
+      faceWidth:6.9,slopeDeg:57,side:'both',lipStart:true,lipEnd:true
+    });
+    const e3=sp3.spiral.end,t3=sp3.spiral.endTangent;
+    const finish=[e3[0]+t3[0]*30,e3[1]-8,e3[2]+t3[2]*30];
+    buildSurfDeck(b,finish[0],finish[1],finish[2]-18,finish[2]+58,34,'start');
+    b.addNeonFrame(finish[0],finish[1]+11,finish[2]+20,28,19,0);
+
+    // Exactly two timing gates: start and finish. No intermediate checkpoints.
+    const gates=b.buildGates([
+      [0,startY+4,6,8],
+      [finish[0],finish[1]+4,finish[2]+20,12]
+    ]);
+    b.gateText('DEAD RECKONING',0,startY+12,6,'#b99cff');
+    b.gateText('FINISH',finish[0],finish[1]+16,finish[2]+20,'#65efff');
+    return {
+      id:'surf_dead_reckoning',theme:'abyssal',format:'linear',tier:5,
+      spawn:V3(0,startY,-10),yaw:Math.PI,course:gates,bound:0,
+      killY:finish[1]-38,surfHint:true,
+      previewWaypoints:[
+        [-24,startY+15,22],
+        [sp1.spiral.center[0]+46,startY-24,sp1.spiral.center[2]],
+        [sce[0]+28,sce[1]+18,sce[2]+24],
+        [bankDeck[0]+30,bankDeck[1]+36,bankDeck[2]+80],
+        [fEnd[0]+18,fEnd[1]+35,fEnd[2]+52],
+        [chB[0]-24,chB[1]+16,chB[2]+38],
+        [burstCatchB[0]+20,burstCatchB[1]+20,burstCatchB[2]+22],
+        [finish[0]+18,finish[1]+24,finish[2]+20]
+      ]
+    };
+  }
+
   // ===================================================================
   // TIME TRIAL 01 — THE ASCENT (T1 · Linear · Slate) [Preserves id='course1']
   // ===================================================================
@@ -1694,6 +1865,15 @@
       pieces: ['Anchor Harp Grapple', 'Razor Bank Ladder', 'Air-Burst Catch', 'Tether-Release Spiral', 'Counter-Rotating Finale'],
       description: 'Five expert hybrid exams combining razor banks, grapple-anchor choices, deliberate air-burst gaps, tight channels and corkscrew transfers.',
       build: buildSurfBlackIce
+    },
+
+    {
+      id: 'surf_dead_reckoning', category: 'surf', name: 'Dead Reckoning', code: 'surf_dead_reckoning',
+      author: 'Velocity Core', tier: 5, format: 'linear', cpCount: 0,
+      parGold: 96.0, parSilver: 128.0, theme: 'abyssal',
+      pieces: ['360° Helix', 'Switchback Comb', 'Anchor Harp', 'Tether Catch', 'Burst Slot', '720° Counter-Spirals'],
+      description: 'A single-run Tier 5 examination of precision surf, chained grapple releases, kinetic-burst timing and two counter-rotating corkscrews. No checkpoints.',
+      build: buildSurfDeadReckoning
     },
 
     // --- TIME TRIALS (4) ---
