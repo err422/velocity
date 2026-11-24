@@ -3732,9 +3732,11 @@
   function applyContactGripSocket(knifeMesh, kt) {
     knifeMesh.rotation.order = 'XYZ';
     if (kt === 'karambit') {
-      knifeMesh.position.set(-0.0255, -0.0185, -0.043);
-      knifeMesh.rotation.set(Math.PI * 0.5 - 0.35, 0.04, -0.06);
-      knifeMesh.scale.setScalar(1.05);
+      // Lift and cant the hooked blade toward the camera so its curved profile
+      // clears the fingers instead of disappearing behind the palm.
+      knifeMesh.position.set(-0.0205, -0.0085, -0.043);
+      knifeMesh.rotation.set(1.05, 0.04, -0.06);
+      knifeMesh.scale.setScalar(1.10);
     } else if (kt === 'skeleton') {
       knifeMesh.position.set(-0.0255, -0.0215, -0.041);
       knifeMesh.rotation.set(Math.PI * 0.5 - 0.16, Math.PI - 0.24, 0.08);
