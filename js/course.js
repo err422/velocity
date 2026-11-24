@@ -1,6 +1,6 @@
 // =====================================================================
 // VELOCITY COURSE CATALOG & HANDCRAFTED LEVEL BUILDERS
-// 14 Counter-Strike inspired Surf Maps (Tiers 1-4, Linear & Staged)
+// 16 Counter-Strike inspired Surf Maps (Tiers 1-5, Linear & Staged)
 // + 4 Movement & Gauntlet Time Trials
 // =====================================================================
 (function (root) {
@@ -1174,6 +1174,154 @@
     };
   }
 
+
+  // ===================================================================
+  // TIER 5 — EVENT HORIZON (Linear · Abyssal)
+  // Precision endurance: opposing spirals, offset knife-edge transfers,
+  // a split-lane braid, and a final descending corkscrew.
+  // ===================================================================
+  function buildSurfEventHorizon(bOpts) {
+    const b = makeBuilder('abyssal', bOpts);
+    const fw = 7.8, slope = 56;
+    const deck = (x,y,z,w=20,d=26) => b.addDeck(x,y,z,w,d);
+    const railGate = (x,y,z,w=18,h=12,yaw=0) => {
+      const g = new THREE.Group(); g.position.set(x,y,z); g.rotation.y=yaw;
+      b.addBox(x-w/2,y+h/2,z,0.8,h,0.8,b.mats.dark,false);
+      b.addBox(x+w/2,y+h/2,z,0.8,h,0.8,b.mats.dark,false);
+      b.addBox(x,y+h,z,w+0.8,0.8,0.8,b.mats.accent,false);
+      return g;
+    };
+
+    buildSurfDeck(b,0,196,-24,16,26,'end');
+    b.addSurfWedge([0,195,18],[0,182,100],{faceWidth:fw,slopeDeg:slope,side:'both',lipStart:true,lipEnd:true});
+    const sp1=b.addSurfSpiral({start:[0,181,106],yawStart:0,yawDelta:Math.PI*2.5,radiusStart:38,radiusEnd:27,pitchDrop:-48,segments:42,faceWidth:7.6,slopeDeg:56,side:'both',lipStart:true,lipEnd:true});
+    const e1=sp1.spiral.end,t1=sp1.spiral.endTangent;
+    const d1=[e1[0]+t1[0]*24,e1[1]-8,e1[2]+t1[2]*24];
+    deck(...d1,22,22);
+
+    // Needle transfer: narrow one-sided banks alternate across a tiny landing.
+    const n1=[d1[0]+t1[0]*16,d1[1]-0.5,d1[2]+t1[2]*16];
+    const n2=[n1[0]+t1[2]*34,n1[1]-8,n1[2]-t1[0]*34];
+    b.addSurfWedge(n1,n2,{faceWidth:7.1,slopeDeg:57,side:'left',lipStart:true,lipEnd:true});
+    const n3=[n2[0]-t1[2]*27,n2[1]-7,n2[2]+t1[0]*27];
+    b.addSurfWedge(n2,n3,{faceWidth:7.1,slopeDeg:57,side:'right',lipStart:true,lipEnd:true});
+    deck(n3[0]+t1[0]*18,n3[1]-4,n3[2]+t1[2]*18,18,20);
+
+    // New composite set piece: offset braid. Two fast opposing arcs force
+    // a deliberate transfer through the central aperture without collision clutter.
+    const braidStart=[n3[0]+t1[0]*18,n3[1]-0.5,n3[2]+t1[2]*18];
+    const ba=b.addSurfCurve({start:braidStart,yawStart:sp1.spiral.endYaw,yawDelta:Math.PI/2.8,radius:38,pitchDrop:-15,segments:16,faceWidth:7.2,slopeDeg:56,side:'left',lipStart:true,lipEnd:true});
+    const bae=ba.curve.end,bat=ba.curve.endTangent;
+    const bb=b.addSurfCurve({start:[bae[0]+bat[0]*9,bae[1]-1,bae[2]+bat[2]*9],yawStart:ba.curve.endYaw,yawDelta:-Math.PI/1.45,radius:35,pitchDrop:-17,segments:18,faceWidth:7.2,slopeDeg:56,side:'right',lipStart:true,lipEnd:true});
+    const bbe=bb.curve.end,bbt=bb.curve.endTangent;
+    const d2=[bbe[0]+bbt[0]*20,bbe[1]-6,bbe[2]+bbt[2]*20];
+    deck(...d2,20,22);
+
+    // A high-speed V-channel, precision boost aperture, then a 180-degree wrap.
+    const chA=[d2[0]+bbt[0]*14,d2[1]-0.5,d2[2]+bbt[2]*14];
+    const chB=[chA[0]+bbt[0]*116,chA[1]-18,chA[2]+bbt[2]*116];
+    b.addSurfChannel(chA,chB,{halfGap:8.1,faceWidth:7.6,slopeDeg:56,ribs:7,lipStart:true,lipEnd:true});
+    const ringPos=[chB[0]+bbt[0]*12,chB[1]-1,chB[2]+bbt[2]*12];
+    b.addBoostRing(ringPos,[bbt[0],0.16,bbt[2]],{radius:4.1,minSpeed:58,speedBoost:32,upBoost:10});
+    const wrap=b.addSurfCurve({start:[ringPos[0]+bbt[0]*16,ringPos[1]-1,ringPos[2]+bbt[2]*16],yawStart:Math.atan2(bbt[0],bbt[2]),yawDelta:-Math.PI*0.92,radius:48,pitchDrop:-22,segments:22,faceWidth:7.3,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
+    const we=wrap.curve.end,wt=wrap.curve.endTangent;
+    const d3=[we[0]+wt[0]*20,we[1]-7,we[2]+wt[2]*20];
+    deck(...d3,20,22);
+
+    // Final opposing 360-degree spirals; second exits directly into the finish catch.
+    const sp2=b.addSurfSpiral({start:[d3[0]+wt[0]*14,d3[1]-0.5,d3[2]+wt[2]*14],yawStart:wrap.curve.endYaw,yawDelta:-Math.PI*2,radiusStart:31,radiusEnd:23,pitchDrop:-38,segments:34,faceWidth:7.2,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
+    const e2=sp2.spiral.end,t2=sp2.spiral.endTangent;
+    const sp3=b.addSurfSpiral({start:[e2[0]+t2[0]*12,e2[1]-2,e2[2]+t2[2]*12],yawStart:sp2.spiral.endYaw,yawDelta:Math.PI*1.5,radiusStart:25,radiusEnd:20,pitchDrop:-30,segments:28,faceWidth:6.9,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
+    const e3=sp3.spiral.end,t3=sp3.spiral.endTangent;
+    const fin=[e3[0]+t3[0]*26,e3[1]-7,e3[2]+t3[2]*26];
+    buildSurfDeck(b,fin[0],fin[1],fin[2]-16,fin[2]+42,30,'start');
+    b.addNeonFrame(fin[0],fin[1]+10,fin[2]+12,24,17,Math.atan2(t3[0],t3[2]));
+
+    const gates=b.buildGates([
+      [0,200,6,8],
+      [d1[0],d1[1]+4,d1[2],10,d1[0],d1[1]+0.1,d1[2],t1[0],t1[2]],
+      [d2[0],d2[1]+4,d2[2],10,d2[0],d2[1]+0.1,d2[2],bbt[0],bbt[2]],
+      [d3[0],d3[1]+4,d3[2],10,d3[0],d3[1]+0.1,d3[2],wt[0],wt[2]],
+      [fin[0],fin[1]+4,fin[2]+12,12]
+    ]);
+    b.gateText('EVENT HORIZON',0,207,6,'#b99cff');
+    b.gateText('FINISH',fin[0],fin[1]+15,fin[2]+12,'#65efff');
+    return {id:'surf_event_horizon',theme:'abyssal',format:'linear',tier:5,spawn:V3(0,196,-10),yaw:Math.PI,course:gates,bound:0,killY:fin[1]-35,surfHint:true,
+      previewWaypoints:[[-24,210,20],[sp1.spiral.center[0]+44,175,sp1.spiral.center[2]],[n2[0]+18,n2[1]+16,n2[2]],[bae[0]+26,bae[1]+16,bae[2]+20],[chB[0]+12,chB[1]+12,chB[2]+20],[fin[0]+18,fin[1]+20,fin[2]+12]]};
+  }
+
+  // ===================================================================
+  // TIER 5 — BLACK ICE PROTOCOL (Staged · Abyssal)
+  // Five brutal but checkpointed movement exams. New set piece: the
+  // "anchor harp", a bank of offset grapple targets over a surf catch.
+  // ===================================================================
+  function buildSurfBlackIce(bOpts) {
+    const b=makeBuilder('abyssal',bOpts), stages=[];
+    const room=(i,x,y,z,failY)=>{stages.push({i,x,y,z});b.addFailZone({minY:failY,minX:x-78,maxX:x+78,minZ:z-55,maxZ:z+380,respawn:[x,y+0.1,z-9],respawnYaw:Math.PI,label:`BLACK ICE ${i+1} RETRY`});};
+    const frame=(x,y,z,w=22,h=16)=>b.addNeonFrame(x,y,z,w,h,0);
+
+    // Stage 1: razor bank ladder, with a late-side switch and blind landing.
+    room(0,0,92,0,14); buildSurfDeck(b,0,92,-18,14,24,'end'); frame(0,96,72,22,16);
+    b.addSurfWedge([0,91,18],[0,78,106],{faceWidth:8.2,slopeDeg:56,side:'left',lipStart:true,lipEnd:true});
+    b.addSurfWedge([15,74,118],[15,62,210],{faceWidth:7.8,slopeDeg:57,side:'right',lipStart:true,lipEnd:true});
+    b.addSurfWedge([-13,58,222],[-13,46,304],{faceWidth:7.6,slopeDeg:57,side:'left',lipStart:true,lipEnd:true});
+    buildSurfDeck(b,0,39,312,342,22,'start');
+
+    // Stage 2: new "anchor harp" grapple transfer: overhead solid anchors
+    // alternate sides above a narrow surf runway. The player chooses each latch.
+    room(1,190,98,0,12); buildSurfDeck(b,190,98,-18,14,24,'end');
+    const runwayA=[190,97,18],runwayB=[190,78,166];
+    b.addSurfWedge(runwayA,runwayB,{faceWidth:8.4,slopeDeg:56,side:'both',lipStart:true,lipEnd:true});
+    for(let i=0;i<5;i++){
+      const z=42+i*25,side=i%2===0?-1:1;
+      b.addBox(190+side*13,119+(i%2)*5,z,5,5,5,b.mats.accent,true);
+      b.addBox(190-side*19,116,z+10,3,3,3,b.mats.dark,true);
+    }
+    b.addBoostRing([190,77,180],[0,0.18,1],{radius:4.8,minSpeed:55,speedBoost:28,upBoost:9});
+    b.addSurfFlick({start:[190,76,194],yaw:0,length:38,rise:10,faceWidth:8,slopeDeg:56,side:'both'});
+    buildSurfDeck(b,190,67,242,270,24,'start');
+
+    // Stage 3: high-speed double-wall channel with a narrow central aperture.
+    room(2,380,104,0,10); buildSurfDeck(b,380,104,-18,14,24,'end');
+    b.addSurfChannel([380,103,18],[380,84,158],{halfGap:8.5,faceWidth:8.1,slopeDeg:57,ribs:8,lipStart:true,lipEnd:true});
+    b.addBoostRing([380,83,170],[0,0.18,1],{radius:4.2,minSpeed:59,speedBoost:34,upBoost:10});
+    b.addSurfWedge([380,82,184],[380,68,280],{faceWidth:7.6,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
+    buildSurfDeck(b,380,60,286,314,24,'start');
+
+    // Stage 4: descending 540-degree spiral into an offset exit flick.
+    room(3,570,118,0,8); buildSurfDeck(b,570,118,-18,14,24,'end');
+    const sp=b.addSurfSpiral({start:[570,117,18],yawStart:0,yawDelta:Math.PI*3,radiusStart:34,radiusEnd:23,pitchDrop:-48,segments:42,faceWidth:7.5,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
+    const se=sp.spiral.end,st=sp.spiral.endTangent;
+    b.addSurfFlick({start:[se[0]+st[0]*12,se[1]-2,se[2]+st[2]*12],yaw:sp.spiral.endYaw,length:40,rise:11,faceWidth:7.4,slopeDeg:57,side:'both'});
+    const s4=[se[0]+st[0]*56,se[1]-8,se[2]+st[2]*56]; b.addDeck(s4[0],s4[1],s4[2],24,24);
+
+    // Stage 5: final braid: counter-rotating corkscrew into a needle gate.
+    room(4,760,128,0,6); buildSurfDeck(b,760,128,-18,14,24,'end');
+    const f1=b.addSurfSpiral({start:[760,127,18],yawStart:0,yawDelta:-Math.PI*1.5,radiusStart:30,radiusEnd:23,pitchDrop:-30,segments:28,faceWidth:7.3,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
+    const f1e=f1.spiral.end,f1t=f1.spiral.endTangent;
+    const f2=b.addSurfSpiral({start:[f1e[0]+f1t[0]*12,f1e[1]-2,f1e[2]+f1t[2]*12],yawStart:f1.spiral.endYaw,yawDelta:Math.PI*1.5,radiusStart:25,radiusEnd:19,pitchDrop:-30,segments:28,faceWidth:7,slopeDeg:57,side:'both',lipStart:true,lipEnd:true});
+    const f2e=f2.spiral.end,f2t=f2.spiral.endTangent;
+    const finish=[f2e[0]+f2t[0]*28,f2e[1]-8,f2e[2]+f2t[2]*28];
+    b.addDeck(finish[0],finish[1],finish[2],30,32); frame(finish[0],finish[1]+11,finish[2],26,18);
+
+    const gates=b.buildGates([
+      [0,95,6,8],
+      [0,43,328,10,190,98,-9],
+      [190,71,258,10,380,104,-9],
+      [380,64,302,10,570,118,-9],
+      [s4[0],s4[1]+4,s4[2],10,760,128,-9],
+      [finish[0],finish[1]+4,finish[2],12]
+    ]);
+    b.addStageTeleporter([0,39,336],[14,11,6],[190,98,-9],Math.PI,{gateIndex:1,label:'STAGE 2 / 5'});
+    b.addStageTeleporter([190,67,264],[14,11,6],[380,104,-9],Math.PI,{gateIndex:2,label:'STAGE 3 / 5'});
+    b.addStageTeleporter([380,60,308],[14,11,6],[570,118,-9],Math.PI,{gateIndex:3,label:'STAGE 4 / 5'});
+    b.addStageTeleporter([s4[0],s4[1],s4[2]],[16,11,10],[760,128,-9],Math.PI,{gateIndex:4,label:'STAGE 5 / 5'});
+    b.gateText('BLACK ICE PROTOCOL',0,102,6,'#b99cff');
+    b.gateText('FINISH',finish[0],finish[1]+15,finish[2],'#65efff');
+    return {id:'surf_black_ice',theme:'abyssal',format:'staged',tier:5,spawn:V3(0,92,-10),yaw:Math.PI,course:gates,bound:0,killY:-18,surfHint:true,
+      previewWaypoints:[[-20,106,25],[15,72,165],[190,128,88],[380,116,115],[sp.spiral.center[0]+42,100,sp.spiral.center[2]],[790,146,40],[finish[0]+18,finish[1]+22,finish[2]]]};
+  }
+
   // ===================================================================
   // TIME TRIAL 01 — THE ASCENT (T1 · Linear · Slate) [Preserves id='course1']
   // ===================================================================
@@ -1501,6 +1649,23 @@
       pieces: ['Long S-Curves', 'Grapple Transfers', 'Kinetic Boost Chains'],
       description: 'A full-length industrial surf route built around sustained speed, deliberate grapple swings, and clean kinetic-burst transfers.',
       build: buildSurfTetherline
+    },
+
+    {
+      id: 'surf_event_horizon', category: 'surf', name: 'Event Horizon', code: 'surf_event_horizon',
+      author: 'Velocity Core', tier: 5, format: 'linear', cpCount: 4,
+      parGold: 88.0, parSilver: 118.0, theme: 'abyssal',
+      pieces: ['450° Helical Drop', 'Offset Braid', 'Needle Transfer', 'Counter-Rotating Spirals'],
+      description: 'A punishing precision marathon of narrow banks, a split-lane braid, a high-speed V-channel and a double-spiral finale.',
+      build: buildSurfEventHorizon
+    },
+    {
+      id: 'surf_black_ice', category: 'surf', name: 'Black Ice Protocol', code: 'surf_black_ice',
+      author: 'Velocity Core', tier: 5, format: 'staged', cpCount: 5,
+      parGold: 78.0, parSilver: 104.0, theme: 'abyssal',
+      pieces: ['Anchor Harp Grapple', 'Razor Bank Ladder', 'Boost Aperture', '540° Spiral', 'Counter-Rotating Finale'],
+      description: 'Five expert movement exams combining razor banks, optional grapple anchor choices, boost timing, channels and corkscrew transfers.',
+      build: buildSurfBlackIce
     },
 
     // --- TIME TRIALS (4) ---
