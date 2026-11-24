@@ -4245,46 +4245,56 @@
           if (t > 0.70) cue(2, () => CaseAudio.balisongClack(1.12));
           if (t > 0.84) cue(4, () => CaseAudio.balisongClack(0.92));
         } else {
-          // CS-inspired standard butterfly inspect:
-          // lift -> fan the handles -> controlled wrist roll -> snap shut -> present.
-          // Keep the knife attached to the hand; the movement comes from the
-          // balisong pivots and a restrained wrist roll, not an aerial toss.
-          const lift = smoothstep(0.02, 0.22, t);
-          const fan = smoothstep(0.12, 0.34, t);
-          const roll = smoothstep(0.34, 0.70, t);
-          const close = smoothstep(0.68, 0.86, t);
-          const settle = smoothstep(0.84, 1.0, t);
-          const flourish = Math.sin(roll * Math.PI);
+          // Reference-matched CS butterfly inspect: a deliberate two-part
+          // sequence. First a quick wrist lift and handle flick, then a pause,
+          // followed by the slower, wider handle fan and final presentation.
+          const lift = smoothstep(0.015, 0.20, t);
+          const firstFlick = bell(t, 0.22, 0.43);
+          const reset = smoothstep(0.43, 0.57, t);
+          const secondFlick = smoothstep(0.60, 0.78, t);
+          const finish = smoothstep(0.88, 0.98, t);
 
-          // Raise the knife into view, then turn the wrist to show the blade.
-          out.rx -= lift * 0.034;
-          out.ry += lift * 0.012;
-          out.rRotX += lift * 0.12 + flourish * 0.16;
-          out.rRotY += lift * 0.10 + flourish * 0.20;
-          out.rRotZ += lift * 0.18 + flourish * 0.30 - settle * 0.10;
-          out.kPosX += lift * 0.018 - settle * 0.010;
-          out.kPosY += lift * 0.028 + Math.sin(roll * Math.PI) * 0.012;
+          // The hand rises into frame and turns edge-on, then rolls back
+          // toward the viewer as the first handle sequence completes.
+          out.rx -= lift * 0.050;
+          out.ry += lift * 0.018;
+          out.rRotX += lift * 0.18 + firstFlick * 0.20 - reset * 0.10;
+          out.rRotY += lift * 0.14 + firstFlick * 0.26 - reset * 0.12;
+          out.rRotZ += lift * 0.22 + firstFlick * 0.38 - reset * 0.20;
+          out.kPosX += lift * 0.020 - reset * 0.012;
+          out.kPosY += lift * 0.032 + firstFlick * 0.010;
 
-          // The two handles move independently around their pivots.
-          out.baliBladeAngle = fan * (1 - close) * 2.72;
-          out.baliBiteAngle = fan * (1 - close) * 3.05;
-          out.kRotZ -= roll * Math.PI * 2;
+          // First quick flick: handles separate, whip past the blade, and
+          // return close to the grip. No full-knife helicopter spin.
+          const firstOpen = smoothstep(0.18, 0.29, t) * (1 - smoothstep(0.37, 0.49, t));
+          out.baliBladeAngle = firstOpen * 2.55;
+          out.baliBiteAngle = firstOpen * 3.10;
+          out.kRotZ -= firstFlick * Math.PI * 0.72;
 
-          // Relax the fingers just enough to let the handle roll, then catch.
-          const release = smoothstep(0.18, 0.34, t) * (1 - smoothstep(0.68, 0.86, t));
-          rp.index = THREE.MathUtils.lerp(0.96, 0.78, release);
-          rp.middle = THREE.MathUtils.lerp(0.98, 0.68, release);
-          rp.ring = THREE.MathUtils.lerp(0.98, 0.64, release);
-          rp.pinky = THREE.MathUtils.lerp(0.96, 0.68, release);
-          rp.thumb = THREE.MathUtils.lerp(0.88, 0.56, release);
+          // Second, slower flourish: the handles fan wide around the pivot,
+          // the wrist presents the curved blade, and the pose is held.
+          const fan = secondFlick * (1 - finish * 0.12);
+          out.baliBladeAngle += fan * 2.72;
+          out.baliBiteAngle += fan * 3.18;
+          out.kRotZ -= secondFlick * Math.PI * 0.34;
+          out.rRotX += secondFlick * 0.13;
+          out.rRotY += secondFlick * 0.16;
+          out.rRotZ += secondFlick * 0.22;
+          out.kPosY += secondFlick * 0.014;
 
-          // Small recoil on the latch, followed by a steady blade-forward pose.
-          out.ry -= bell(t, 0.78, 0.91) * 0.018;
-          out.rRotZ -= bell(t, 0.78, 0.91) * 0.12;
+          // Fingers loosen for the flick and close around the handle at the end.
+          const release = Math.max(firstOpen, fan * 0.82) * (1 - finish * 0.88);
+          rp.index = THREE.MathUtils.lerp(0.96, 0.74, release);
+          rp.middle = THREE.MathUtils.lerp(0.98, 0.62, release);
+          rp.ring = THREE.MathUtils.lerp(0.98, 0.58, release);
+          rp.pinky = THREE.MathUtils.lerp(0.96, 0.62, release);
+          rp.thumb = THREE.MathUtils.lerp(0.88, 0.48, release);
 
-          if (t > 0.30) cue(1, () => CaseAudio.spinWhoosh(0.96));
-          if (t > 0.70) cue(2, () => CaseAudio.balisongClack(1.12));
-          if (t > 0.86) cue(4, () => CaseAudio.balisongClack(0.94));
+          // Distinct mechanical beats follow the two handle movements.
+          if (t > 0.20) cue(1, () => CaseAudio.spinWhoosh(0.92));
+          if (t > 0.40) cue(2, () => CaseAudio.balisongClack(1.08));
+          if (t > 0.66) cue(4, () => CaseAudio.spinWhoosh(1.02));
+          if (t > 0.88) cue(8, () => CaseAudio.balisongClack(1.12));
         }
       } else {
         if (isUncommon) {
@@ -4322,7 +4332,7 @@
       if (kt === 'm9') return 3.60;
       return 3.65;
     }
-    if (kt === 'butterfly') return tier === 'uncommon' ? 3.25 : 4.0;
+    if (kt === 'butterfly') return tier === 'uncommon' ? 4.8 : 6.6;
     if (kt === 'karambit') return tier === 'uncommon' ? 2.15 : 1.85;
     if (kt === 'skeleton') return tier === 'uncommon' ? 2.25 : 1.95;
     return tier === 'uncommon' ? 2.15 : 2.10;
