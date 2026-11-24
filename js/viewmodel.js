@@ -4219,49 +4219,43 @@
           out.rRotZ += Math.sin(smoothstep(0.28, 0.86, t) * Math.PI * 2) * 0.65;
         }
       } else if (kt === 'butterfly') {
-        // Blade showcase inspect: stop trying to perform tricks. Bring the
-        // open blade up toward the camera, turn its broad face toward the
-        // player, then slowly sweep it through the light and hold the pose.
-        const reveal = smoothstep(0.04, 0.34, t);
-        const present = smoothstep(0.28, 0.52, t);
-        const settle = smoothstep(0.88, 1.0, t);
-        const hold = smoothstep(0.48, 0.66, t) * (1 - settle);
+        // Static CS-style blade presentation: raise the already-open knife
+        // into a high diagonal pose and show the blade face to the camera.
+        // The bite handle stays rotated through a full turn so both handles
+        // remain spread in the characteristic open butterfly silhouette.
+        const reveal = smoothstep(0.02, 0.38, t);
+        const settle = smoothstep(0.82, 1.0, t);
+        const hold = smoothstep(0.34, 0.52, t) * (1 - settle);
 
-        // Lift the hand into a centered, readable inspection position.
-        out.rx -= reveal * 0.060;
-        out.ry += reveal * 0.020;
-        out.rRotX += reveal * 0.22;
-        out.rRotY += reveal * 0.34;
-        out.rRotZ += reveal * 0.16;
+        // Lift and cant the wrist into the reference's high, diagonal pose.
+        out.rx -= reveal * 0.048;
+        out.ry += reveal * 0.014;
+        out.rRotX += reveal * 0.18;
+        out.rRotY += reveal * 0.28;
+        out.rRotZ += reveal * 0.24;
+        out.kPosX -= reveal * 0.010;
+        out.kPosY += reveal * 0.036;
 
-        // Rotate the knife itself so the blade's flat is presented toward
-        // the camera instead of showing only its thin edge.
-        out.kRotY += present * 0.42;
-        out.kRotX += present * 0.16;
-        out.kRotZ -= present * 0.10;
-        out.kPosY += reveal * 0.040;
-        out.kPosX -= reveal * 0.012;
+        // Turn the blade's broad face toward the player, then make only a
+        // tiny presentation sweep while keeping the hand essentially still.
+        out.kRotY += reveal * 0.30 + hold * Math.sin(t * Math.PI * 1.4) * 0.035;
+        out.kRotX += reveal * 0.12 + hold * Math.sin(t * Math.PI * 1.4) * 0.018;
+        out.kRotZ -= reveal * 0.08;
 
-        // Keep the balisong fully open and make a slow, restrained display
-        // sweep. The tiny oscillations keep the presentation alive without
-        // turning it back into a spin animation.
-        out.rRotY += hold * Math.sin(t * Math.PI * 2.2) * 0.075;
-        out.rRotZ += hold * Math.sin(t * Math.PI * 1.5) * 0.035;
-        out.kRotY += hold * Math.sin(t * Math.PI * 2.2) * 0.055;
-        out.kRotX += hold * Math.sin(t * Math.PI * 1.5) * 0.025;
-
-        // Keep the handles tucked against the grip so the blade silhouette
-        // stays unobstructed throughout the showcase.
+        // Fully open silhouette: blade handle aligned, bite handle swung
+        // around to the open side (2π is the model's open resting position).
         out.baliBladeAngle = 0;
-        out.baliBiteAngle = 0;
-        rp.index = THREE.MathUtils.lerp(0.96, 0.88, reveal);
-        rp.middle = THREE.MathUtils.lerp(0.98, 0.90, reveal);
-        rp.ring = THREE.MathUtils.lerp(0.98, 0.90, reveal);
-        rp.pinky = THREE.MathUtils.lerp(0.96, 0.88, reveal);
-        rp.thumb = THREE.MathUtils.lerp(0.88, 0.82, reveal);
+        out.baliBiteAngle = Math.PI * 2;
 
-        // A soft latch click as the blade is presented; no repeated spin SFX.
-        if (t > 0.46) cue(1, () => CaseAudio.balisongClack(0.92));
+        // Keep a secure presentation grip; no finger release or flipping.
+        rp.index = THREE.MathUtils.lerp(0.96, 0.94, reveal);
+        rp.middle = THREE.MathUtils.lerp(0.98, 0.96, reveal);
+        rp.ring = THREE.MathUtils.lerp(0.98, 0.96, reveal);
+        rp.pinky = THREE.MathUtils.lerp(0.96, 0.94, reveal);
+        rp.thumb = THREE.MathUtils.lerp(0.88, 0.86, reveal);
+
+        if (t > 0.40) cue(1, () => CaseAudio.balisongClack(0.88));
+      }
       } else {
         if (isUncommon) {
           const openAmt = bell(t, 0.12, 0.66);
@@ -4298,7 +4292,7 @@
       if (kt === 'm9') return 3.60;
       return 3.65;
     }
-    if (kt === 'butterfly') return tier === 'uncommon' ? 4.8 : 4.8;
+    if (kt === 'butterfly') return tier === 'uncommon' ? 3.85 : 3.85;
     if (kt === 'karambit') return tier === 'uncommon' ? 2.15 : 1.85;
     if (kt === 'skeleton') return tier === 'uncommon' ? 2.25 : 1.95;
     return tier === 'uncommon' ? 2.15 : 2.10;
