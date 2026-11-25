@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const VelocitySettings = require('../js/settings.js');
+const VelocitySettings = require('../src/systems/progression/settings.js');
 
 test('sanitizeSettings clamps out-of-range values and applies safe defaults', () => {
   const s = VelocitySettings.sanitizeSettings({

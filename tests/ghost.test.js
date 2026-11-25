@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Ghost = require('../js/ghost.js');
+const Ghost = require('../src/systems/replays/ghost.js');
 
 test('lerpAngle wraps cleanly across PI / -PI boundary', () => {
   const a = Math.PI - 0.1;

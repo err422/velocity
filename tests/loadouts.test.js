@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const LoadoutsSystem = require('../js/loadouts-data.js');
+const LoadoutsSystem = require('../src/weapons/firearms/specs.js');
 
 function createMockStorage() {
   const map = new Map();
@@ -13,10 +13,10 @@ function createMockStorage() {
   };
 }
 
-test('expanded 6-weapon roster separates Primary (4) and Secondary (2) cleanly', () => {
-  assert.deepEqual(LoadoutsSystem.PRIMARY_WEAPON_IDS, ['rifle', 'smg', 'shotgun', 'awp']);
+test('expanded 7-weapon roster separates Primary (5) and Secondary (2) cleanly', () => {
+  assert.deepEqual(LoadoutsSystem.PRIMARY_WEAPON_IDS, ['rifle', 'smg', 'shotgun', 'awp', 'revolver']);
   assert.deepEqual(LoadoutsSystem.SECONDARY_WEAPON_IDS, ['deagle', 'pistol']);
-  assert.equal(LoadoutsSystem.WEAPON_IDS.length, 6);
+  assert.equal(LoadoutsSystem.WEAPON_IDS.length, 7);
   assert.equal(LoadoutsSystem.ATTACHMENT_SLOT_IDS.length, 9);
   assert.equal(LoadoutsSystem.MAX_ATTACHMENTS, 5);
   assert.equal(LoadoutsSystem.LOADOUT_COUNT, 5);
@@ -222,12 +222,49 @@ test('localStorage persistence self-heals from backup and cloud merge preserves 
   assert.equal(typeof payload.equippedWeaponSkins, 'object');
 });
 
-test('firestore.rules defines hardened /userLoadouts/{uid} rules and expanded 6-weapon + Apex slot allowlists', () => {
+test('R-88 Magnum Revolver guarantees 1-shot map-wide body kill on charged shot, fan-fire close dropoff, and 6-round cylinder upgrades', () => {
+  const spec = LoadoutsSystem.getWeaponSpec('revolver');
+  assert.equal(spec.slotCategory, 'primary');
+  assert.equal(spec.magSize, 6);
+  assert.equal(spec.chargeTimeSec, 0.20);
+  assert.equal(spec.altFireMode, 'fan');
+  assert.equal(spec.reloadMode, 'shell');
+
+  // Stock & modded builds preserve 6-round cylinder and map-wide 1-shot body kill (>= 100 dmg at 300m)
+  const stockBuild = LoadoutsSystem.resolveWeaponBuild('revolver', {});
+  assert.equal(stockBuild.magSize, 6);
+  assert.ok(LoadoutsSystem.computeDistanceDamage(stockBuild, 10, false, false, false) >= 100);
+  assert.ok(LoadoutsSystem.computeDistanceDamage(stockBuild, 300, false, false, false) >= 100);
+  assert.ok(LoadoutsSystem.computeDistanceDamage(stockBuild, 300, true, false, false) >= 240);
+
+  // Fan-the-Hammer is strong close-range (~68 body) and drops sharply at long range
+  const fanClose = LoadoutsSystem.computeDistanceDamage(stockBuild, 5, false, false, true);
+  const fanFar = LoadoutsSystem.computeDistanceDamage(stockBuild, 50, false, false, true);
+  assert.ok(fanClose >= 60 && fanClose < 95, `Expected close fan damage ~68, got ${fanClose}`);
+  assert.ok(fanFar < fanClose * 0.65, `Expected steep fan falloff, got close=${fanClose}, far=${fanFar}`);
+
+  // Revolver denies box magazines and allows chamfered/titanium cylinders
+  const revMags = LoadoutsSystem.getSlotAttachmentsForWeapon('revolver', 'magazine').map((a) => a.id);
+  assert.ok(revMags.includes('chamfered_cylinder'));
+  assert.ok(revMags.includes('titanium_cylinder'));
+  assert.ok(!revMags.includes('fast_mag'));
+  assert.ok(!revMags.includes('extended_mag'));
+
+  const chamferedBuild = LoadoutsSystem.resolveWeaponBuild('revolver', { magazine: 'chamfered_cylinder' });
+  assert.equal(chamferedBuild.magSize, 6);
+  assert.ok(chamferedBuild.shellInsertTime < stockBuild.shellInsertTime);
+
+  // Preset Loadout 5 is Gunslinger R-88
+  const def = LoadoutsSystem.createDefaultLoadoutState();
+  assert.equal(def.loadouts[4].primary.weaponId, 'revolver');
+});
+
+test('firestore.rules defines hardened /userLoadouts/{uid} rules and expanded 7-weapon + Apex slot allowlists', () => {
   const rulesText = fs.readFileSync(path.join(__dirname, '..', 'firestore.rules'), 'utf8');
   assert.ok(rulesText.includes('match /userLoadouts/{uid}'));
   assert.ok(rulesText.includes('isValidUserLoadoutsCreate'));
   assert.ok(rulesText.includes('isValidUserLoadoutsUpdate'));
-  assert.ok(rulesText.includes("'smg'") && rulesText.includes("'shotgun'") && rulesText.includes("'pistol'"));
+  assert.ok(rulesText.includes("'smg'") && rulesText.includes("'shotgun'") && rulesText.includes("'pistol'") && rulesText.includes("'revolver'"));
   for (const slotId of LoadoutsSystem.ATTACHMENT_SLOT_IDS) {
     assert.ok(rulesText.includes(`'${slotId}'`), `Expected attachment slot '${slotId}' to be allowlisted in firestore.rules`);
   }

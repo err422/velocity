@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Surf = require('../js/surf.js');
-const Daily = require('../js/daily.js');
+const Surf = require('../src/core/physics.js');
+const Daily = require('../src/maps/daily.js');
 
 test('classifySurfaceNormal separates ground, CS surf slopes, walls, and ceilings accurately', () => {
   const cfg = Surf.DEFAULT_CFG;
@@ -260,7 +260,7 @@ test('headless 120Hz surf simulation glides smoothly through a 360-degree helica
 });
 
 test('CourseCatalog defines 12 CS surf maps (T1-T4, Linear & Staged) and 4 Time Trials with valid metadata', () => {
-  const CourseCatalog = require('../js/course.js');
+  const CourseCatalog = require('../src/maps/courses.js');
   const all = CourseCatalog.COURSE_CATALOG;
   const surfMaps = CourseCatalog.getCoursesByCategory('surf');
   const timeTrials = CourseCatalog.getCoursesByCategory('timetrial');

@@ -718,7 +718,7 @@ service cloud.firestore {
         && data.mapId is string
         && data.mapId.size() >= 6
         && data.mapId.size() <= 20
-        && data.mapId in ['arena_surf', 'arena_aim']
+        && data.mapId in ['arena_surf', 'arena_aim', 'arena_spire', 'arena_cargo', 'arena_skyline', 'arena_canyon']
         && data.mode is string
         && data.mode.size() >= 6
         && data.mode.size() <= 12
@@ -811,111 +811,84 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
-    function isValidAttachmentMap(a) {
-      return a is map
-        && (a.size() <= 5 || (a.size() == 6 && 'apex' in a.keys()))
-        && a.keys().hasOnly(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex']);
-    }
-
-    function isValidLoadoutSlot(slot, allowedWeapons) {
+    function isValidLoadoutSlot(slot, allowedWeapons, attSlots) {
+      let a = slot.attachments;
       return slot is map
-        && slot.keys().hasAll(['weaponId', 'attachments', 'skinItemId'])
-        && slot.keys().hasOnly(['weaponId', 'attachments', 'skinItemId'])
-        && slot.weaponId is string
-        && slot.weaponId.size() >= 3
-        && slot.weaponId.size() <= 12
+        && slot.size() == 3
         && slot.weaponId in allowedWeapons
-        && isValidAttachmentMap(slot.attachments)
+        && a is map
+        && (a.size() <= 5 || (a.size() == 6 && 'apex' in a))
+        && a.keys().hasOnly(attSlots)
         && slot.skinItemId is string
-        && slot.skinItemId.size() >= 0
-        && slot.skinItemId.size() <= 64
-        && (slot.skinItemId == '' || slot.skinItemId.matches('^[a-zA-Z0-9_\\-]+$'));
+        && slot.skinItemId.size() <= 64;
     }
 
-    function isValidLoadoutEntry(l) {
+    function isValidLoadoutEntry(l, expectedId, primWep, secWep, attSlots) {
+      let m = l.melee;
       return l is map
-        && l.keys().hasAll(['id', 'name', 'primary', 'secondary', 'melee'])
-        && l.keys().hasOnly(['id', 'name', 'primary', 'secondary', 'melee'])
-        && l.id is string
-        && l.id.size() >= 1
-        && l.id.size() <= 24
-        && l.id.matches('^[a-zA-Z0-9_\\-]+$')
+        && l.size() == 5
+        && l.id == expectedId
         && l.name is string
         && l.name.size() >= 1
         && l.name.size() <= 24
-        && isValidLoadoutSlot(l.primary, ['rifle', 'smg', 'shotgun', 'awp', 'revolver'])
-        && isValidLoadoutSlot(l.secondary, ['deagle', 'pistol'])
-        && l.melee is map
-        && l.melee.keys().hasAll(['knifeItemId'])
-        && l.melee.keys().hasOnly(['knifeItemId'])
-        && l.melee.knifeItemId is string
-        && l.melee.knifeItemId.size() >= 0
-        && l.melee.knifeItemId.size() <= 64
-        && (l.melee.knifeItemId == '' || l.melee.knifeItemId.matches('^[a-zA-Z0-9_\\-]+$'));
+        && isValidLoadoutSlot(l.primary, primWep, attSlots)
+        && isValidLoadoutSlot(l.secondary, secWep, attSlots)
+        && m is map
+        && m.size() == 1
+        && m.knifeItemId is string
+        && m.knifeItemId.size() <= 64;
     }
 
-    function isValidWeaponXpMap(xp) {
+    function isValidWeaponXpMap(xp, baseWep, allWep) {
       return xp is map
-        && xp.keys().hasAll(['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol'])
-        && xp.keys().hasOnly(['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol'])
+        && xp.keys().hasAll(baseWep)
+        && xp.keys().hasOnly(allWep)
         && xp.rifle is int && xp.rifle >= 0 && xp.rifle <= 999999
         && xp.smg is int && xp.smg >= 0 && xp.smg <= 999999
         && xp.shotgun is int && xp.shotgun >= 0 && xp.shotgun <= 999999
         && xp.awp is int && xp.awp >= 0 && xp.awp <= 999999
-        && xp.revolver is int && xp.revolver >= 0 && xp.revolver <= 999999
+        && (!('revolver' in xp) || (xp.revolver is int && xp.revolver >= 0 && xp.revolver <= 999999))
         && xp.deagle is int && xp.deagle >= 0 && xp.deagle <= 999999
         && xp.pistol is int && xp.pistol >= 0 && xp.pistol <= 999999;
     }
 
-    function isValidWeaponSkinsMap(skins) {
+    function isValidWeaponSkinsMap(skins, baseWep, allWep) {
       return skins is map
-        && skins.keys().hasAll(['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol'])
-        && skins.keys().hasOnly(['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol'])
-        && skins.rifle is string && skins.rifle.size() >= 1 && skins.rifle.size() <= 64 && skins.rifle.matches('^[a-zA-Z0-9_\\-]+$')
-        && skins.smg is string && skins.smg.size() >= 1 && skins.smg.size() <= 64 && skins.smg.matches('^[a-zA-Z0-9_\\-]+$')
-        && skins.shotgun is string && skins.shotgun.size() >= 1 && skins.shotgun.size() <= 64 && skins.shotgun.matches('^[a-zA-Z0-9_\\-]+$')
-        && skins.awp is string && skins.awp.size() >= 1 && skins.awp.size() <= 64 && skins.awp.matches('^[a-zA-Z0-9_\\-]+$')
-        && skins.revolver is string && skins.revolver.size() >= 1 && skins.revolver.size() <= 64 && skins.revolver.matches('^[a-zA-Z0-9_\\-]+$')
-        && skins.deagle is string && skins.deagle.size() >= 1 && skins.deagle.size() <= 64 && skins.deagle.matches('^[a-zA-Z0-9_\\-]+$')
-        && skins.pistol is string && skins.pistol.size() >= 1 && skins.pistol.size() <= 64 && skins.pistol.matches('^[a-zA-Z0-9_\\-]+$');
+        && skins.keys().hasAll(baseWep)
+        && skins.keys().hasOnly(allWep)
+        && skins.rifle is string && skins.rifle.size() <= 64
+        && skins.smg is string && skins.smg.size() <= 64
+        && skins.shotgun is string && skins.shotgun.size() <= 64
+        && skins.awp is string && skins.awp.size() <= 64
+        && (!('revolver' in skins) || (skins.revolver is string && skins.revolver.size() <= 64))
+        && skins.deagle is string && skins.deagle.size() <= 64
+        && skins.pistol is string && skins.pistol.size() <= 64;
     }
 
     function isValidUserLoadoutsShape(data, uid) {
-      return data.keys().hasAll([
-          'uid',
-          'activeIndex',
-          'loadouts',
-          'weaponXp',
-          'equippedWeaponSkins',
-          'createdAt',
-          'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'uid',
-          'activeIndex',
-          'loadouts',
-          'weaponXp',
-          'equippedWeaponSkins',
-          'createdAt',
-          'updatedAt'
-        ])
-        && data.uid is string
-        && data.uid.size() >= 1
-        && data.uid.size() <= 128
+      let keys = ['uid', 'activeIndex', 'loadouts', 'weaponXp', 'equippedWeaponSkins', 'createdAt', 'updatedAt'];
+      let attSlots = ['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex'];
+      let primWep = ['rifle', 'smg', 'shotgun', 'awp', 'revolver'];
+      let secWep = ['deagle', 'pistol'];
+      let baseWep = ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol'];
+      let allWep = ['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol'];
+      let ls = data.loadouts;
+      return data.keys().hasAll(keys)
+        && data.keys().hasOnly(keys)
         && data.uid == uid
         && data.uid == request.auth.uid
         && data.activeIndex is int
         && data.activeIndex >= 0
         && data.activeIndex <= 4
-        && data.loadouts is list
-        && data.loadouts.size() == 5
-        && isValidLoadoutEntry(data.loadouts[0])
-        && isValidLoadoutEntry(data.loadouts[1])
-        && isValidLoadoutEntry(data.loadouts[2])
-        && isValidLoadoutEntry(data.loadouts[3])
-        && isValidLoadoutEntry(data.loadouts[4])
-        && isValidWeaponXpMap(data.weaponXp)
-        && isValidWeaponSkinsMap(data.equippedWeaponSkins)
+        && ls is list
+        && ls.size() == 5
+        && isValidLoadoutEntry(ls[0], 'loadout_1', primWep, secWep, attSlots)
+        && isValidLoadoutEntry(ls[1], 'loadout_2', primWep, secWep, attSlots)
+        && isValidLoadoutEntry(ls[2], 'loadout_3', primWep, secWep, attSlots)
+        && isValidLoadoutEntry(ls[3], 'loadout_4', primWep, secWep, attSlots)
+        && isValidLoadoutEntry(ls[4], 'loadout_5', primWep, secWep, attSlots)
+        && isValidWeaponXpMap(data.weaponXp, baseWep, allWep)
+        && isValidWeaponSkinsMap(data.equippedWeaponSkins, baseWep, allWep)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -1104,13 +1077,15 @@ service cloud.firestore {
         && isValidId(uid)
         && request.auth.uid == uid
         && isValidUserLoadoutsUpdate(incoming(), uid)
-        && incoming().uid == existing().uid
-        && incoming().createdAt == existing().createdAt
+        && (!('uid' in existing()) || incoming().uid == existing().uid)
+        && (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt)
         && incoming().diff(existing()).affectedKeys().hasOnly([
+          'uid',
           'activeIndex',
           'loadouts',
           'weaponXp',
           'equippedWeaponSkins',
+          'createdAt',
           'updatedAt'
         ]);
 

@@ -588,7 +588,7 @@
         "hostUid": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "minLength": 1, "maxLength": 128 },
         "hostName": { "type": "string", "minLength": 1, "maxLength": 32 },
         "roomName": { "type": "string", "minLength": 1, "maxLength": 32 },
-        "mapId": { "type": "string", "enum": ["arena_surf", "arena_aim"] },
+        "mapId": { "type": "string", "enum": ["arena_surf", "arena_aim", "arena_spire", "arena_cargo", "arena_skyline", "arena_canyon"] },
         "mode": { "type": "string", "enum": ["duel_1v1", "ffa_4p"] },
         "maxPlayers": { "type": "integer" },
         "playerCount": { "type": "integer" },

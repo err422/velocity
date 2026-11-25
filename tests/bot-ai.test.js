@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const BotAISystem = require('../js/bot-ai.js');
+const BotAISystem = require('../src/systems/bots/botAI.js');
 
 // Helper: build an axis-aligned solid matching world.js OBB format (identity rotation)
 function makeAxisAlignedSolid(cx, cy, cz, hx, hy, hz, opts = {}) {

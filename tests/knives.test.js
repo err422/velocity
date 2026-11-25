@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const KnivesSystem = require('../js/knives-data.js');
+const KnivesSystem = require('../src/weapons/melee/knivesData.js');
 
 function makeRng(seed) {
   let s = seed >>> 0;
@@ -275,7 +275,7 @@ test('rollInspectTier implements exact 1/100 Mythic, 25% Uncommon, and 74% Norma
 });
 
 test('tiered cases enforce escalating prices and increasing Gold odds', () => {
-  assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol']);
+  assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol']);
   assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 20);
   assert.equal(KnivesSystem.getCasePrice('velocity'), 100);
   assert.equal(KnivesSystem.getCasePrice('chroma'), 175);
@@ -327,6 +327,8 @@ test('tiered cases enforce escalating prices and increasing Gold odds', () => {
   assert.ok(mSpc.goldRate < mBks.goldRate && mBks.goldRate < mOdr.goldRate && mOdr.goldRate < mEcl.goldRate);
 
   const starter = KnivesSystem.createStarterInventory();
+  assert.equal(starter.equippedRevolverId, 'starter_revolver_slate');
+  assert.equal(KnivesSystem.getEquippedWeapon(starter, 'revolver').weaponType, 'revolver');
   const wpPayload = KnivesSystem.toCloudWeaponPayload(starter.weapons[0], 'user_789');
   assert.deepEqual(
     Object.keys(wpPayload).sort(),

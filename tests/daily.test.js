@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Daily = require('../js/daily.js');
+const Daily = require('../src/maps/daily.js');
 
 test('canonicalDailySeed is deterministic and valid for any dateKey', () => {
   const s1 = Daily.canonicalDailySeed('2026-11-22');
