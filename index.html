@@ -1241,19 +1241,94 @@ const SCRIPTS = [
   "src/ui/bootstrap.js"
 ];
 
+async function loadViaBundle() {
+  const bundleUrl = new URL("api/scripts-bundle.json", document.baseURI).href;
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const url = attempt === 0 ? bundleUrl : `${bundleUrl}?r=${attempt}&t=${Date.now()}`;
+      const res = await fetch(url, { cache: attempt === 0 ? "default" : "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const ctype = (res.headers.get("content-type") || "").toLowerCase();
+      if (!ctype.includes("json")) throw new Error("Non-JSON bundle response");
+      const data = await res.json();
+      if (!data || !Array.isArray(data.scripts) || data.scripts.length !== SCRIPTS.length) {
+        throw new Error("Incomplete scripts bundle");
+      }
+      for (let i = 0; i < data.scripts.length; i++) {
+        const entry = data.scripts[i];
+        if (!entry || entry.path !== SCRIPTS[i] || typeof entry.code !== "string") {
+          throw new Error("Mismatched bundle entry at " + i);
+        }
+      }
+      for (const entry of data.scripts) {
+        const s = document.createElement("script");
+        const srcUrl = new URL(entry.path, document.baseURI).href;
+        s.textContent = `${entry.code}\n//# sourceURL=${srcUrl}`;
+        document.head.appendChild(s);
+      }
+      return true;
+    } catch (err) {
+      lastErr = err;
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
+  }
+  console.warn("Bundle load unavailable, falling back to individual scripts:", lastErr);
+  return false;
+}
+
+async function loadScriptWithRetry(srcPath, maxAttempts = 3) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      let url;
+      if (attempt < 2) {
+        url = new URL(srcPath, document.baseURI).href;
+      } else {
+        url = new URL("/" + srcPath.replace(/^\/+/, ""), location.origin).href;
+      }
+      if (attempt > 0) {
+        url += (url.includes("?") ? "&" : "?") + `retry=${attempt}&t=${Date.now()}`;
+      }
+      await new Promise((ok, fail) => {
+        const s = document.createElement("script");
+        s.src = url;
+        s.onload = ok;
+        s.onerror = () => fail(new Error("Could not load " + srcPath));
+        document.head.appendChild(s);
+      });
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts - 1) {
+        await new Promise((r) => setTimeout(r, 320 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastErr || new Error("Could not load " + srcPath);
+}
+
 try {
-  for (const srcPath of SCRIPTS) {
-    await new Promise((ok, fail) => {
-      const s = document.createElement("script");
-      s.src = new URL(srcPath, document.baseURI).href;
-      s.onload = ok;
-      s.onerror = () => fail(new Error("Could not load " + srcPath));
-      document.head.appendChild(s);
-    });
+  const loadedBundle = await loadViaBundle();
+  if (!loadedBundle) {
+    for (const srcPath of SCRIPTS) {
+      await loadScriptWithRetry(srcPath, 3);
+    }
   }
 } catch (e) {
   console.error(e);
-  document.body.insertAdjacentHTML("beforeend", "<pre style=\"position:fixed;z-index:9;top:10px;left:10px;color:#ff9b55\">" + e.message + "</pre>");
+  const box = document.createElement("div");
+  box.style.cssText = "position:fixed;z-index:99;top:20px;left:50%;transform:translateX(-50%);max-width:min(420px,calc(100vw - 24px));padding:16px 18px;background:#08121e;border:1px solid #ff8a3d;color:#eef7ff;font:600 13px/1.5 system-ui,sans-serif;text-align:center;box-shadow:0 16px 40px rgba(0,0,0,.65)";
+  const msg = document.createElement("div");
+  msg.textContent = "Failed to load game script: " + (e && e.message ? e.message : "Network error");
+  msg.style.marginBottom = "12px";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "RETRY LOAD";
+  btn.style.cssText = "padding:10px 18px;border:0;background:#65e7ff;color:#06121b;font-weight:800;letter-spacing:.12em;cursor:pointer";
+  btn.addEventListener("click", () => location.reload());
+  box.append(msg, btn);
+  document.body.appendChild(box);
 }
 </script>
 </body>
