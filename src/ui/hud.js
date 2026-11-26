@@ -416,6 +416,11 @@ function renderArenaHudStatic(){
   if(restartBtnEl)restartBtnEl.textContent=ns.isArena?'RESPAWN':'RESTART RUN';
   const pauseLeave=$('pauseLeaveServer');
   if(pauseLeave)pauseLeave.style.display=(ns.isArena&&!isSandboxSpar)?'':'none';
+  const pauseRoomCodeBox=$('pauseRoomCodeBox');
+  const pauseRoomCode=$('pauseRoomCode');
+  const roomCode=ns.isArena&&ns.lobby&&ns.lobby.joinCode?String(ns.lobby.joinCode).toUpperCase():'';
+  if(pauseRoomCodeBox)pauseRoomCodeBox.style.display=roomCode?'':'none';
+  if(pauseRoomCode)pauseRoomCode.textContent=roomCode||'----';
   const pauseSandboxBtn=$('pauseSandboxBots');
   if(pauseSandboxBtn){
     pauseSandboxBtn.style.display=(level&&level.id==='sandbox')?'':'none';
