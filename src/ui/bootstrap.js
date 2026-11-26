@@ -646,6 +646,36 @@ $('playSeedBtn').onclick=()=>{
 };
 menuAuthBtn.onclick=handleAuthClick;
 hubAuthBtn.onclick=handleAuthClick;
+
+const menuFullscreenBtn=$('menuFullscreenBtn');
+function syncMenuFullscreenButton(){
+  if(!menuFullscreenBtn)return;
+  const active=Boolean(document.fullscreenElement);
+  menuFullscreenBtn.classList.toggle('active',active);
+  menuFullscreenBtn.setAttribute('aria-pressed',active?'true':'false');
+  menuFullscreenBtn.setAttribute('aria-label',active?'Exit fullscreen':'Enter fullscreen');
+  menuFullscreenBtn.title=active?'Exit fullscreen':'Enter fullscreen';
+  const label=menuFullscreenBtn.querySelector('span');
+  if(label)label.textContent=active?'EXIT FULLSCREEN':'FULLSCREEN';
+}
+if(menuFullscreenBtn){
+  menuFullscreenBtn.onclick=async()=>{
+    try{
+      if(document.fullscreenElement){
+        await document.exitFullscreen();
+      }else if(document.documentElement.requestFullscreen){
+        await document.documentElement.requestFullscreen();
+      }else{
+        showToast('FULLSCREEN IS NOT SUPPORTED BY THIS BROWSER');
+      }
+    }catch(_){
+      showToast('FULLSCREEN COULD NOT BE ENABLED');
+    }
+    syncMenuFullscreenButton();
+  };
+  document.addEventListener('fullscreenchange',syncMenuFullscreenButton);
+  syncMenuFullscreenButton();
+}
 menuArmoryBtn.onclick=()=>{stopMenuLobbySubscription();openArmory('menu','cases');};
 $('pauseArmory').onclick=()=>openArmory('pause','cases');
 armoryBackBtn.onclick=closeArmory;
