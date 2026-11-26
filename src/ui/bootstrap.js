@@ -860,6 +860,7 @@ $('pauseArchive').onclick=()=>openDailyHub(level.meta&&level.meta.dateKey?level.
 $('tomenu').onclick=showMenu;
 applySettingsToRuntime();
 updateArmoryBadges();
+if(window.DevMode&&typeof window.DevMode.init==='function')window.DevMode.init();
 
 let backendBound=false;
 async function bindDailyBackend(){

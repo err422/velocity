@@ -1186,6 +1186,68 @@
   <div class="wxp-title" id="wxpTitle">V-47 RIFLE · LV. 2</div>
   <div class="wxp-sub" id="wxpSub">UNLOCKED: REFLEX RED DOT</div>
 </div>
+<button type="button" id="devFloatingToggle" class="dev-pill-toggle" style="display:none" aria-label="Toggle Secret Dev Sandbox Panel">DEV</button>
+<aside id="devDrawer" class="dev-drawer" data-testid="dev-drawer" style="display:none" aria-hidden="true" aria-label="Secret Dev Sandbox">
+  <div class="dev-head">
+    <div>
+      <div class="dev-kicker">VELOCITY // SECRET DEV MODE</div>
+      <div class="dev-status" id="devStatusBadge">SANDBOX ACTIVE · CLOUD SYNC PAUSED</div>
+    </div>
+    <button type="button" id="devCloseBtn" class="dev-close" aria-label="Close dev panel">×</button>
+  </div>
+  <div class="dev-body">
+    <div class="dev-sec">
+      <div class="dev-sec-title">PROGRESSION &amp; ARMORY UNLOCKS</div>
+      <button type="button" id="devUnlockAllBtn" class="dev-btn-hero">UNLOCK EVERYTHING (1-CLICK)</button>
+      <div class="dev-grid-2">
+        <button type="button" id="devMaxXpBtn" class="dev-btn">MAX ALL WEAPONS (LV.12)</button>
+        <button type="button" id="devAllCamosBtn" class="dev-btn">ALL CAMOS (DARK MATTER)</button>
+        <button type="button" id="devAllSkinsBtn" class="dev-btn">ALL SKINS, KNIVES &amp; GLOVES</button>
+        <button type="button" id="devAddCoinsBtn" class="dev-btn">+100,000 COINS</button>
+      </div>
+    </div>
+
+    <div class="dev-sec">
+      <div class="dev-sec-title">SCORESTREAKS (INSTANT 100% READY)</div>
+      <button type="button" id="devChargeStreakBtn" class="dev-btn dev-btn-accent">CHARGE EQUIPPED SCORESTREAK</button>
+      <div class="dev-grid-3">
+        <button type="button" class="dev-btn" data-dev-streak="rpg">RPG-7</button>
+        <button type="button" class="dev-btn" data-dev-streak="minigun">MINIGUN</button>
+        <button type="button" class="dev-btn" data-dev-streak="railcannon">RAILCANNON</button>
+        <button type="button" class="dev-btn" data-dev-streak="grenadelauncher">MGL-6</button>
+        <button type="button" class="dev-btn dev-btn-danger" data-dev-streak="nuke">TACTICAL NUKE</button>
+      </div>
+    </div>
+
+    <div class="dev-sec">
+      <div class="dev-sec-title">SOLO / SANDBOX COMBAT TOGGLES</div>
+      <div class="dev-grid-3">
+        <button type="button" id="devGodToggle" class="dev-btn dev-toggle" aria-pressed="false">GOD MODE</button>
+        <button type="button" id="devAmmoToggle" class="dev-btn dev-toggle" aria-pressed="false">INF AMMO</button>
+        <button type="button" id="devCdToggle" class="dev-btn dev-toggle" aria-pressed="false">NO COOLDOWNS</button>
+      </div>
+      <div class="dev-grid-2" style="margin-top:6px">
+        <button type="button" id="devHealBtn" class="dev-btn">HEAL 100 HP</button>
+        <button type="button" id="devBoostBtn" class="dev-btn">SPEED BOOST (+18 U/S)</button>
+      </div>
+    </div>
+
+    <div class="dev-sec">
+      <div class="dev-sec-title">REACTIVE SKIN GLOW PREVIEW</div>
+      <div class="dev-grid-4">
+        <button type="button" class="dev-btn" data-dev-reactive="0">0 KILLS</button>
+        <button type="button" class="dev-btn" data-dev-reactive="3">3 KILLS</button>
+        <button type="button" class="dev-btn" data-dev-reactive="5">5 KILLS</button>
+        <button type="button" class="dev-btn" data-dev-reactive="10">10 MAX</button>
+      </div>
+    </div>
+
+    <div class="dev-foot">
+      <button type="button" id="devExitBtn" class="dev-btn dev-btn-exit">EXIT DEV MODE &amp; RESTORE REAL PROFILE</button>
+      <div class="dev-hint">Triggers: Ctrl+Shift+D · Type "veldev" · Tap VELOCITY logo 5× · ?dev=1</div>
+    </div>
+  </div>
+</aside>
 <script type="module">
 // Load three.js and modular game scripts unconditionally; load Firebase backend in parallel so slow/blocked Firebase never stalls the game.
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
@@ -1229,6 +1291,7 @@ const SCRIPTS = [
   "src/systems/combat/netcode.js",
   "src/core/player.js",
   "src/core/mobileControls.js",
+  "src/core/devMode.js",
   "src/core/input.js",
   "src/core/gameLoop.js",
   "src/ui/hud.js",

@@ -261,7 +261,7 @@ document.addEventListener('keyup',e=>{
 document.addEventListener('mousedown',e=>{
   if(window.isRebindingInput||!isActivePlay())return;
   if(window.MobileControls&&typeof window.MobileControls.wasRecentTouch==='function'&&window.MobileControls.wasRecentTouch(500))return;
-  if(e.target&&e.target.closest&&e.target.closest('#arenaScoreboard,#mobileControls,#hudSlotStrip,#hudScorestreak'))return;
+  if(e.target&&e.target.closest&&e.target.closest('#arenaScoreboard,#mobileControls,#hudSlotStrip,#hudScorestreak,#devDrawer,#devFloatingToggle'))return;
   const voting=typeof isMatchOverVoting==='function'&&isMatchOverVoting();
   if(voting)return;
   const touchMode=window.MobileControls&&typeof window.MobileControls.isTouchModeEnabled==='function'&&window.MobileControls.isTouchModeEnabled();

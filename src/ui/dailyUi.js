@@ -173,6 +173,10 @@ function updateLoadoutsSyncLabel(override){
 }
 
 function scheduleCloudLoadoutsSave(){
+  if(window.VELOCITY_TEST_MODE){
+    updateLoadoutsSyncLabel('DEV SANDBOX · LOCAL ONLY');
+    return;
+  }
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
   if(!st.user||!st.user.emailVerified||!window.DailyBackend||!window.DailyBackend.saveUserLoadouts){
     updateLoadoutsSyncLabel('LOCAL ONLY');
@@ -192,6 +196,10 @@ function scheduleCloudLoadoutsSave(){
 }
 
 async function hydrateCloudLoadoutsForUser(user){
+  if(window.VELOCITY_TEST_MODE){
+    updateLoadoutsSyncLabel('DEV SANDBOX · LOCAL ONLY');
+    return;
+  }
   if(!user||!user.emailVerified||!window.DailyBackend||!window.DailyBackend.loadUserLoadouts)return;
   if(lastLoadoutsSyncedUid===user.uid)return;
   lastLoadoutsSyncedUid=user.uid;

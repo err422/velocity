@@ -307,10 +307,21 @@ function render(dt){
       });
     }
   }
+  if(window.DevMode&&typeof window.DevMode.isCombatCheatActive==='function'&&window.DevMode.isCombatCheatActive('zeroCooldowns')){
+    burstCd=0;
+  }
   document.body.dataset.runStarted=p.runStarted?'1':'0';
   if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)toast.style.opacity=0;}
   if(weaponXpToastTimer>0){weaponXpToastTimer-=dt;if(weaponXpToastTimer<=0&&weaponXpToastEl)weaponXpToastEl.style.opacity='0';}
 }
+window.devBoostPlayerVelocity=function(extra){
+  if(!inLevel||!p||!p.vel)return;
+  const spd=Number(extra)||18;
+  p.vel.x+=-Math.sin(p.yaw)*spd;
+  p.vel.z+=-Math.cos(p.yaw)*spd;
+  p.vel.y=Math.max(p.vel.y,5.5);
+  p.grounded=false;
+};
 
 let frameId=0;
 function afterDraw(cb){

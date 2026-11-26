@@ -588,6 +588,9 @@
     const isWarmup = state.role === 'warmup' ||
       ((state.role === 'host' || state.role === 'client') && state.phase === 'warmup');
     if (!isWarmup || !state.localAlive || state.localHp <= 0) return false;
+    if (root.DevMode && typeof root.DevMode.isCombatCheatActive === 'function' && root.DevMode.isCombatCheatActive('godMode')) {
+      return false;
+    }
 
     const cleanDmg = Math.max(1, Math.min(260, Math.round(Number(damage) || 0)));
     state.lastWarmupAttacker = {
@@ -2083,6 +2086,19 @@
     reportBotPose,
     reportBotShot,
     update,
+    devHealLocal: () => {
+      if (state.role === 'host' || state.role === 'client') return false;
+      state.localHp = 100;
+      state.localAlive = true;
+      state.respawnTimer = 0;
+      const localRecord = state.players.get(state.localUid);
+      if (localRecord) {
+        localRecord.hp = 100;
+        localRecord.alive = true;
+      }
+      emitState();
+      return true;
+    },
     pushWarmupKill: (botName, weapon, headshot) => pushKillFeed(state.localName || 'You', botName, weapon, headshot),
     getState: getPublicState
   };

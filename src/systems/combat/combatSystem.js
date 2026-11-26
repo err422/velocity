@@ -2228,7 +2228,8 @@
         switchSlot('primary', true);
         return { fired: false, empty: true };
       }
-      state.scorestreakAmmo -= 1;
+      const infAmmo = Boolean(root.DevMode && typeof root.DevMode.isCombatCheatActive === 'function' && root.DevMode.isCombatCheatActive('infiniteAmmo'));
+      if (!infAmmo) state.scorestreakAmmo -= 1;
       state.fireCooldown = build.fireInterval;
       if (weaponId === 'grenadelauncher') {
         state.mglDrumAngle += Math.PI / 3;
@@ -2277,7 +2278,8 @@
         startReload();
         return { fired: false, empty: true };
       }
-      state.ammo[slot] -= 1;
+      const infAmmo = Boolean(root.DevMode && typeof root.DevMode.isCombatCheatActive === 'function' && root.DevMode.isCombatCheatActive('infiniteAmmo'));
+      if (!infAmmo) state.ammo[slot] -= 1;
       // 3-round burst queueing (F-33 Burst / FAMAS)
       if (!o.isBurstFollowup && build.burstCount && build.burstCount > 1) {
         state.burstRemaining = Math.min(build.burstCount - 1, state.ammo[slot]);
@@ -2728,8 +2730,15 @@
       dt,
       activeBuild && activeBuild.katanaConfig
     );
-    state.katanaDeflectEnergy = deflectStep.energy;
-    state.katanaDeflectActive = deflectStep.active;
+    const zeroCd = Boolean(root.DevMode && typeof root.DevMode.isCombatCheatActive === 'function' && root.DevMode.isCombatCheatActive('zeroCooldowns'));
+    if (zeroCd) {
+      state.katanaDashCooldown = 0;
+      state.katanaDeflectEnergy = 1.0;
+      state.katanaDeflectActive = Boolean(katanaActive && state.katanaDeflectHeld && playerAlive);
+    } else {
+      state.katanaDeflectEnergy = deflectStep.energy;
+      state.katanaDeflectActive = deflectStep.active;
+    }
     if (root.ViewmodelSystem && typeof root.ViewmodelSystem.setKatanaState === 'function') {
       root.ViewmodelSystem.setKatanaState({
         deflecting: state.katanaDeflectActive,
@@ -3114,6 +3123,35 @@
     syncArenaBots,
     removeRemoteAvatar,
     clearRemoteAvatars,
+    devChargeScorestreak: (streakId) => {
+      if (streakId && LS && LS.SCORESTREAKS && LS.SCORESTREAKS[streakId]) {
+        state.scorestreakId = streakId;
+      }
+      const def = getScorestreakDef(state.scorestreakId);
+      state.scorestreakPoints = def.cost;
+      if (state.activeScorestreakWeapon) {
+        state.scorestreakAmmo = Math.max(state.scorestreakAmmo, def.ammo || 4);
+        state.scorestreakMaxAmmo = Math.max(state.scorestreakMaxAmmo, def.ammo || 4);
+      }
+      if (root.WeaponAudio && typeof root.WeaponAudio.streakReady === 'function') {
+        root.WeaponAudio.streakReady();
+      }
+      return def;
+    },
+    devFullAmmo: () => {
+      if (state.builds.primary) state.ammo.primary = state.builds.primary.magSize;
+      if (state.builds.secondary) state.ammo.secondary = state.builds.secondary.magSize;
+      if (state.activeScorestreakWeapon) state.scorestreakAmmo = state.scorestreakMaxAmmo || 4;
+      state.reloading = false;
+    },
+    devSetReactiveStreak: (count) => {
+      const n = Math.max(0, Math.min(20, Math.floor(Number(count) || 0)));
+      state.currentLifeKillStreak = n;
+      if (root.ViewmodelSystem && typeof root.ViewmodelSystem.setMatchKillStreak === 'function') {
+        root.ViewmodelSystem.setMatchKillStreak(n);
+      }
+      return n;
+    },
     update,
     getState: () => {
       const b = getActiveBuild(state.activeSlot);
