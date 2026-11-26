@@ -327,7 +327,7 @@
       const c = getCtx();
       if (!c) return;
       const now = c.currentTime;
-      const isHeavy = slot === 'awp' || slot === 'shotgun' || slot === 'deagle' || slot === 'revolver';
+      const isHeavy = slot === 'awp' || slot === 'shotgun' || slot === 'sawedoff' || slot === 'leverslug' || slot === 'deagle' || slot === 'revolver' || slot === 'scar' || slot === 'dmr' || slot === 'scout';
       noiseBurst(c, now, isHeavy ? 0.11 : 0.065, 'bandpass', isHeavy ? 1350 : 2400, 1.35, isHeavy ? 0.14 : 0.10);
       const osc = c.createOscillator();
       const g = c.createGain();
@@ -343,17 +343,338 @@
       // Mechanical bolt/slide click
       noiseBurst(c, now + 0.025, 0.024, 'highpass', 3600, 1.5, 0.04);
     }
+    function fireScar() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.15, 'lowpass', 1280, 0.72, 0.30);
+      noiseBurst(c, now, 0.065, 'bandpass', 2100, 0.85, 0.18);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.exponentialRampToValueAtTime(38, now + 0.12);
+      g.gain.setValueAtTime(0.24, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.14);
+    }
+    function fireSawedoff() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.34, 'lowpass', 880, 0.6, 0.42);
+      noiseBurst(c, now, 0.18, 'bandpass', 1500, 0.72, 0.28);
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(112, now);
+      sub.frequency.exponentialRampToValueAtTime(26, now + 0.28);
+      sg.gain.setValueAtTime(0.38, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.30);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.32);
+    }
+    function fireLever() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.24, 'lowpass', 1120, 0.7, 0.34);
+      noiseBurst(c, now, 0.11, 'bandpass', 2050, 0.85, 0.22);
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(148, now);
+      sub.frequency.exponentialRampToValueAtTime(38, now + 0.19);
+      sg.gain.setValueAtTime(0.29, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.21);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.22);
+      // Lever flick clack-clack
+      [0.19, 0.31].forEach((offset, idx) => {
+        noiseBurst(c, now + offset, 0.04, 'highpass', idx === 0 ? 2500 : 3200, 1.8, 0.07);
+      });
+    }
+    function fireDmr() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.18, 'bandpass', 1350, 0.78, 0.28);
+      noiseBurst(c, now, 0.075, 'highpass', 2400, 0.75, 0.17);
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(165, now);
+      sub.frequency.exponentialRampToValueAtTime(42, now + 0.14);
+      sg.gain.setValueAtTime(0.24, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.16);
+    }
+    function fireScout() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.24, 'bandpass', 1500, 0.8, 0.30);
+      noiseBurst(c, now, 0.10, 'highpass', 2600, 0.85, 0.20);
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(175, now);
+      sub.frequency.exponentialRampToValueAtTime(40, now + 0.18);
+      sg.gain.setValueAtTime(0.26, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.20);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.22);
+      [0.26, 0.42].forEach((offset, idx) => {
+        noiseBurst(c, now + offset, 0.032, 'highpass', idx === 0 ? 2200 : 2900, 1.5, 0.055);
+      });
+    }
+    function katanaSlash(combo) {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const pitchShift = 1 + ((combo || 0) % 3) * 0.14;
+      noiseBurst(c, now, 0.15, 'bandpass', 1800 * pitchShift, 1.4, 0.18);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(920 * pitchShift, now);
+      osc.frequency.exponentialRampToValueAtTime(240 * pitchShift, now + 0.14);
+      g.gain.setValueAtTime(0.075, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    }
+    function katanaDash() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.26, 'bandpass', 2400, 0.9, 0.28);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(1680, now + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(280, now + 0.24);
+      g.gain.setValueAtTime(0.11, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.26);
+    }
+    function katanaDeflect() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      // Crisp metallic samurai blade ring + ricochet ping
+      [2180, 3290, 4420].forEach((freq, idx) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = idx === 0 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.88, now + 0.22);
+        g.gain.setValueAtTime(idx === 0 ? 0.14 : 0.08, now);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      });
+      noiseBurst(c, now, 0.055, 'highpass', 3600, 1.8, 0.16);
+    }
+    function fireRpg() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.42, 'lowpass', 950, 0.7, 0.36);
+      noiseBurst(c, now + 0.04, 0.38, 'bandpass', 1400, 0.85, 0.22);
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'sawtooth';
+      sub.frequency.setValueAtTime(135, now);
+      sub.frequency.exponentialRampToValueAtTime(44, now + 0.36);
+      sg.gain.setValueAtTime(0.24, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.40);
+    }
+    function explosion() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.44, 'lowpass', 620, 0.55, 0.46);
+      noiseBurst(c, now, 0.26, 'bandpass', 1100, 0.7, 0.28);
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(98, now);
+      sub.frequency.exponentialRampToValueAtTime(22, now + 0.42);
+      sg.gain.setValueAtTime(0.42, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.44);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.45);
+    }
+    function fireMinigun() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.055, 'bandpass', 1850, 0.9, 0.22);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(210, now);
+      osc.frequency.exponentialRampToValueAtTime(58, now + 0.048);
+      g.gain.setValueAtTime(0.15, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.052);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.056);
+    }
+    function fireRailcannon() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.32, 'highpass', 2000, 0.9, 0.28);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(1680, now);
+      osc.frequency.exponentialRampToValueAtTime(64, now + 0.30);
+      g.gain.setValueAtTime(0.26, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.34);
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(130, now);
+      sub.frequency.exponentialRampToValueAtTime(28, now + 0.28);
+      sg.gain.setValueAtTime(0.32, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.30);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.32);
+    }
+    function fireGrenade() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      // Signature hollow 40mm THUMP
+      noiseBurst(c, now, 0.14, 'lowpass', 720, 1.2, 0.24);
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(195, now);
+      osc.frequency.exponentialRampToValueAtTime(52, now + 0.14);
+      g.gain.setValueAtTime(0.28, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    }
+    function grenadeBounce() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(840, now);
+      osc.frequency.exponentialRampToValueAtTime(360, now + 0.045);
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.055);
+    }
+    function nukeSiren() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      for (let i = 0; i < 4; i++) {
+        const t0 = now + i * 1.15;
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'sawtooth';
+        const filt = c.createBiquadFilter();
+        filt.type = 'lowpass';
+        filt.frequency.value = 1400;
+        osc.frequency.setValueAtTime(420, t0);
+        osc.frequency.linearRampToValueAtTime(860, t0 + 0.52);
+        osc.frequency.linearRampToValueAtTime(420, t0 + 1.02);
+        g.gain.setValueAtTime(0.001, t0);
+        g.gain.linearRampToValueAtTime(0.11, t0 + 0.12);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.06);
+        osc.connect(filt);
+        filt.connect(g);
+        g.connect(c.destination);
+        osc.start(t0);
+        osc.stop(t0 + 1.08);
+      }
+    }
+    function nukeDetonate() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.44, 'lowpass', 480, 0.5, 0.50);
+      noiseBurst(c, now + 0.12, 0.44, 'lowpass', 320, 0.5, 0.42);
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(82, now);
+      sub.frequency.exponentialRampToValueAtTime(18, now + 1.2);
+      sg.gain.setValueAtTime(0.45, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 1.3);
+    }
     function fireWeapon(slot, opts) {
-      if (opts && opts.suppressed) {
+      if ((opts && opts.suppressed) || slot === 'honeybadger' || slot === 'usps') {
         fireSuppressed(slot);
         return;
       }
       if (slot === 'awp') fireAwp();
+      else if (slot === 'scout') fireScout();
+      else if (slot === 'dmr') fireDmr();
       else if (slot === 'revolver') fireRevolver(Boolean(opts && opts.fanFire));
       else if (slot === 'deagle') fireDeagle();
-      else if (slot === 'smg') fireSmg();
+      else if (slot === 'smg' || slot === 'mp7' || slot === 'g18') fireSmg();
       else if (slot === 'shotgun') fireShotgun();
-      else if (slot === 'pistol') firePistol();
+      else if (slot === 'sawedoff') fireSawedoff();
+      else if (slot === 'leverslug') fireLever();
+      else if (slot === 'scar') fireScar();
+      else if (slot === 'pistol' || slot === 'akimbo') firePistol();
+      else if (slot === 'katana') katanaSlash(opts && opts.combo);
+      else if (slot === 'rpg') fireRpg();
+      else if (slot === 'minigun') fireMinigun();
+      else if (slot === 'railcannon') fireRailcannon();
+      else if (slot === 'grenadelauncher') fireGrenade();
       else fireRifle();
     }
     function dryFire() {
@@ -632,6 +953,22 @@
       fireAwp,
       fireRevolver,
       fireDeagle,
+      fireScar,
+      fireSawedoff,
+      fireLever,
+      fireDmr,
+      fireScout,
+      fireRpg,
+      fireMinigun,
+      fireRailcannon,
+      fireGrenade,
+      grenadeBounce,
+      explosion,
+      katanaSlash,
+      katanaDash,
+      katanaDeflect,
+      nukeSiren,
+      nukeDetonate,
       fireWeapon,
       revolverRatchet,
       revolverCraneOpen,

@@ -44,6 +44,9 @@ const hudWeaponName=$('hudWeaponName'),hudBuildMeta=$('hudBuildMeta'),hudAmmoBox
 const hudSlotPrimaryLabel=$('hudSlotPrimaryLabel'),hudSlotSecondaryLabel=$('hudSlotSecondaryLabel'),hudSlotMeleeLabel=$('hudSlotMeleeLabel');
 const hudReloadBar=$('hudReloadBar'),hudReloadFill=$('hudReloadFill');
 const hudSlotEls=document.querySelectorAll('[data-hud-slot]');
+const hudScorestreakEl=$('hudScorestreak'),hudStreakKeyEl=$('hudStreakKey'),hudStreakNameEl=$('hudStreakName'),hudStreakPtsEl=$('hudStreakPts'),hudStreakFillEl=$('hudStreakFill');
+const hudKatanaEl=$('hudKatana'),hudKatanaDashEl=$('hudKatanaDash'),hudKatanaDeflectStateEl=$('hudKatanaDeflectState'),hudKatanaDeflectFillEl=$('hudKatanaDeflectFill');
+const nukeBannerEl=$('nukeBanner'),nukeTimerEl=$('nukeTimer'),nukeOwnerEl=$('nukeOwner'),nukeFlashEl=$('nukeFlash');
 const gauntletHudEl=$('gauntletHud'),hitmarkerEl=$('hitmarker'),damageVignetteEl=$('damageVignette'),chronoVignetteEl=$('chronoVignette');
 const awpScopeOverlayEl=$('awpScopeOverlay'),scopeZoomTagEl=$('scopeZoomTag');
 const arenaTopBarEl=$('arenaTopBar'),arenaScoreLineEl=$('arenaScoreLine'),arenaSubLineEl=$('arenaSubLine');
@@ -103,6 +106,7 @@ let gunsmithTab='gunsmith'; // 'gunsmith' | 'appearance' | 'progression'
 let gunsmithDrawerSlot=null; // null or slotId
 let gunsmithAttCategory='optic';
 let gunsmithHoverAttId=null;
+let primaryClassFilter='all';
 let pendingLoadoutApply=false;
 let firingRangeReturnContext=null; // { screen: 'loadouts'|'gunsmith', slotCategory, loadoutIdx }
 
@@ -166,12 +170,13 @@ function renderControlsLegend(){
   const moveStr=`${f(kb.forward)} ${f(kb.left)} ${f(kb.back)} ${f(kb.right)}`;
   const rows=[
     [moveStr,'Move'],
-    [`${f(kb.fire)} / ${f(kb.altFire)}`,'Shoot / ADS'],
+    [`${f(kb.fire)} / ${f(kb.altFire)}`,'Shoot / ADS / Katana Deflect'],
     [`${f(kb.slotRifle)}-${f(kb.slotDeagle)} / ${f(kb.slotKnife)}`,'Primary · Sec · Melee / Swap'],
+    ['5','Deploy Scorestreak'],
     [f(kb.reload),'Reload'],
     [f(kb.jump),'Jump / wall jump'],
     [f(kb.slide),'Slide'],
-    [f(kb.grapple),'Grapple / release'],
+    [f(kb.grapple),'Grapple / Katana Dash (Q)'],
     [f(kb.burst),'Speed burst'],
     [f(kb.restart),'Restart run'],
     [f(kb.inspect),'Inspect weapon / knife']
@@ -213,6 +218,18 @@ function updateCombatHud(){
       hudAmmoCur.textContent='MELEE';
       hudAmmoCur.classList.remove('low');
       hudAmmoMax.textContent='';
+    }else if(cs.isKatana){
+      hudWeaponName.textContent='RONIN KATANA';
+      if(hudBuildMeta)hudBuildMeta.textContent='LMB SLASH · Q AIR-DASH · RMB DEFLECT';
+      hudAmmoCur.textContent='BLADE';
+      hudAmmoCur.classList.remove('low','shell-rld');
+      hudAmmoMax.textContent='';
+    }else if(cs.isScorestreak){
+      const b=cs.activeBuild;
+      hudWeaponName.textContent=b?`★ ${b.name.toUpperCase()}`:'SCORESTREAK';
+      if(hudBuildMeta)hudBuildMeta.textContent='SCORESTREAK WEAPON · LIMITED AMMO';
+      hudAmmoMax.textContent=`/ ${cs.magSize||0}`;
+      lastHudAmmo=-1;
     }else{
       const b=cs.activeBuild;
       hudWeaponName.textContent=b?b.name.toUpperCase():(cs.weaponName||cs.activeSlot).toUpperCase();
@@ -221,14 +238,14 @@ function updateCombatHud(){
         const modStr=b.attachmentCount>0?` · ${b.attachmentCount}/5 MODS`:'';
         const supStr=b.suppressed?' · SUPP':'';
         const chronoStr=b.hasChronoKit?(b.chronoTier>=2?' · PHASE':' · CHRONO'):'';
-        const revStr=b.weaponId==='revolver'?' · LMB 0.2S · RMB FAN':'';
+        const revStr=b.weaponId==='revolver'?' · LMB 0.2S · RMB FAN':(b.burstCount>1?' · 3-RD BURST':(b.dualWield?' · AKIMBO':''));
         hudBuildMeta.textContent=`SURF ${surfPct}% · ${b.weightKg.toFixed(1)} KG${modStr}${supStr}${chronoStr}${revStr}`;
       }
       hudAmmoMax.textContent=`/ ${cs.magSize||0}`;
       lastHudAmmo=-1;
     }
   }
-  if(cs.activeSlot!=='melee'&&(cs.ammo!==lastHudAmmo||cs.reloading!==lastHudReloading)){
+  if(cs.activeSlot!=='melee'&&!cs.isKatana&&(cs.ammo!==lastHudAmmo||cs.reloading!==lastHudReloading)){
     lastHudAmmo=cs.ammo;
     lastHudReloading=cs.reloading;
     const isShellRld=cs.reloading&&cs.reloadMode==='shell';
@@ -241,6 +258,69 @@ function updateCombatHud(){
     hudReloadFill.style.width=`${Math.round(cs.reloadPct*100)}%`;
   }else if(hudReloadBar.style.display!=='none'){
     hudReloadBar.style.display='none';
+  }
+
+  // Scorestreak Meter (visible in Arena & Sandbox)
+  if(hudScorestreakEl&&cs.scorestreak){
+    const showStreak=Boolean(ns.isArena||(level&&level.id==='sandbox'));
+    hudScorestreakEl.style.display=showStreak?'block':'none';
+    if(showStreak){
+      const ss=cs.scorestreak;
+      const pct=Math.max(0,Math.min(100,Math.round((ss.points/Math.max(1,ss.cost))*100)));
+      hudScorestreakEl.classList.toggle('ready',Boolean(ss.ready&&!cs.isScorestreak));
+      hudScorestreakEl.classList.toggle('active-weapon',Boolean(cs.isScorestreak));
+      if(hudStreakKeyEl)hudStreakKeyEl.textContent=cs.isScorestreak?'★':'5';
+      if(hudStreakNameEl)hudStreakNameEl.textContent=(ss.shortName||ss.name||'STREAK').toUpperCase();
+      if(hudStreakPtsEl){
+        hudStreakPtsEl.textContent=cs.isScorestreak
+          ?`ACTIVE · ${ss.ammo}/${ss.maxAmmo}`
+          :(ss.ready?'READY [5]':`${ss.points} / ${ss.cost}`);
+      }
+      if(hudStreakFillEl){
+        hudStreakFillEl.style.width=cs.isScorestreak
+          ?`${Math.round((ss.ammo/Math.max(1,ss.maxAmmo))*100)}%`
+          :`${pct}%`;
+      }
+    }
+  }
+
+  // Katana Slash-Dash + Time-Limited Deflect Energy Gauge
+  if(hudKatanaEl&&cs.katana){
+    const showKat=Boolean(cs.katana.equipped);
+    hudKatanaEl.style.display=showKat?'block':'none';
+    if(showKat){
+      const kt=cs.katana;
+      const pct=Math.max(0,Math.min(100,Math.round((kt.deflectEnergy||0)*100)));
+      const recharging=!kt.deflectActive&&!kt.deflectCanEngage;
+      hudKatanaEl.classList.toggle('deflecting',Boolean(kt.deflectActive));
+      hudKatanaEl.classList.toggle('recharging',recharging);
+      if(hudKatanaDashEl){
+        hudKatanaDashEl.textContent=kt.dashReady?'READY':`${kt.dashCooldown.toFixed(1)}S`;
+        hudKatanaDashEl.className='hk-val '+(kt.dashReady?'ready':'cool');
+      }
+      if(hudKatanaDeflectStateEl){
+        hudKatanaDeflectStateEl.textContent=kt.deflectActive
+          ?`ACTIVE · ${pct}%`
+          :(recharging?`RECHARGE ${pct}%`:`${pct}%`);
+        hudKatanaDeflectStateEl.className='hk-val '+(kt.deflectActive?'active':(recharging?'cool':'ready'));
+      }
+      if(hudKatanaDeflectFillEl)hudKatanaDeflectFillEl.style.width=`${pct}%`;
+    }
+  }
+
+  // Tactical Nuke Inbound Countdown Banner & Flash Overlay
+  if(nukeBannerEl&&cs.nuke){
+    const nk=cs.nuke;
+    const showBanner=Boolean(nk.active&&nk.timer>0);
+    nukeBannerEl.style.display=showBanner?'block':'none';
+    if(showBanner){
+      if(nukeTimerEl)nukeTimerEl.textContent=`${Math.max(0,nk.timer).toFixed(1)}S`;
+      if(nukeOwnerEl)nukeOwnerEl.textContent=`DEPLOYED BY ${String(nk.ownerName||'RUNNER').toUpperCase()}`;
+    }
+    if(nukeFlashEl){
+      const fa=nk.flashAlpha>0.01?Math.min(1,nk.flashAlpha):0;
+      nukeFlashEl.style.opacity=fa>0?fa.toFixed(2):'0';
+    }
   }
 
   // R-88 Revolver 0.20s double-action charge ring around crosshair

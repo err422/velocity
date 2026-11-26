@@ -17,6 +17,8 @@ function clearHeldInputs(){
   if(window.CombatSystem){
     window.CombatSystem.setAdsHeld(false);
     if(typeof window.CombatSystem.setChargeHeld==='function')window.CombatSystem.setChargeHeld(false);
+    if(typeof window.CombatSystem.setKatanaDeflectHeld==='function')window.CombatSystem.setKatanaDeflectHeld(false);
+    if(typeof window.CombatSystem.setMinigunHeld==='function')window.CombatSystem.setMinigunHeld(false);
   }
 }
 function isArenaBlocked(){
@@ -33,17 +35,46 @@ function performFire(heavy,extraOpts){
   const res=window.CombatSystem.tryFire(origin,dir,{
     heavy:!!heavy,
     fanFire:!!(extraOpts&&extraOpts.fanFire),
+    isBurstFollowup:!!(extraOpts&&extraOpts.isBurstFollowup),
     moveSpeed:Math.hypot(p.vel.x,p.vel.z),
     airborne:!p.grounded,
+    isSurfing:p.surfing||p.surfGrace>0.04,
     solidMeshes
   });
   if(res&&res.fired){
     if(res.recoilPitch)p.pitch=clamp(p.pitch+res.recoilPitch,-1.48,1.48);
     if(res.recoilYaw)p.yaw+=res.recoilYaw;
+    // Heavy Shotgun, Revolver & Railcannon physics kickback (works even while grounded!)
+    if(res.kickbackForce>0){
+      p.vel.addScaledVector(dir,-res.kickbackForce);
+      if(p.grounded&&res.kickbackGroundLift>0){
+        p.vel.y=Math.max(p.vel.y,res.kickbackGroundLift);
+        p.grounded=false;
+        p.noGround=0.08;
+      }
+    }
     if(window.NetcodeSystem)window.NetcodeSystem.reportShot(res);
     if(res.hitKind==='range_reset')showToast('SHOOTING RANGE RESET');
   }
   return res;
+}
+function tryActivateScorestreakInput(){
+  if(!window.CombatSystem||isArenaBlocked())return false;
+  const ns=window.NetcodeSystem?window.NetcodeSystem.getState():null;
+  const owner=(ns&&ns.localName)||(window.activeSettings&&window.activeSettings.displayName)||'RUNNER';
+  const res=window.CombatSystem.activateScorestreak(owner);
+  if(res&&res.activated){
+    if(res.type==='nuke'){
+      showToast('TACTICAL NUKE INBOUND — 5.0S');
+    }else if(res.def){
+      showToast(`SCORESTREAK · ${res.def.name.toUpperCase()}`);
+    }
+    return true;
+  }
+  if(res&&res.needed>0){
+    showToast(`SCORESTREAK NEEDS ${res.needed} MORE PTS`);
+  }
+  return false;
 }
 function triggerBoundToken(token,repeat){
   const kb=getSettings().keybinds;
@@ -58,8 +89,36 @@ function triggerBoundToken(token,repeat){
     const ns=window.NetcodeSystem?window.NetcodeSystem.getState():null;
     if(!ns||!ns.isOnline)toCheckpoint();
   }
-  if(token===kb.burst&&!repeat&&!isArenaBlocked())burst();
-  if(token===kb.ghost&&!repeat)toggleGhostMode();
+  if(token===kb.burst&&!repeat&&!isArenaBlocked()){
+    if(window.CombatSystem&&typeof window.CombatSystem.isKatanaEquipped==='function'&&window.CombatSystem.isKatanaEquipped()){
+      const p=player;
+      const cp=Math.cos(p.pitch);
+      const dir=V3(-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp);
+      const origin=V3(p.pos.x,p.pos.y+p.eye,p.pos.z);
+      const dashRes=window.CombatSystem.tryKatanaDash(origin,dir,p,solidMeshes);
+      if(dashRes&&dashRes.dashed){
+        if(dashRes.hitResults&&window.NetcodeSystem){
+          for(const h of dashRes.hitResults)window.NetcodeSystem.reportShot(h);
+        }
+        showToast(dashRes.killedAny?'SLASH-DASH KILL · RESET!':'KATANA SLASH-DASH');
+      }else if(dashRes&&dashRes.onCooldown){
+        showToast(`DASH READY IN ${dashRes.remaining.toFixed(1)}S`);
+      }
+    }else{
+      burst();
+    }
+  }
+  if(token==='Digit5'&&!repeat){
+    tryActivateScorestreakInput();
+  }
+  if(token===kb.ghost&&!repeat){
+    const cst=window.CombatSystem?window.CombatSystem.getState():null;
+    if(!course&&cst&&cst.scorestreak&&cst.scorestreak.ready){
+      tryActivateScorestreakInput();
+    }else{
+      toggleGhostMode();
+    }
+  }
   if(token===kb.slotRifle&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('primary');
   if(token===kb.slotAwp&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('secondary');
   if(token===kb.slotDeagle&&!repeat&&window.CombatSystem)window.CombatSystem.switchSlot('melee');
@@ -67,7 +126,9 @@ function triggerBoundToken(token,repeat){
   if(token===kb.reload&&!repeat&&window.CombatSystem)window.CombatSystem.startReload();
   if(token===kb.fire&&!repeat){
     const st=window.CombatSystem?window.CombatSystem.getState():null;
-    if(st&&st.chargeTimeSec>0&&typeof window.CombatSystem.setChargeHeld==='function'){
+    if(st&&st.isScorestreak&&st.weaponId==='minigun'&&typeof window.CombatSystem.setMinigunHeld==='function'){
+      if(!isArenaBlocked())window.CombatSystem.setMinigunHeld(true);
+    }else if(st&&st.chargeTimeSec>0&&typeof window.CombatSystem.setChargeHeld==='function'){
       if(!isArenaBlocked())window.CombatSystem.setChargeHeld(true);
     }else{
       performFire(false);
@@ -75,7 +136,14 @@ function triggerBoundToken(token,repeat){
   }
   if(token===kb.altFire&&!repeat&&window.CombatSystem){
     const st=window.CombatSystem.getState();
-    if(st.activeSlot==='melee')performFire(true);
+    if(st.isKatana&&typeof window.CombatSystem.setKatanaDeflectHeld==='function'){
+      if(!isArenaBlocked()){
+        if(st.katana&&!st.katana.deflectCanEngage){
+          showToast('DEFLECT RECHARGING');
+        }
+        window.CombatSystem.setKatanaDeflectHeld(true);
+      }
+    }else if(st.activeSlot==='melee')performFire(true);
     else if(st.altFireMode==='fan')performFire(false,{fanFire:true});
     else window.CombatSystem.setAdsHeld(true);
   }
@@ -119,8 +187,14 @@ document.addEventListener('keyup',e=>{
   if(e.code==='Tab'){window.isScoreboardHeld=false;}
   keys[e.code]=false;
   const kb=getSettings().keybinds;
-  if(e.code===kb.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
-  if(e.code===kb.fire&&window.CombatSystem&&typeof window.CombatSystem.setChargeHeld==='function')window.CombatSystem.setChargeHeld(false);
+  if(e.code===kb.altFire&&window.CombatSystem){
+    window.CombatSystem.setAdsHeld(false);
+    if(typeof window.CombatSystem.setKatanaDeflectHeld==='function')window.CombatSystem.setKatanaDeflectHeld(false);
+  }
+  if(e.code===kb.fire&&window.CombatSystem){
+    if(typeof window.CombatSystem.setChargeHeld==='function')window.CombatSystem.setChargeHeld(false);
+    if(typeof window.CombatSystem.setMinigunHeld==='function')window.CombatSystem.setMinigunHeld(false);
+  }
 });
 // Mouse events report each button independently, including when multiple
 // buttons are held together (e.g. RMB aim + LMB fire).
@@ -146,8 +220,14 @@ document.addEventListener('mouseup',e=>{
   if(tok){
     keys[tok]=false;
     const kb=getSettings().keybinds;
-    if(tok===kb.altFire&&window.CombatSystem)window.CombatSystem.setAdsHeld(false);
-    if(tok===kb.fire&&window.CombatSystem&&typeof window.CombatSystem.setChargeHeld==='function')window.CombatSystem.setChargeHeld(false);
+    if(tok===kb.altFire&&window.CombatSystem){
+      window.CombatSystem.setAdsHeld(false);
+      if(typeof window.CombatSystem.setKatanaDeflectHeld==='function')window.CombatSystem.setKatanaDeflectHeld(false);
+    }
+    if(tok===kb.fire&&window.CombatSystem){
+      if(typeof window.CombatSystem.setChargeHeld==='function')window.CombatSystem.setChargeHeld(false);
+      if(typeof window.CombatSystem.setMinigunHeld==='function')window.CombatSystem.setMinigunHeld(false);
+    }
   }
 });
 document.addEventListener('wheel',e=>{

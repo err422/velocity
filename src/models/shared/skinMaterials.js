@@ -1111,6 +1111,155 @@
           b = 27 + prism * 198 + wy * 22;
           if (prism > 0.75) { r += 45; g += 24; b = 245; }
           rough = 28 + (1 - prism) * 36; bump = 92 + prism * 112;
+        } else if (skinId === 'tactical_carbon') {
+          const cx = Math.floor(u * 104);
+          const cy = Math.floor(v * 72);
+          const twill = ((cx + cy) % 4) < 2 ? 1.24 : 0.72;
+          const hex = Math.sin(u * 46 * Math.PI) * Math.sin(v * 34 * Math.PI);
+          r = (26 + micro * 10) * twill + hex * 4;
+          g = (31 + micro * 12) * twill + hex * 5;
+          b = (38 + micro * 14) * twill + hex * 6;
+          if (Math.abs(v - 0.78) < 0.015) {
+            r = 88; g = 156; b = 196; rough = 54; bump = 160;
+          } else {
+            rough = twill > 1 ? 82 : 148;
+            bump = twill > 1 ? 158 : 96;
+          }
+        } else if (skinId === 'cyber_wireframe') {
+          const gx = Math.abs(Math.sin((u * 24 + seed * 0.01) * Math.PI));
+          const gy = Math.abs(Math.sin((v * 16 + seed * 0.02) * Math.PI));
+          const diag = Math.abs(Math.sin(((u * 12 + v * 12) + seed * 0.01) * Math.PI));
+          const wire = Math.max(gx, gy, diag * 0.96);
+          if (wire > 0.93) {
+            const shift = Math.sin((u * 3.5 + v * 2.0) * Math.PI) * 0.5 + 0.5;
+            r = 38 + shift * 210;
+            g = 246 - shift * 180;
+            b = 255;
+            rough = 28; bump = 196;
+          } else {
+            r = 10 + micro * 10; g = 14 + micro * 12; b = 24 + micro * 18;
+            rough = 132; bump = 108;
+          }
+        } else if (skinId === 'holo_prism') {
+          const wx = KS.fbm2D(u * 4.0 + ox, v * 4.0 + oy, seed + 211, 3);
+          const facet = Math.sin((u * 11 + v * 8 + wx * 4.2) * Math.PI);
+          const hue = ((u * 1.4 + v * 0.9 + wx * 0.8 + (seed % 17) * 0.06) % 1 + 1) % 1;
+          const tri = (t) => Math.max(0, Math.min(1, Math.abs(((t * 6) % 6) - 3) - 1));
+          const sheen = 0.72 + Math.abs(facet) * 0.28;
+          r = (58 + tri(hue) * 195) * sheen;
+          g = (72 + tri(hue + 0.33) * 182) * sheen;
+          b = (96 + tri(hue + 0.66) * 158) * sheen;
+          rough = 22 + (1 - Math.abs(facet)) * 22;
+          bump = 100 + Math.abs(facet) * 76;
+        } else if (skinId === 'molten_magma') {
+          const n1 = KS.fbm2D(u * 5.2 + ox, v * 5.2 + oy, seed + 149, 4);
+          const n2 = KS.fbm2D(u * 11.0 + n1 * 2.2, v * 11.0 + n1 * 2.2, seed + 281, 3);
+          const ridge = 1 - Math.abs(Math.sin((u * 6.5 + v * 4.5 + n1 * 4.4) * Math.PI));
+          const crack = Math.pow(Math.max(0, ridge * 0.72 + n2 * 0.42 - 0.58) / 0.42, 1.35);
+          if (crack > 0.12) {
+            const hot = Math.min(1, crack * 1.45);
+            r = 255;
+            g = 62 + hot * 186;
+            b = 10 + Math.pow(hot, 2.2) * 130;
+            rough = 26; bump = 168 + hot * 56;
+          } else {
+            const rock = 18 + n2 * 26;
+            r = rock * 1.15; g = rock * 0.95; b = rock * 0.98;
+            rough = 186; bump = 88 + n2 * 44;
+          }
+        } else if (skinId === 'ronin_sakura') {
+          const ink = KS.fbm2D(u * 4.5 + ox, v * 4.5 + oy, seed + 331, 3);
+          const split = v + Math.sin(u * 5.2 + ink * 2.4) * 0.14;
+          if (split > 0.62) {
+            r = 236 - ink * 18; g = 228 - ink * 18; b = 224 - ink * 14;
+            rough = 58; bump = 134;
+          } else if (Math.abs(split - 0.60) < 0.028) {
+            r = 238; g = 186; b = 74; rough = 32; bump = 168;
+          } else {
+            r = 20 + ink * 18; g = 18 + ink * 16; b = 28 + ink * 22;
+            rough = 84; bump = 118 + ink * 22;
+          }
+        } else if (skinId === 'oni_crimson') {
+          const wave = KS.fbm2D(u * 4.8 + ox, v * 4.8 + oy, seed + 401, 3);
+          const slash = Math.sin((u * 7.5 - v * 4.0 + wave * 3.4) * Math.PI);
+          if (slash > 0.35) {
+            r = 212 + wave * 42; g = 22 + wave * 24; b = 42 + wave * 26;
+            rough = 54; bump = 148;
+          } else if (Math.abs(slash - 0.32) < 0.06) {
+            r = 234; g = 178; b = 68; rough = 34; bump = 166;
+          } else {
+            r = 18 + wave * 16; g = 14 + wave * 12; b = 22 + wave * 18;
+            rough = 104; bump = 112 + wave * 22;
+          }
+        } else if (skinId === 'shogun_gold') {
+          const seigaiha = Math.sin(Math.hypot(((u * 14) % 1) - 0.5, ((v * 10) % 1) - 0.5) * 28);
+          const goldBand = v > 0.72 || v < 0.22 || seigaiha > 0.58;
+          if (goldBand) {
+            const lum = 0.84 + micro * 0.22;
+            r = 248 * lum; g = 196 * lum; b = 66 * lum;
+            rough = 26; bump = 158;
+          } else {
+            r = 20 + micro * 12; g = 18 + micro * 10; b = 24 + micro * 14;
+            rough = 72; bump = 112;
+          }
+        } else if (skinId === 'reactive_overdrive') {
+          const w = KS.fbm2D(u * 5.0 + ox, v * 5.0 + oy, seed + 503, 3);
+          const pulse = Math.abs(Math.sin((u * 9.0 + v * 3.5 + w * 4.2) * Math.PI));
+          if (pulse > 0.74) {
+            r = 52; g = 240; b = 255; rough = 24; bump = 176;
+          } else {
+            r = 16 + w * 22; g = 24 + w * 28; b = 38 + w * 40; rough = 92; bump = 114;
+          }
+        } else if (skinId === 'reactive_oni') {
+          const w = KS.fbm2D(u * 5.5 + ox, v * 5.5 + oy, seed + 547, 3);
+          const vein = Math.abs(Math.sin((u * 8.0 - v * 5.0 + w * 4.8) * Math.PI));
+          if (vein > 0.72) {
+            r = 255; g = 56; b = 88; rough = 24; bump = 178;
+          } else {
+            r = 22 + w * 20; g = 14 + w * 14; b = 20 + w * 18; rough = 96; bump = 114;
+          }
+        } else if (skinId === 'camo_gold') {
+          const topo = KS.fbm2D(u * 4.4, v * 4.4, 777, 4);
+          const contour = Math.abs(Math.sin((u * 5.0 + v * 4.0 + topo * 6.5) * Math.PI * 2));
+          if (contour > 0.88) {
+            r = 34; g = 28; b = 22; rough = 120; bump = 88;
+          } else {
+            const gleam = 0.88 + topo * 0.22;
+            r = Math.min(255, 252 * gleam);
+            g = Math.min(255, 204 * gleam);
+            b = Math.min(255, 64 * gleam);
+            rough = 22 + (1 - topo) * 18;
+            bump = 136 + contour * 34;
+          }
+        } else if (skinId === 'camo_diamond') {
+          const gx = (u * 26) % 1 - 0.5;
+          const gy = (v * 18) % 1 - 0.5;
+          const dist = Math.abs(gx) + Math.abs(gy);
+          if (v < 0.18 || v > 0.84) {
+            // Gold trim rail borders
+            r = 246; g = 198; b = 74; rough = 24; bump = 152;
+          } else if (dist < 0.44) {
+            const sparkle = KS.hash2D(Math.floor(u * 26), Math.floor(v * 18), 919);
+            const facet = Math.max(0, 1 - dist * 2.1);
+            const lum = 196 + facet * 59 + (sparkle > 0.72 ? 32 : 0);
+            r = Math.min(255, lum * 0.94);
+            g = Math.min(255, lum * 0.98);
+            b = Math.min(255, lum * 1.05);
+            rough = 14; bump = 148 + facet * 92;
+          } else {
+            r = 142; g = 154; b = 170; rough = 44; bump = 88;
+          }
+        } else if (skinId === 'camo_dark_matter') {
+          const w1 = KS.fbm2D(u * 3.8 + 1.4, v * 3.8 + 2.1, 881, 4);
+          const w2 = KS.fbm2D(u * 7.2 + w1 * 2.6, v * 7.2 + w1 * 2.6, 991, 3);
+          const nebula = Math.sin((u * 4.5 + v * 3.2 + w1 * 5.2 + w2 * 2.1) * Math.PI) * 0.5 + 0.5;
+          const core = Math.pow(nebula, 1.5);
+          const star = KS.hash2D(px, py, 1013) > 0.994 ? 1 : 0;
+          r = 16 + core * 186 + w2 * 44 + star * 220;
+          g = 8 + Math.pow(core, 2.2) * 86 + star * 210;
+          b = 42 + core * 204 + (1 - nebula) * 48 + star * 255;
+          rough = 22 + (1 - core) * 28;
+          bump = 112 + core * 54;
         }
 
         // Authentic edge-weighted float wear scuffing
@@ -1350,6 +1499,68 @@
         actx.fill();
       }
       actx.restore();
+    } else if (skinId === 'ronin_sakura') {
+      // Drifting sakura blossoms & branch silhouette painted cleanly across receiver/blade
+      actx.save();
+      const s = res;
+      actx.strokeStyle = 'rgba(28, 20, 26, 0.88)';
+      actx.lineWidth = Math.max(2.0, s / 120);
+      actx.beginPath();
+      actx.moveTo(s * 0.06, s * 0.56);
+      actx.quadraticCurveTo(s * 0.36, s * 0.38, s * 0.78, s * 0.28);
+      actx.stroke();
+      for (let i = 0; i < 16; i++) {
+        const bx = (0.10 + KS.hash2D(seed + 3, i * 19, 317) * 0.82) * s;
+        const by = (0.14 + KS.hash2D(seed + 7, i * 29, 419) * 0.70) * s;
+        const rad = s * (0.018 + KS.hash2D(seed + 11, i * 37, 503) * 0.018);
+        actx.save();
+        actx.translate(bx, by);
+        actx.fillStyle = i % 3 === 0 ? 'rgba(255, 196, 224, 0.94)' : 'rgba(255, 118, 178, 0.92)';
+        for (let p = 0; p < 5; p++) {
+          const ang = (p / 5) * Math.PI * 2;
+          actx.beginPath();
+          actx.ellipse(Math.cos(ang) * rad * 0.65, Math.sin(ang) * rad * 0.65, rad * 0.55, rad * 0.32, ang, 0, Math.PI * 2);
+          actx.fill();
+        }
+        actx.fillStyle = 'rgba(255, 220, 110, 0.95)';
+        actx.beginPath();
+        actx.arc(0, 0, rad * 0.24, 0, Math.PI * 2);
+        actx.fill();
+        actx.restore();
+      }
+      actx.restore();
+    } else if (skinId === 'oni_crimson') {
+      // Stylized geometric Oni mask emblem on receiver center
+      actx.save();
+      const s = res;
+      const oxC = s * 0.52, oyC = s * 0.48, rC = s * 0.14;
+      actx.fillStyle = 'rgba(18, 12, 16, 0.92)';
+      actx.beginPath();
+      actx.moveTo(oxC, oyC - rC);
+      actx.lineTo(oxC + rC * 0.85, oyC - rC * 0.25);
+      actx.lineTo(oxC + rC * 0.65, oyC + rC * 0.82);
+      actx.lineTo(oxC, oyC + rC);
+      actx.lineTo(oxC - rC * 0.65, oyC + rC * 0.82);
+      actx.lineTo(oxC - rC * 0.85, oyC - rC * 0.25);
+      actx.closePath();
+      actx.fill();
+      actx.strokeStyle = 'rgba(246, 192, 74, 0.95)';
+      actx.lineWidth = Math.max(2.0, s / 145);
+      actx.stroke();
+      // Glowing Oni eyes & fangs
+      actx.fillStyle = '#ff324d';
+      actx.fillRect(oxC - rC * 0.52, oyC - rC * 0.16, rC * 0.34, rC * 0.16);
+      actx.fillRect(oxC + rC * 0.18, oyC - rC * 0.16, rC * 0.34, rC * 0.16);
+      actx.fillStyle = '#f8f2e4';
+      actx.beginPath();
+      actx.moveTo(oxC - rC * 0.36, oyC + rC * 0.54);
+      actx.lineTo(oxC - rC * 0.24, oyC + rC * 0.18);
+      actx.lineTo(oxC - rC * 0.12, oyC + rC * 0.54);
+      actx.moveTo(oxC + rC * 0.12, oyC + rC * 0.54);
+      actx.lineTo(oxC + rC * 0.24, oyC + rC * 0.18);
+      actx.lineTo(oxC + rC * 0.36, oyC + rC * 0.54);
+      actx.fill();
+      actx.restore();
     }
 
     const result = { albedoCanvas, roughCanvas, bumpCanvas };
@@ -1361,42 +1572,108 @@
     return result;
   }
 
+  // Registry of live animated / reactive weapon materials for per-frame updates
+  const dynamicSkinMaterials = new Set();
+  let dynamicSkinClock = 0;
+
+  function updateDynamicSkinMaterials(dt, streakCount) {
+    const safeDt = Math.min(0.05, Math.max(0, Number(dt) || 0.016));
+    dynamicSkinClock += safeDt;
+    const streak = Math.max(0, Number(streakCount) || 0);
+    const streakFactor = Math.min(1, streak / 5);
+
+    for (const mat of dynamicSkinMaterials) {
+      if (!mat || !mat.userData || !mat.userData.dynamicSkin) {
+        dynamicSkinMaterials.delete(mat);
+        continue;
+      }
+      const mode = mat.userData.dynamicSkin;
+      if (mode === 'camo_dark_matter') {
+        if (mat.map) {
+          mat.map.offset.x = (dynamicSkinClock * 0.085) % 1;
+          mat.map.offset.y = Math.sin(dynamicSkinClock * 0.55) * 0.08;
+        }
+        const pulse = 0.5 + 0.5 * Math.sin(dynamicSkinClock * 2.4);
+        mat.emissiveIntensity = 0.42 + pulse * 0.38;
+        mat.emissive.setHSL(0.76 + Math.sin(dynamicSkinClock * 0.7) * 0.06, 0.86, 0.48);
+      } else if (mode === 'reactive_overdrive') {
+        const pulse = 0.5 + 0.5 * Math.sin(dynamicSkinClock * (3.0 + streakFactor * 5.0));
+        mat.emissiveIntensity = 0.22 + streakFactor * 0.95 + pulse * (0.14 + streakFactor * 0.26);
+        // Shifts from cyber cyan (0 kills) -> electric violet (3 kills) -> incandescent gold-white (5+ kills)
+        const hue = streak >= 5 ? 0.11 : streak >= 3 ? 0.78 : 0.52;
+        mat.emissive.setHSL(hue, 0.95, 0.50 + streakFactor * 0.14);
+      } else if (mode === 'reactive_oni') {
+        const pulse = 0.5 + 0.5 * Math.sin(dynamicSkinClock * (2.6 + streakFactor * 5.5));
+        mat.emissiveIntensity = 0.22 + streakFactor * 1.05 + pulse * (0.16 + streakFactor * 0.30);
+        const hue = streak >= 5 ? 0.07 : streak >= 3 ? 0.96 : 0.98;
+        mat.emissive.setHSL(hue, 0.96, 0.42 + streakFactor * 0.18);
+      } else if (mode === 'molten_magma' || mode === 'cyber_wireframe') {
+        const pulse = 0.5 + 0.5 * Math.sin(dynamicSkinClock * 2.0);
+        mat.emissiveIntensity = 0.26 + pulse * 0.20;
+      }
+    }
+  }
+
   function createWeaponMaterial(weaponItem, targetRenderer) {
     const { albedoCanvas, roughCanvas, bumpCanvas } = paintWeaponToCanvases(weaponItem);
+    const sk = (weaponItem && weaponItem.skinId) || 'factory_slate';
+    const isAnimatedDarkMatter = sk === 'camo_dark_matter';
+    const wrapMode = isAnimatedDarkMatter ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+
     const map = new THREE.CanvasTexture(albedoCanvas);
     map.colorSpace = THREE.SRGBColorSpace;
-    map.wrapS = THREE.ClampToEdgeWrapping;
-    map.wrapT = THREE.ClampToEdgeWrapping;
+    map.wrapS = wrapMode;
+    map.wrapT = wrapMode;
     const maxAniso = targetRenderer ? targetRenderer.capabilities.getMaxAnisotropy() : 4;
     map.anisotropy = Math.min(8, maxAniso);
 
     const roughnessMap = new THREE.CanvasTexture(roughCanvas);
-    roughnessMap.wrapS = THREE.ClampToEdgeWrapping;
-    roughnessMap.wrapT = THREE.ClampToEdgeWrapping;
+    roughnessMap.wrapS = wrapMode;
+    roughnessMap.wrapT = wrapMode;
 
     const bumpMap = new THREE.CanvasTexture(bumpCanvas);
-    bumpMap.wrapS = THREE.ClampToEdgeWrapping;
-    bumpMap.wrapT = THREE.ClampToEdgeWrapping;
+    bumpMap.wrapS = wrapMode;
+    bumpMap.wrapT = wrapMode;
 
-    const sk = (weaponItem && weaponItem.skinId) || 'factory_slate';
-    const isMetallic = sk === 'fade' || sk === 'case_hardened' || sk === 'damascus' || sk === 'dragon_gold' || sk === 'blaze' || sk === 'redshift' || sk === 'solarflare';
-    const isGlossy = isMetallic || sk === 'printstream' || sk === 'hyper_chroma' || sk === 'neon_rider' || sk === 'coldfront' || sk === 'nitro' || sk === 'voidglass';
-    const iri = sk === 'printstream' ? 0.78 : sk === 'fade' ? 0.45 : sk === 'case_hardened' ? 0.36 : sk === 'hyper_chroma' ? 0.42 : sk === 'voidglass' ? 0.54 : sk === 'coldfront' ? 0.26 : 0.0;
+    const isMetallic = sk === 'fade' || sk === 'case_hardened' || sk === 'damascus' || sk === 'dragon_gold' || sk === 'blaze' || sk === 'redshift' || sk === 'solarflare' || sk === 'camo_gold' || sk === 'camo_diamond' || sk === 'shogun_gold';
+    const isGlossy = isMetallic || sk === 'printstream' || sk === 'hyper_chroma' || sk === 'neon_rider' || sk === 'coldfront' || sk === 'nitro' || sk === 'voidglass' || sk === 'holo_prism' || sk === 'camo_dark_matter' || sk === 'reactive_overdrive' || sk === 'reactive_oni' || sk === 'ronin_sakura';
+    const iri = sk === 'holo_prism' ? 0.92 : sk === 'printstream' ? 0.78 : sk === 'camo_diamond' ? 0.64 : sk === 'camo_dark_matter' ? 0.62 : sk === 'fade' ? 0.45 : sk === 'case_hardened' ? 0.36 : sk === 'hyper_chroma' ? 0.42 : sk === 'voidglass' ? 0.54 : sk === 'coldfront' ? 0.26 : 0.0;
 
-    return new THREE.MeshPhysicalMaterial({
+    let emissiveColor = 0x000000;
+    let emissiveIntensity = 0.0;
+    if (sk === 'camo_dark_matter') { emissiveColor = 0x8b3dff; emissiveIntensity = 0.55; }
+    else if (sk === 'reactive_overdrive') { emissiveColor = 0x2deeff; emissiveIntensity = 0.30; }
+    else if (sk === 'reactive_oni') { emissiveColor = 0xff2c4d; emissiveIntensity = 0.30; }
+    else if (sk === 'molten_magma') { emissiveColor = 0xff4b12; emissiveIntensity = 0.32; }
+    else if (sk === 'cyber_wireframe') { emissiveColor = 0x1ee8ff; emissiveIntensity = 0.28; }
+
+    const mat = new THREE.MeshPhysicalMaterial({
       map,
       roughnessMap,
       bumpMap,
-      bumpScale: sk === 'redline' || sk === 'dragon_gold' || sk === 'damascus' || sk === 'solarflare' ? 0.0032 : 0.0016,
-      roughness: isGlossy ? 0.30 : 0.58,
-      metalness: isMetallic ? 0.88 : sk === 'printstream' ? 0.16 : 0.32,
-      clearcoat: isGlossy ? 0.78 : 0.18,
-      clearcoatRoughness: sk === 'printstream' ? 0.12 : 0.20,
+      bumpScale: sk === 'redline' || sk === 'dragon_gold' || sk === 'damascus' || sk === 'solarflare' || sk === 'tactical_carbon' || sk === 'camo_diamond' || sk === 'camo_gold' ? 0.0034 : 0.0016,
+      roughness: sk === 'camo_diamond' ? 0.14 : sk === 'camo_gold' ? 0.20 : isGlossy ? 0.28 : 0.58,
+      metalness: sk === 'camo_gold' ? 0.96 : sk === 'camo_diamond' ? 0.78 : isMetallic ? 0.88 : sk === 'printstream' ? 0.16 : 0.34,
+      clearcoat: isGlossy ? 0.82 : 0.18,
+      clearcoatRoughness: sk === 'camo_diamond' || sk === 'holo_prism' ? 0.06 : sk === 'printstream' ? 0.12 : 0.20,
       iridescence: iri,
-      iridescenceIOR: 1.35,
-      iridescenceThicknessRange: sk === 'printstream' ? [180, 520] : [140, 420],
-      envMapIntensity: isMetallic ? 1.55 : sk === 'printstream' ? 1.45 : 1.18
+      iridescenceIOR: 1.38,
+      iridescenceThicknessRange: sk === 'holo_prism' ? [120, 620] : sk === 'printstream' ? [180, 520] : [140, 420],
+      emissive: new THREE.Color(emissiveColor),
+      emissiveIntensity,
+      envMapIntensity: isMetallic || sk === 'camo_diamond' ? 1.68 : sk === 'printstream' ? 1.45 : 1.22
     });
+
+    if (sk === 'camo_dark_matter' || sk === 'reactive_overdrive' || sk === 'reactive_oni' || sk === 'molten_magma' || sk === 'cyber_wireframe') {
+      mat.userData.dynamicSkin = sk;
+      dynamicSkinMaterials.add(mat);
+      if (dynamicSkinMaterials.size > 96) {
+        const first = dynamicSkinMaterials.values().next().value;
+        dynamicSkinMaterials.delete(first);
+      }
+    }
+
+    return mat;
   }
 
   Object.assign(VI, {
@@ -1412,6 +1689,7 @@
     createBladeMaterial,
     weaponCacheKey,
     paintWeaponToCanvases,
-    createWeaponMaterial
+    createWeaponMaterial,
+    updateDynamicSkinMaterials
   });
 })(typeof self !== "undefined" ? self : globalThis);

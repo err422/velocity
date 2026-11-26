@@ -10,10 +10,10 @@ function makeRng(seed) {
   };
 }
 
-test('catalog defines 5 knife silhouettes, 12 skins, 6 cases, and 5 rarity tiers', () => {
+test('catalog defines 5 knife silhouettes, 12 skins, 7 cases, and 5 rarity tiers', () => {
   assert.deepEqual(KnivesSystem.KNIFE_TYPE_IDS, ['default', 'karambit', 'butterfly', 'm9', 'skeleton']);
   assert.equal(KnivesSystem.SKIN_IDS.length, 12);
-  assert.deepEqual(KnivesSystem.CASE_IDS, ['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse']);
+  assert.deepEqual(KnivesSystem.CASE_IDS, ['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin']);
   assert.deepEqual(KnivesSystem.RARITY_IDS, ['milspec', 'restricted', 'classified', 'covert', 'gold']);
 });
 
@@ -275,14 +275,19 @@ test('rollInspectTier implements exact 1/100 Mythic, 25% Uncommon, and 74% Norma
 });
 
 test('tiered cases enforce escalating prices and increasing Gold odds', () => {
-  assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, ['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol']);
-  assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 20);
+  assert.deepEqual(KnivesSystem.WEAPON_TYPE_IDS, [
+    'rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol',
+    'famas', 'scar', 'honeybadger', 'mp7', 'sawedoff', 'leverslug',
+    'dmr', 'scout', 'katana', 'g18', 'akimbo', 'usps'
+  ]);
+  assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 32);
   assert.equal(KnivesSystem.getCasePrice('velocity'), 100);
   assert.equal(KnivesSystem.getCasePrice('chroma'), 175);
   assert.equal(KnivesSystem.getCasePrice('spectrum'), 275);
   assert.equal(KnivesSystem.getCasePrice('blacksite'), 375);
   assert.equal(KnivesSystem.getCasePrice('overdrive'), 500);
   assert.equal(KnivesSystem.getCasePrice('eclipse'), 650);
+  assert.equal(KnivesSystem.getCasePrice('ronin'), 450);
 
   const velOdds = KnivesSystem.getCaseOdds('velocity');
   const chrOdds = KnivesSystem.getCaseOdds('chroma');

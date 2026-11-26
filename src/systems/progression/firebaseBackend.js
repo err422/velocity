@@ -1039,7 +1039,9 @@ async function loadUserLoadouts() {
       activeIndex: data.activeIndex,
       loadouts: data.loadouts,
       weaponXp: data.weaponXp,
-      equippedWeaponSkins: data.equippedWeaponSkins
+      equippedWeaponSkins: data.equippedWeaponSkins,
+      camoProgress: data.camoProgress,
+      equippedWeaponCamos: data.equippedWeaponCamos
     };
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, `userLoadouts/${uid}`);
@@ -1064,7 +1066,7 @@ async function writeUserLoadoutsLocked(loadoutState) {
   if (existing && existing.exists()) {
     const existingData = existing.data() || {};
     const hasCanonicalMeta = existingData.uid === uid && Boolean(existingData.createdAt);
-    const allowedKeys = new Set(['uid', 'activeIndex', 'loadouts', 'weaponXp', 'equippedWeaponSkins', 'createdAt', 'updatedAt']);
+    const allowedKeys = new Set(['uid', 'activeIndex', 'loadouts', 'weaponXp', 'equippedWeaponSkins', 'camoProgress', 'equippedWeaponCamos', 'createdAt', 'updatedAt']);
     const hasUnexpectedKey = Object.keys(existingData).some((k) => !allowedKeys.has(k));
     if (hasCanonicalMeta && !hasUnexpectedKey) {
       try {
@@ -1073,6 +1075,8 @@ async function writeUserLoadoutsLocked(loadoutState) {
           loadouts: payload.loadouts,
           weaponXp: payload.weaponXp,
           equippedWeaponSkins: payload.equippedWeaponSkins,
+          camoProgress: payload.camoProgress,
+          equippedWeaponCamos: payload.equippedWeaponCamos,
           updatedAt: serverTimestamp()
         });
         knownLoadoutsUid = uid;

@@ -260,6 +260,36 @@ CombatSystem.setOnWeaponXp((info)=>{
     }
   }
 });
+if(typeof CombatSystem.setOnCombatKill==='function'){
+  CombatSystem.setOnCombatKill((killEv)=>{
+    if(!killEv||!window.activeLoadouts||typeof LoadoutsSystem.recordCombatKillForCamos!=='function')return;
+    const res=LoadoutsSystem.recordCombatKillForCamos(window.activeLoadouts,killEv);
+    if(res&&res.changed){
+      window.activeLoadouts=LoadoutsSystem.saveLocal(res.state);
+      scheduleCloudLoadoutsSave();
+      if(Array.isArray(res.newlyUnlocked)&&res.newlyUnlocked.length>0){
+        const first=res.newlyUnlocked[0];
+        const spec=LoadoutsSystem.getWeaponSpec(first.weaponId);
+        if(typeof showCamoUnlockBanner==='function'){
+          showCamoUnlockBanner(spec?spec.name:first.weaponId,first.name,first.tier);
+        }
+      }
+      if(loadoutsPanelEl&&loadoutsPanelEl.style.display!=='none'&&gunsmithMode&&gunsmithTab==='appearance'){
+        renderGunsmith();
+      }
+    }
+  });
+}
+if(typeof CombatSystem.setOnNukeEvent==='function'){
+  CombatSystem.setOnNukeEvent((ev)=>{
+    if(!ev||!window.NetcodeSystem)return;
+    if(ev.type==='launch'&&typeof NetcodeSystem.reportNukeLaunch==='function'){
+      NetcodeSystem.reportNukeLaunch(ev.ownerName);
+    }else if(ev.type==='detonate'&&typeof NetcodeSystem.reportNukeDetonate==='function'){
+      NetcodeSystem.reportNukeDetonate(ev.ownerName);
+    }
+  });
+}
 
 function renderBotDifficultyUi(){
   const BAI=window.BotAISystem;
@@ -353,7 +383,8 @@ if(loadoutDuplicateBtn){
       name:LoadoutsSystem.sanitizeLoadoutName(`${src.name} Copy`,`Loadout ${nextIdx+1}`),
       primary:{weaponId:src.primary.weaponId,attachments:{...src.primary.attachments},skinItemId:src.primary.skinItemId},
       secondary:{weaponId:src.secondary.weaponId,attachments:{...src.secondary.attachments},skinItemId:src.secondary.skinItemId},
-      melee:{knifeItemId:src.melee.knifeItemId}
+      melee:{knifeItemId:src.melee.knifeItemId},
+      scorestreakId:src.scorestreakId||'rpg'
     };
     selectedLoadoutIdx=nextIdx;
     next.activeIndex=nextIdx;

@@ -102,11 +102,17 @@ ghostVisual=GhostSystem.createGhostMesh(THREE,scene);
 CombatSystem.ensureInit(scene);
 ViewmodelSystem.init(renderer);
 ViewmodelSystem.applySettings(window.activeSettings);
-const ALL_WEAPON_TYPES=['rifle','smg','shotgun','awp','revolver','deagle','pistol'];
+const ALL_WEAPON_TYPES=(window.KnivesSystem&&Array.isArray(KnivesSystem.WEAPON_TYPE_IDS))
+  ?KnivesSystem.WEAPON_TYPE_IDS
+  :['rifle','smg','shotgun','awp','revolver','deagle','pistol'];
 function syncEquippedWeaponsToViewmodel(){
+  const camos=(window.activeLoadouts&&window.activeLoadouts.equippedWeaponCamos)||{};
   for(const wt of ALL_WEAPON_TYPES){
     const skinItem=KnivesSystem.getEquippedWeapon(window.activeInventory,wt);
-    if(skinItem)ViewmodelSystem.equipWeaponSkin(skinItem);
+    if(skinItem){
+      const camoId=camos[wt];
+      ViewmodelSystem.equipWeaponSkin(camoId?{...skinItem,skinId:camoId,floatValue:0.01,patternSeed:42}:skinItem);
+    }
   }
 }
 function applyActiveLoadoutToRuntime(opts){
@@ -118,7 +124,7 @@ function applyActiveLoadoutToRuntime(opts){
       ViewmodelSystem.equipKnife(meleeKnife,false);
     }
   }
-  CombatSystem.applyLoadout(activeLd,window.activeInventory,window.activeLoadouts.equippedWeaponSkins);
+  CombatSystem.applyLoadout(activeLd,window.activeInventory,window.activeLoadouts.equippedWeaponSkins,window.activeLoadouts.equippedWeaponCamos);
   if(!opts||!opts.keepSlot){
     CombatSystem.switchSlot(CombatSystem.getState().activeSlot,false);
   }
@@ -228,8 +234,10 @@ function render(dt){
       uid:botTargetState.localUid,
       position:_rp,
       yaw:p.yaw,
+      pitch:p.pitch,
       eye:p.eye,
       velocity:p.vel,
+      playerObj:p,
       hp:botTargetState.localHp,
       alive:botTargetState.localAlive!==false,
       isHost:botTargetState.role==='host',
@@ -239,6 +247,9 @@ function render(dt){
     },solidMeshes,botMovementContext);
     if(typeof CombatSystem.consumeChargedShot==='function'&&CombatSystem.consumeChargedShot()){
       performFire(false);
+    }
+    if(typeof CombatSystem.consumeBurstShot==='function'&&CombatSystem.consumeBurstShot()){
+      performFire(false,{isBurstFollowup:true});
     }
     combatFrameState=CombatSystem.getState();
   }
@@ -429,6 +440,7 @@ function activateLoadedLevel(built,displayName,opts){
     CombatSystem.setupTargets(built.targetMode||'gauntlet',built.targets,built.rangeMeta||null);
   }
   if(built.isArena){
+    if(typeof CombatSystem.resetMatchStreaks==='function')CombatSystem.resetMatchStreaks();
     const arenaSpawns=built.arenaSpawns||built.spawns||[];
     NetcodeSystem.setArenaSpawns(arenaSpawns);
     CombatSystem.setupWarmupBots(arenaSpawns,3);

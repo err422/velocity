@@ -579,18 +579,19 @@ function showCasesView(mode){
 }
 
 function weaponEquipField(weaponType){
+  if(weaponType==='rifle')return 'equippedRifleId';
   if(weaponType==='smg')return 'equippedSmgId';
   if(weaponType==='shotgun')return 'equippedShotgunId';
   if(weaponType==='awp')return 'equippedAwpId';
   if(weaponType==='revolver')return 'equippedRevolverId';
   if(weaponType==='deagle')return 'equippedDeagleId';
   if(weaponType==='pistol')return 'equippedPistolId';
-  return 'equippedRifleId';
+  return '';
 }
 
 function isWeaponEquipped(item){
   if(!item||!KnivesSystem.isWeaponItem(item))return false;
-  return window.activeInventory[weaponEquipField(item.weaponType)]===item.id;
+  return KnivesSystem.isItemEquippedInInventory(window.activeInventory,item);
 }
 
 function refreshRevealActionButtons(){
@@ -811,9 +812,13 @@ function startCaseUnboxing(caseId){
 function equipWeaponById(weaponId){
   const found=(window.activeInventory.weapons||[]).find(w=>w.id===weaponId);
   if(!found)return;
-  window.activeInventory[weaponEquipField(found.weaponType)]=found.id;
+  if(!window.activeInventory.equippedWeaponIds)window.activeInventory.equippedWeaponIds={};
+  window.activeInventory.equippedWeaponIds[found.weaponType]=found.id;
+  const legacyField=weaponEquipField(found.weaponType);
+  if(legacyField)window.activeInventory[legacyField]=found.id;
   if(window.activeLoadouts&&window.activeLoadouts.equippedWeaponSkins){
     window.activeLoadouts.equippedWeaponSkins[found.weaponType]=found.id;
+    if(window.activeLoadouts.equippedWeaponCamos)delete window.activeLoadouts.equippedWeaponCamos[found.weaponType];
     window.activeLoadouts=LoadoutsSystem.saveLocal(window.activeLoadouts);
     scheduleCloudLoadoutsSave();
   }
@@ -1119,13 +1124,7 @@ function renderInventoryFilterButtons(){
   const filters=invCategory==='weapons'
     ?[
       ['all','ALL'],
-      ['rifle','V-47'],
-      ['smg','VX-9'],
-      ['shotgun','M870'],
-      ['awp','AWP'],
-      ['revolver','R-88'],
-      ['deagle','DEAGLE'],
-      ['pistol','USP-9']
+      ...(KnivesSystem.WEAPON_TYPE_IDS||[]).map(wt=>[wt,(KnivesSystem.WEAPON_TYPES[wt]&&KnivesSystem.WEAPON_TYPES[wt].shortName?KnivesSystem.WEAPON_TYPES[wt].shortName:wt).toUpperCase()])
     ]
     :invCategory==='gloves'
       ?[

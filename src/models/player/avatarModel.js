@@ -44,61 +44,48 @@
     const accentColor = opts.accentColor || 0xff6b55;
     const isBot = Boolean(opts.isBot);
 
-    const armorMat = new THREE.MeshStandardMaterial({
-      color: isBot ? 0x1a2c3d : 0x1e2632,
-      roughness: 0.48,
-      metalness: 0.52,
-      emissive: isBot ? 0x0b2a3e : 0x12090c,
-      emissiveIntensity: isBot ? 0.55 : 0.25
-    });
-    const accentMat = new THREE.MeshBasicMaterial({ color: accentColor });
-    const darkMat = new THREE.MeshStandardMaterial({ color: 0x0f151d, roughness: 0.7, metalness: 0.25 });
-
     const noopRaycast = () => {};
 
-    // Torso (visual mesh)
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.88, 0.36), armorMat);
-    torso.position.y = 1.06;
-    torso.raycast = noopRaycast;
-    g.add(torso);
+    let legL = null;
+    let legR = null;
+    let gunBar = null;
+    let parryAura = null;
+    let operatorRoot = null;
 
-    // Glowing chest chevron strip for instant high-contrast combat silhouette readability
-    const chestStrip = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.10, 0.39), accentMat);
-    chestStrip.position.y = 1.24;
-    chestStrip.raycast = noopRaycast;
-    g.add(chestStrip);
-
-    // Legs (visual)
-    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.64, 0.24), darkMat);
-    legL.position.set(-0.16, 0.32, 0);
-    legL.raycast = noopRaycast;
-    const legR = legL.clone();
-    legR.position.x = 0.16;
-    legR.raycast = noopRaycast;
-    g.add(legL, legR);
-
-    // Arms + held weapon silhouette (visual)
-    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.58, 0.18), armorMat);
-    armR.position.set(0.40, 1.10, -0.14);
-    armR.rotation.x = 0.85;
-    armR.raycast = noopRaycast;
-    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.56, 0.18), armorMat);
-    armL.position.set(-0.34, 1.06, -0.16);
-    armL.rotation.x = 0.75;
-    armL.raycast = noopRaycast;
-    const gunBar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.11, 0.66), darkMat);
-    gunBar.position.set(0.26, 1.18, -0.42);
-    gunBar.raycast = noopRaycast;
-    g.add(armR, armL, gunBar);
-
-    // Head helmet + glowing visor (visual)
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), armorMat);
-    head.position.y = 1.72;
-    head.raycast = noopRaycast;
-    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.12, 0.40), accentMat);
-    visor.position.y = 1.74;
-    visor.raycast = noopRaycast;
-    g.add(head, visor);
+    if (typeof VI.buildTacticalOperatorModel === 'function') {
+      operatorRoot = VI.buildTacticalOperatorModel({
+        detail: 'arena',
+        accentColor,
+        isBot
+      });
+      // Operator model faces +Z in studio showcase; arena avatars face -Z
+      operatorRoot.rotation.y = Math.PI;
+      operatorRoot.scale.setScalar(1.06);
+      operatorRoot.traverse((child) => {
+        if (child && child.isMesh) child.raycast = noopRaycast;
+      });
+      g.add(operatorRoot);
+      legL = operatorRoot.userData.legL;
+      legR = operatorRoot.userData.legR;
+      gunBar = operatorRoot.userData.wepModel;
+      parryAura = operatorRoot.userData.parryAura;
+    } else {
+      const armorMat = new THREE.MeshStandardMaterial({ color: 0x1e2632, roughness: 0.48, metalness: 0.52 });
+      const darkMat = new THREE.MeshStandardMaterial({ color: 0x0f151d, roughness: 0.7, metalness: 0.25 });
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.88, 0.36), armorMat);
+      torso.position.y = 1.06;
+      torso.raycast = noopRaycast;
+      legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.64, 0.24), darkMat);
+      legL.position.set(-0.16, 0.32, 0);
+      legL.raycast = noopRaycast;
+      legR = legL.clone();
+      legR.position.x = 0.16;
+      legR.raycast = noopRaycast;
+      gunBar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.11, 0.66), darkMat);
+      gunBar.position.set(0.26, 1.18, -0.42);
+      gunBar.raycast = noopRaycast;
+      g.add(torso, legL, legR, gunBar);
+    }
 
     // Forgiving invisible combat hitboxes (full-body cylinder covering legs/torso/shoulders + spherical head)
     const hitboxMat = new THREE.MeshBasicMaterial({
@@ -238,6 +225,8 @@
       legL,
       legR,
       gunBar,
+      parryAura,
+      operatorRoot,
       chronoShell,
       grappleLine,
       grapplePositions

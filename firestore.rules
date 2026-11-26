@@ -307,7 +307,7 @@ service cloud.firestore {
     function isValidCaseCountsMap(c) {
       return c is map
         && c.keys().hasAll(['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse'])
-        && c.keys().hasOnly(['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse'])
+        && c.keys().hasOnly(['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin'])
         && c.velocity is int
         && c.velocity >= 0
         && c.velocity <= 999
@@ -325,7 +325,8 @@ service cloud.firestore {
         && c.overdrive <= 999
         && c.eclipse is int
         && c.eclipse >= 0
-        && c.eclipse <= 999;
+        && c.eclipse <= 999
+        && (!('ronin' in c) || (c.ronin is int && c.ronin >= 0 && c.ronin <= 999));
     }
 
     function isValidUserInventoryShape(data, uid) {
@@ -476,9 +477,9 @@ service cloud.firestore {
         && data.bluePct >= 0
         && data.bluePct <= 100
         && data.caseId is string
-        && data.caseId.size() >= 6
+        && data.caseId.size() >= 5
         && data.caseId.size() <= 16
-        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse']
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin']
         && data.createdAt is timestamp
         && data.createdAt == request.time;
     }
@@ -568,9 +569,9 @@ service cloud.firestore {
         && data.bluePct >= 0
         && data.bluePct <= 100
         && data.caseId is string
-        && data.caseId.size() >= 6
+        && data.caseId.size() >= 5
         && data.caseId.size() <= 16
-        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse']
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin']
         && data.createdAt is timestamp
         && data.createdAt == request.time;
     }
@@ -617,7 +618,27 @@ service cloud.firestore {
         && data.weaponType is string
         && data.weaponType.size() >= 3
         && data.weaponType.size() <= 12
-        && data.weaponType in ['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol']
+        && data.weaponType in [
+          'rifle',
+          'famas',
+          'scar',
+          'honeybadger',
+          'smg',
+          'mp7',
+          'shotgun',
+          'sawedoff',
+          'leverslug',
+          'awp',
+          'dmr',
+          'scout',
+          'katana',
+          'revolver',
+          'deagle',
+          'pistol',
+          'g18',
+          'akimbo',
+          'usps'
+        ]
         && data.skinId is string
         && data.skinId.size() >= 4
         && data.skinId.size() <= 24
@@ -641,7 +662,19 @@ service cloud.firestore {
           'redshift',
           'nitro',
           'solarflare',
-          'voidglass'
+          'voidglass',
+          'tactical_carbon',
+          'cyber_wireframe',
+          'holo_prism',
+          'molten_magma',
+          'ronin_sakura',
+          'oni_crimson',
+          'shogun_gold',
+          'reactive_overdrive',
+          'reactive_oni',
+          'camo_gold',
+          'camo_diamond',
+          'camo_dark_matter'
         ]
         && data.rarity is string
         && data.rarity.size() >= 4
@@ -664,9 +697,9 @@ service cloud.firestore {
         && data.bluePct >= 0
         && data.bluePct <= 100
         && data.caseId is string
-        && data.caseId.size() >= 6
+        && data.caseId.size() >= 5
         && data.caseId.size() <= 16
-        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse']
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin']
         && data.createdAt is timestamp
         && data.createdAt == request.time;
     }
@@ -826,7 +859,8 @@ service cloud.firestore {
     function isValidLoadoutEntry(l, expectedId, primWep, secWep, attSlots) {
       let m = l.melee;
       return l is map
-        && l.size() == 5
+        && l.keys().hasAll(['id', 'name', 'primary', 'secondary', 'melee'])
+        && l.keys().hasOnly(['id', 'name', 'primary', 'secondary', 'melee', 'scorestreakId'])
         && l.id == expectedId
         && l.name is string
         && l.name.size() >= 1
@@ -836,7 +870,17 @@ service cloud.firestore {
         && m is map
         && m.size() == 1
         && m.knifeItemId is string
-        && m.knifeItemId.size() <= 64;
+        && m.knifeItemId.size() <= 64
+        && (!('scorestreakId' in l) || (
+          l.scorestreakId is string
+          && l.scorestreakId.size() >= 3
+          && l.scorestreakId.size() <= 20
+          && l.scorestreakId in ['rpg', 'minigun', 'railcannon', 'grenadelauncher', 'nuke']
+        ));
+    }
+
+    function isValidOptXp(xp, key) {
+      return !(key in xp) || (xp[key] is int && xp[key] >= 0 && xp[key] <= 999999);
     }
 
     function isValidWeaponXpMap(xp, baseWep, allWep) {
@@ -847,9 +891,25 @@ service cloud.firestore {
         && xp.smg is int && xp.smg >= 0 && xp.smg <= 999999
         && xp.shotgun is int && xp.shotgun >= 0 && xp.shotgun <= 999999
         && xp.awp is int && xp.awp >= 0 && xp.awp <= 999999
-        && (!('revolver' in xp) || (xp.revolver is int && xp.revolver >= 0 && xp.revolver <= 999999))
         && xp.deagle is int && xp.deagle >= 0 && xp.deagle <= 999999
-        && xp.pistol is int && xp.pistol >= 0 && xp.pistol <= 999999;
+        && xp.pistol is int && xp.pistol >= 0 && xp.pistol <= 999999
+        && isValidOptXp(xp, 'revolver')
+        && isValidOptXp(xp, 'famas')
+        && isValidOptXp(xp, 'scar')
+        && isValidOptXp(xp, 'honeybadger')
+        && isValidOptXp(xp, 'mp7')
+        && isValidOptXp(xp, 'sawedoff')
+        && isValidOptXp(xp, 'leverslug')
+        && isValidOptXp(xp, 'dmr')
+        && isValidOptXp(xp, 'scout')
+        && isValidOptXp(xp, 'katana')
+        && isValidOptXp(xp, 'g18')
+        && isValidOptXp(xp, 'akimbo')
+        && isValidOptXp(xp, 'usps');
+    }
+
+    function isValidOptSkin(skins, key) {
+      return !(key in skins) || (skins[key] is string && skins[key].size() <= 64);
     }
 
     function isValidWeaponSkinsMap(skins, baseWep, allWep) {
@@ -860,21 +920,46 @@ service cloud.firestore {
         && skins.smg is string && skins.smg.size() <= 64
         && skins.shotgun is string && skins.shotgun.size() <= 64
         && skins.awp is string && skins.awp.size() <= 64
-        && (!('revolver' in skins) || (skins.revolver is string && skins.revolver.size() <= 64))
         && skins.deagle is string && skins.deagle.size() <= 64
-        && skins.pistol is string && skins.pistol.size() <= 64;
+        && skins.pistol is string && skins.pistol.size() <= 64
+        && isValidOptSkin(skins, 'revolver')
+        && isValidOptSkin(skins, 'famas')
+        && isValidOptSkin(skins, 'scar')
+        && isValidOptSkin(skins, 'honeybadger')
+        && isValidOptSkin(skins, 'mp7')
+        && isValidOptSkin(skins, 'sawedoff')
+        && isValidOptSkin(skins, 'leverslug')
+        && isValidOptSkin(skins, 'dmr')
+        && isValidOptSkin(skins, 'scout')
+        && isValidOptSkin(skins, 'katana')
+        && isValidOptSkin(skins, 'g18')
+        && isValidOptSkin(skins, 'akimbo')
+        && isValidOptSkin(skins, 'usps');
+    }
+
+    function isValidCamoProgressMap(cp, allWep) {
+      return cp is map
+        && cp.size() <= 19
+        && cp.keys().hasOnly(allWep);
+    }
+
+    function isValidEquippedCamosMap(ec, allWep) {
+      return ec is map
+        && ec.size() <= 19
+        && ec.keys().hasOnly(allWep);
     }
 
     function isValidUserLoadoutsShape(data, uid) {
-      let keys = ['uid', 'activeIndex', 'loadouts', 'weaponXp', 'equippedWeaponSkins', 'createdAt', 'updatedAt'];
+      let reqKeys = ['uid', 'activeIndex', 'loadouts', 'weaponXp', 'equippedWeaponSkins', 'createdAt', 'updatedAt'];
+      let allKeys = ['uid', 'activeIndex', 'loadouts', 'weaponXp', 'equippedWeaponSkins', 'camoProgress', 'equippedWeaponCamos', 'createdAt', 'updatedAt'];
       let attSlots = ['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex'];
-      let primWep = ['rifle', 'smg', 'shotgun', 'awp', 'revolver'];
-      let secWep = ['deagle', 'pistol'];
+      let primWep = ['rifle', 'famas', 'scar', 'honeybadger', 'smg', 'mp7', 'shotgun', 'sawedoff', 'leverslug', 'awp', 'dmr', 'scout', 'katana', 'revolver'];
+      let secWep = ['deagle', 'pistol', 'g18', 'akimbo', 'usps'];
       let baseWep = ['rifle', 'smg', 'shotgun', 'awp', 'deagle', 'pistol'];
-      let allWep = ['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol'];
+      let allWep = ['rifle', 'famas', 'scar', 'honeybadger', 'smg', 'mp7', 'shotgun', 'sawedoff', 'leverslug', 'awp', 'dmr', 'scout', 'katana', 'revolver', 'deagle', 'pistol', 'g18', 'akimbo', 'usps'];
       let ls = data.loadouts;
-      return data.keys().hasAll(keys)
-        && data.keys().hasOnly(keys)
+      return data.keys().hasAll(reqKeys)
+        && data.keys().hasOnly(allKeys)
         && data.uid == uid
         && data.uid == request.auth.uid
         && data.activeIndex is int
@@ -889,6 +974,8 @@ service cloud.firestore {
         && isValidLoadoutEntry(ls[4], 'loadout_5', primWep, secWep, attSlots)
         && isValidWeaponXpMap(data.weaponXp, baseWep, allWep)
         && isValidWeaponSkinsMap(data.equippedWeaponSkins, baseWep, allWep)
+        && (!('camoProgress' in data) || isValidCamoProgressMap(data.camoProgress, allWep))
+        && (!('equippedWeaponCamos' in data) || isValidEquippedCamosMap(data.equippedWeaponCamos, allWep))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -1085,6 +1172,8 @@ service cloud.firestore {
           'loadouts',
           'weaponXp',
           'equippedWeaponSkins',
+          'camoProgress',
+          'equippedWeaponCamos',
           'createdAt',
           'updatedAt'
         ]);

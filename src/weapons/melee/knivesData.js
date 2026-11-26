@@ -242,6 +242,275 @@
       recoilYaw: 0.005,
       inspectName: 'Slide Press Check',
       description: 'Featherweight tactical 9mm pistol with near-zero weight penalty and razor-sharp ADS.'
+    },
+    famas: {
+      id: 'famas',
+      name: 'F-33 Burst',
+      shortName: 'F-33',
+      slot: 1,
+      magSize: 27,
+      rpm: 820,
+      fireInterval: 0.073,
+      damageBody: 32,
+      damageHead: 92,
+      reloadTime: 1.72,
+      auto: false,
+      burstCount: 3,
+      scoped: false,
+      range: 270,
+      spreadBase: 0.0014,
+      spreadHip: 0.009,
+      spreadMove: 0.010,
+      recoilPitch: 0.011,
+      recoilYaw: 0.005,
+      inspectName: 'Bullpup Mag Flip',
+      description: 'Precision 3-round burst bullpup tactical rifle capable of lethal single-burst eliminations.'
+    },
+    scar: {
+      id: 'scar',
+      name: 'SC-20 Heavy',
+      shortName: 'SC-20',
+      slot: 1,
+      magSize: 20,
+      rpm: 465,
+      fireInterval: 0.129,
+      damageBody: 46,
+      damageHead: 118,
+      reloadTime: 1.98,
+      auto: true,
+      scoped: false,
+      range: 310,
+      spreadBase: 0.0015,
+      spreadHip: 0.013,
+      spreadMove: 0.013,
+      recoilPitch: 0.021,
+      recoilYaw: 0.0085,
+      inspectName: 'Charging Handle Rack',
+      description: 'Hard-hitting 7.62mm heavy battle rifle built for brutal 2-to-3 shot mid-range takedowns.'
+    },
+    honeybadger: {
+      id: 'honeybadger',
+      name: 'HB-7 Phantom',
+      shortName: 'HB-7',
+      slot: 1,
+      magSize: 30,
+      rpm: 740,
+      fireInterval: 0.081,
+      damageBody: 30,
+      damageHead: 86,
+      reloadTime: 1.56,
+      auto: true,
+      suppressed: true,
+      scoped: false,
+      range: 225,
+      spreadBase: 0.0018,
+      spreadHip: 0.0082,
+      spreadMove: 0.0085,
+      recoilPitch: 0.0115,
+      recoilYaw: 0.0055,
+      inspectName: 'Suppressor Heat Check',
+      description: 'Compact stealth carbine with an integrated suppressor, whisper-quiet report, and rapid handling.'
+    },
+    mp7: {
+      id: 'mp7',
+      name: 'MP-7 Viper',
+      shortName: 'MP-7',
+      slot: 1,
+      magSize: 36,
+      rpm: 1050,
+      fireInterval: 0.057,
+      damageBody: 19,
+      damageHead: 48,
+      reloadTime: 1.32,
+      auto: true,
+      scoped: false,
+      range: 155,
+      spreadBase: 0.0026,
+      spreadHip: 0.0060,
+      spreadMove: 0.0058,
+      recoilPitch: 0.0092,
+      recoilYaw: 0.0072,
+      inspectName: 'PDW Grip Twirl',
+      description: 'Ultra-fast 1,050 RPM compact micro-SMG with razor-tight surf agility and blistering CQB DPS.'
+    },
+    sawedoff: {
+      id: 'sawedoff',
+      name: 'DB-12 Sawed-Off',
+      shortName: 'DB-12',
+      slot: 1,
+      magSize: 2,
+      rpm: 240,
+      fireInterval: 0.25,
+      damageBody: 22,
+      damageHead: 36,
+      reloadTime: 1.48,
+      auto: false,
+      scoped: false,
+      range: 75,
+      spreadBase: 0.018,
+      spreadHip: 0.022,
+      spreadMove: 0.014,
+      recoilPitch: 0.082,
+      recoilYaw: 0.020,
+      inspectName: 'Break-Action Shell Pop',
+      description: 'Brutal twin-barrel sawed-off shotgun delivering massive burst damage and huge physics kickback.'
+    },
+    leverslug: {
+      id: 'leverslug',
+      name: 'LV-45 Lever Slug',
+      shortName: 'LV-45',
+      slot: 1,
+      magSize: 6,
+      rpm: 88,
+      fireInterval: 0.68,
+      damageBody: 88,
+      damageHead: 175,
+      reloadTime: 1.88,
+      auto: false,
+      scoped: false,
+      range: 190,
+      spreadBase: 0.0022,
+      spreadHip: 0.010,
+      spreadMove: 0.009,
+      recoilPitch: 0.058,
+      recoilYaw: 0.012,
+      inspectName: 'Lever Spin Cock',
+      description: 'Mid-range lever-action rifled slug shotgun combining pinpoint lethal slugs with crisp physics kickback.'
+    },
+    dmr: {
+      id: 'dmr',
+      name: 'MK-14 Marksman',
+      shortName: 'MK-14',
+      slot: 1,
+      magSize: 12,
+      rpm: 280,
+      fireInterval: 0.214,
+      damageBody: 62,
+      damageHead: 155,
+      reloadTime: 1.92,
+      auto: false,
+      scoped: true,
+      range: 360,
+      spreadBase: 0.0008,
+      spreadHip: 0.022,
+      spreadMove: 0.016,
+      recoilPitch: 0.036,
+      recoilYaw: 0.008,
+      inspectName: 'Gas Block & Optic Sweep',
+      description: 'Fast semi-auto designated marksman rifle for rapid 2-tap body shots and crisp 1-tap headshots.'
+    },
+    scout: {
+      id: 'scout',
+      name: 'SSG-08 Scout',
+      shortName: 'Scout',
+      slot: 1,
+      magSize: 8,
+      rpm: 62,
+      fireInterval: 0.96,
+      damageBody: 78,
+      damageHead: 225,
+      reloadTime: 1.85,
+      auto: false,
+      scoped: true,
+      range: 410,
+      spreadBase: 0.0004,
+      spreadHip: 0.018,
+      spreadMove: 0.007,
+      recoilPitch: 0.044,
+      recoilYaw: 0.008,
+      inspectName: 'Featherweight Bolt Snap',
+      description: 'Featherweight quickscope bolt-action sniper built for mid-air jump-scoping and 1-tap headshots.'
+    },
+    katana: {
+      id: 'katana',
+      name: 'Ronin Katana',
+      shortName: 'Katana',
+      slot: 1,
+      magSize: 1,
+      rpm: 155,
+      fireInterval: 0.38,
+      damageBody: 75,
+      damageHead: 135,
+      reloadTime: 0.5,
+      auto: false,
+      scoped: false,
+      isMeleeWeapon: true,
+      range: 4.8,
+      spreadBase: 0,
+      spreadHip: 0,
+      spreadMove: 0,
+      recoilPitch: 0,
+      recoilYaw: 0,
+      inspectName: 'Samurai Chiburi Flourish',
+      description: 'Primary forged katana with 3-hit slash combo, kill-resetting aerial slash-dash, and timed bullet reflection.'
+    },
+    g18: {
+      id: 'g18',
+      name: 'G-18 Auto',
+      shortName: 'G-18',
+      slot: 2,
+      magSize: 22,
+      rpm: 940,
+      fireInterval: 0.064,
+      damageBody: 18,
+      damageHead: 46,
+      reloadTime: 1.28,
+      auto: true,
+      scoped: false,
+      range: 135,
+      spreadBase: 0.0042,
+      spreadHip: 0.011,
+      spreadMove: 0.009,
+      recoilPitch: 0.013,
+      recoilYaw: 0.0095,
+      inspectName: 'Extended Mag Slap',
+      description: 'Full-auto pocket machine pistol delivering frantic close-quarters backup firepower.'
+    },
+    akimbo: {
+      id: 'akimbo',
+      name: 'Dual VX-Pistols',
+      shortName: 'Akimbo',
+      slot: 2,
+      magSize: 24,
+      rpm: 620,
+      fireInterval: 0.096,
+      damageBody: 25,
+      damageHead: 68,
+      reloadTime: 1.62,
+      auto: true,
+      dualWield: true,
+      scoped: false,
+      range: 145,
+      spreadBase: 0.0065,
+      spreadHip: 0.010,
+      spreadMove: 0.008,
+      recoilPitch: 0.012,
+      recoilYaw: 0.008,
+      inspectName: 'Twin Synchronized Spin',
+      description: 'Matched dual-wield sidearms firing alternating left-and-right volleys with stylish mobility.'
+    },
+    usps: {
+      id: 'usps',
+      name: 'USP-S Ghost',
+      shortName: 'USP-S',
+      slot: 2,
+      magSize: 12,
+      rpm: 380,
+      fireInterval: 0.158,
+      damageBody: 34,
+      damageHead: 102,
+      reloadTime: 1.24,
+      auto: false,
+      suppressed: true,
+      scoped: false,
+      range: 195,
+      spreadBase: 0.0010,
+      spreadHip: 0.0048,
+      spreadMove: 0.0052,
+      recoilPitch: 0.013,
+      recoilYaw: 0.004,
+      inspectName: 'Silencer Thread Twist',
+      description: 'Suppressed spec-ops tactical pistol engineered for surgical 1-tap headshots and silent flanks.'
     }
   });
 
@@ -279,12 +548,24 @@
     }),
     SELL_WEAPON_TYPE_MUL: Object.freeze({
       pistol: 0.95,
+      g18: 0.98,
+      usps: 1.02,
+      akimbo: 1.08,
       deagle: 1.0,
       smg: 1.08,
+      mp7: 1.08,
       shotgun: 1.1,
+      sawedoff: 1.12,
+      leverslug: 1.14,
       rifle: 1.15,
+      famas: 1.15,
+      scar: 1.18,
+      honeybadger: 1.18,
       revolver: 1.22,
-      awp: 1.25
+      dmr: 1.20,
+      scout: 1.22,
+      awp: 1.25,
+      katana: 1.38
     }),
     SELL_GLOVE_TYPE_MUL: Object.freeze({
       standard: 1.1,
@@ -763,6 +1044,120 @@
       maxFloat: 0.42,
       accent: '#9e82ff',
       description: 'Black mirror finish fractured by prismatic violet and deep teal glass-like shards.'
+    },
+    tactical_carbon: {
+      id: 'tactical_carbon',
+      name: 'Tactical Carbon',
+      patternBased: false,
+      minFloat: 0.00,
+      maxFloat: 0.45,
+      accent: '#6fa8c8',
+      description: 'Matte woven 3K carbon-fiber weave with gunmetal titanium hardware and subtle hex embossing.'
+    },
+    cyber_wireframe: {
+      id: 'cyber_wireframe',
+      name: 'Cyber Wireframe',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.50,
+      accent: '#38f6ff',
+      description: 'Deep obsidian chassis mapped with glowing cyan-to-magenta holographic vector mesh lines.'
+    },
+    holo_prism: {
+      id: 'holo_prism',
+      name: 'Holo Prism',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.38,
+      accent: '#7bf0ff',
+      description: 'Refractive holographic foil refracting cyan, magenta, and spectrum gold facets under studio light.'
+    },
+    molten_magma: {
+      id: 'molten_magma',
+      name: 'Molten Magma',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.48,
+      accent: '#ff5e1a',
+      description: 'Cracked volcanic basalt plating split by incandescent orange-gold molten lava fissures.'
+    },
+    ronin_sakura: {
+      id: 'ronin_sakura',
+      name: 'Ronin Sakura',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.42,
+      accent: '#ff8ec7',
+      description: 'Lacquered obsidian and ivory ceramic adorned with drifting crimson-pink sakura blossoms and gold leaf.'
+    },
+    oni_crimson: {
+      id: 'oni_crimson',
+      name: 'Oni Crimson',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.45,
+      accent: '#ff2e4c',
+      description: 'Japanese demonic Oni mask lacquer in blood-red, charcoal ink, and gilded bronze trim.'
+    },
+    shogun_gold: {
+      id: 'shogun_gold',
+      name: 'Shogun Gold',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.30,
+      accent: '#ffd052',
+      description: 'Imperial black lacquer inlaid with hand-chased gold wave filigree and crimson silk accents.'
+    },
+    reactive_overdrive: {
+      id: 'reactive_overdrive',
+      name: 'Overdrive Reactive',
+      patternBased: true,
+      reactive: true,
+      minFloat: 0.00,
+      maxFloat: 0.25,
+      accent: '#46f2ff',
+      description: 'Reactive energy core finish whose glowing plasma veins shift and intensify with your active killstreak.'
+    },
+    reactive_oni: {
+      id: 'reactive_oni',
+      name: 'Oni Fury Reactive',
+      patternBased: true,
+      reactive: true,
+      minFloat: 0.00,
+      maxFloat: 0.25,
+      accent: '#ff425e',
+      description: 'Cursed Oni warrior finish whose ember veins ignite brighter as your killstreak climbs.'
+    },
+    camo_gold: {
+      id: 'camo_gold',
+      name: 'Mastery Gold',
+      patternBased: false,
+      camoOnly: true,
+      minFloat: 0.00,
+      maxFloat: 0.05,
+      accent: '#ffd84d',
+      description: 'Solid engraved 24K bullion gold with obsidian topographic contour lines. Earned by completing all Base Camos.'
+    },
+    camo_diamond: {
+      id: 'camo_diamond',
+      name: 'Mastery Diamond',
+      patternBased: false,
+      camoOnly: true,
+      minFloat: 0.00,
+      maxFloat: 0.03,
+      accent: '#e6f7ff',
+      description: 'Pavé-set faceted crystalline diamonds mounted on platinum-gold trim. Earned via Gold on every weapon in class.'
+    },
+    camo_dark_matter: {
+      id: 'camo_dark_matter',
+      name: 'Dark Matter Nebula',
+      patternBased: false,
+      camoOnly: true,
+      animated: true,
+      minFloat: 0.00,
+      maxFloat: 0.01,
+      accent: '#c06bff',
+      description: 'Animated cosmic Dark Matter nebula shader pulsing with ultraviolet starlight. Earned via Diamond on all classes.'
     }
   });
 
@@ -1137,6 +1532,69 @@
           { itemKind: 'glove', gloveType: 'sport', skinId: 'stormgrid' },
           { itemKind: 'glove', gloveType: 'wraps', skinId: 'breachline' },
           { itemKind: 'glove', gloveType: 'standard', skinId: 'eclipse_mantle' }
+        ]
+      }
+    },
+    ronin: {
+      id: 'ronin',
+      name: 'Ronin & Cyber Case',
+      shortName: 'Ronin Case',
+      artCode: 'RN',
+      tierLabel: 'SAMURAI SPEC',
+      price: 450,
+      accent: '#ff6ba8',
+      rarityWeights: Object.freeze({ milspec: 22, restricted: 24, classified: 20, covert: 16, gold: 18 }),
+      description: 'Ronin Sakura, Oni Crimson, Reactive Overdrive & Katana finishes · 18% Gold knives & gloves.',
+      pools: {
+        milspec: [
+          { itemKind: 'weapon', weaponType: 'famas', skinId: 'tactical_carbon' },
+          { itemKind: 'weapon', weaponType: 'scar', skinId: 'tactical_carbon' },
+          { itemKind: 'weapon', weaponType: 'honeybadger', skinId: 'tactical_carbon' },
+          { itemKind: 'weapon', weaponType: 'mp7', skinId: 'tactical_carbon' },
+          { itemKind: 'weapon', weaponType: 'g18', skinId: 'tactical_carbon' },
+          { itemKind: 'weapon', weaponType: 'usps', skinId: 'tactical_carbon' },
+          { itemKind: 'weapon', weaponType: 'sawedoff', skinId: 'damascus' },
+          { itemKind: 'weapon', weaponType: 'leverslug', skinId: 'damascus' }
+        ],
+        restricted: [
+          { itemKind: 'weapon', weaponType: 'famas', skinId: 'cyber_wireframe' },
+          { itemKind: 'weapon', weaponType: 'mp7', skinId: 'cyber_wireframe' },
+          { itemKind: 'weapon', weaponType: 'dmr', skinId: 'damascus' },
+          { itemKind: 'weapon', weaponType: 'scout', skinId: 'holo_prism' },
+          { itemKind: 'weapon', weaponType: 'akimbo', skinId: 'cyber_wireframe' },
+          { itemKind: 'weapon', weaponType: 'katana', skinId: 'damascus' },
+          { itemKind: 'weapon', weaponType: 'honeybadger', skinId: 'holo_prism' },
+          { itemKind: 'weapon', weaponType: 'usps', skinId: 'ronin_sakura' }
+        ],
+        classified: [
+          { itemKind: 'weapon', weaponType: 'katana', skinId: 'ronin_sakura' },
+          { itemKind: 'weapon', weaponType: 'scar', skinId: 'molten_magma' },
+          { itemKind: 'weapon', weaponType: 'sawedoff', skinId: 'molten_magma' },
+          { itemKind: 'weapon', weaponType: 'leverslug', skinId: 'oni_crimson' },
+          { itemKind: 'weapon', weaponType: 'dmr', skinId: 'ronin_sakura' },
+          { itemKind: 'weapon', weaponType: 'scout', skinId: 'fade' },
+          { itemKind: 'weapon', weaponType: 'akimbo', skinId: 'holo_prism' },
+          { itemKind: 'weapon', weaponType: 'g18', skinId: 'oni_crimson' }
+        ],
+        covert: [
+          { itemKind: 'weapon', weaponType: 'katana', skinId: 'oni_crimson' },
+          { itemKind: 'weapon', weaponType: 'katana', skinId: 'shogun_gold' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'reactive_overdrive' },
+          { itemKind: 'weapon', weaponType: 'katana', skinId: 'reactive_oni' },
+          { itemKind: 'weapon', weaponType: 'scar', skinId: 'reactive_oni' },
+          { itemKind: 'weapon', weaponType: 'mp7', skinId: 'reactive_overdrive' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'shogun_gold' },
+          { itemKind: 'weapon', weaponType: 'akimbo', skinId: 'reactive_overdrive' }
+        ],
+        gold: [
+          { knifeType: 'karambit', skinId: 'fade', forceFullFade: true },
+          { knifeType: 'butterfly', skinId: 'emberstrike' },
+          { knifeType: 'm9', skinId: 'doppler', forceGem: true },
+          { knifeType: 'skeleton', skinId: 'case_hardened', forceBlueGem: true },
+          { itemKind: 'glove', gloveType: 'specialist', skinId: 'crimson_kimono' },
+          { itemKind: 'glove', gloveType: 'sport', skinId: 'stormgrid' },
+          { itemKind: 'glove', gloveType: 'wraps', skinId: 'eclipse_mantle' },
+          { itemKind: 'glove', gloveType: 'wraps', skinId: 'slaughter' }
         ]
       }
     }
@@ -1565,21 +2023,15 @@
   }
 
   function createStarterWeapons() {
-    return [
-      createStarterWeapon('rifle'),
-      createStarterWeapon('smg'),
-      createStarterWeapon('shotgun'),
-      createStarterWeapon('awp'),
-      createStarterWeapon('revolver'),
-      createStarterWeapon('deagle'),
-      createStarterWeapon('pistol')
-    ];
+    return WEAPON_TYPE_IDS.map((wt) => createStarterWeapon(wt));
   }
 
   function createStarterInventory() {
     const starterKnife = createStarterKnife();
     const starterGlove = createStarterGlove();
     const starterWeapons = createStarterWeapons();
+    const equippedWeaponIds = {};
+    for (const wt of WEAPON_TYPE_IDS) equippedWeaponIds[wt] = 'starter_' + wt + '_slate';
     return {
       coins: ECONOMY.STARTING_COINS,
       equippedKnifeId: starterKnife.id,
@@ -1591,6 +2043,7 @@
       equippedRevolverId: 'starter_revolver_slate',
       equippedDeagleId: 'starter_deagle_slate',
       equippedPistolId: 'starter_pistol_slate',
+      equippedWeaponIds,
       caseCounts: Object.fromEntries(CASE_IDS.map((id) => [id, 0])),
       totalOpened: 0,
       lastDailyDropDate: '',
@@ -1788,13 +2241,25 @@
       return fallback ? fallback.id : 'starter_' + wt + '_slate';
     };
 
-    const equippedRifleId = findValidWeaponId(raw.equippedRifleId, 'rifle');
-    const equippedSmgId = findValidWeaponId(raw.equippedSmgId, 'smg');
-    const equippedShotgunId = findValidWeaponId(raw.equippedShotgunId, 'shotgun');
-    const equippedAwpId = findValidWeaponId(raw.equippedAwpId, 'awp');
-    const equippedRevolverId = findValidWeaponId(raw.equippedRevolverId, 'revolver');
-    const equippedDeagleId = findValidWeaponId(raw.equippedDeagleId, 'deagle');
-    const equippedPistolId = findValidWeaponId(raw.equippedPistolId, 'pistol');
+    const rawEqMap = raw.equippedWeaponIds && typeof raw.equippedWeaponIds === 'object' ? raw.equippedWeaponIds : {};
+    const equippedWeaponIds = {};
+    for (const wt of WEAPON_TYPE_IDS) {
+      const legacyField = 'equipped' + wt.charAt(0).toUpperCase() + wt.slice(1) + 'Id';
+      const mapVal = typeof rawEqMap[wt] === 'string' ? rawEqMap[wt] : '';
+      const legacyVal = typeof raw[legacyField] === 'string' ? raw[legacyField] : '';
+      const candidate = (mapVal && !mapVal.startsWith('starter_'))
+        ? mapVal
+        : ((legacyVal && !legacyVal.startsWith('starter_')) ? legacyVal : (mapVal || legacyVal));
+      equippedWeaponIds[wt] = findValidWeaponId(candidate, wt);
+    }
+
+    const equippedRifleId = equippedWeaponIds.rifle;
+    const equippedSmgId = equippedWeaponIds.smg;
+    const equippedShotgunId = equippedWeaponIds.shotgun;
+    const equippedAwpId = equippedWeaponIds.awp;
+    const equippedRevolverId = equippedWeaponIds.revolver;
+    const equippedDeagleId = equippedWeaponIds.deagle;
+    const equippedPistolId = equippedWeaponIds.pistol;
 
     return {
       coins,
@@ -1807,6 +2272,7 @@
       equippedRevolverId,
       equippedDeagleId,
       equippedPistolId,
+      equippedWeaponIds,
       caseCounts,
       totalOpened,
       lastDailyDropDate,
@@ -1829,16 +2295,7 @@
   function getEquippedWeapon(inventory, weaponType) {
     const inv = sanitizeInventory(inventory);
     const wt = WEAPON_TYPES[weaponType] ? weaponType : 'rifle';
-    const keyMap = {
-      rifle: inv.equippedRifleId,
-      smg: inv.equippedSmgId,
-      shotgun: inv.equippedShotgunId,
-      awp: inv.equippedAwpId,
-      revolver: inv.equippedRevolverId,
-      deagle: inv.equippedDeagleId,
-      pistol: inv.equippedPistolId
-    };
-    const eqId = keyMap[wt] || inv.equippedRifleId;
+    const eqId = (inv.equippedWeaponIds && inv.equippedWeaponIds[wt]) || inv.equippedRifleId;
     return inv.weapons.find((w) => w.id === eqId && w.weaponType === wt)
       || inv.weapons.find((w) => w.weaponType === wt)
       || createStarterWeapon(wt);
@@ -1846,7 +2303,7 @@
 
   function totalCaseCount(inventory) {
     if (!inventory || !inventory.caseCounts) return 0;
-    return (inventory.caseCounts.velocity || 0) + (inventory.caseCounts.chroma || 0) + (inventory.caseCounts.spectrum || 0);
+    return CASE_IDS.reduce((sum, id) => sum + (inventory.caseCounts[id] || 0), 0);
   }
 
   function getItemSellValue(item) {
@@ -1873,6 +2330,9 @@
   function isItemEquippedInInventory(inventory, item) {
     if (!inventory || !item) return false;
     if (isWeaponItem(item)) {
+      if (inventory.equippedWeaponIds && inventory.equippedWeaponIds[item.weaponType]) {
+        return inventory.equippedWeaponIds[item.weaponType] === item.id;
+      }
       if (item.weaponType === 'smg') return inventory.equippedSmgId === item.id;
       if (item.weaponType === 'shotgun') return inventory.equippedShotgunId === item.id;
       if (item.weaponType === 'awp') return inventory.equippedAwpId === item.id;
@@ -2486,13 +2946,12 @@
 
     const equippedKnifeId = pickEquipped(local.equippedKnifeId, cloud.equippedKnifeId, kMerge.merged);
     const equippedGloveId = pickEquipped(local.equippedGloveId, cloud.equippedGloveId, gMerge.merged);
-    const equippedRifleId = pickEquipped(local.equippedRifleId, cloud.equippedRifleId, wMerge.merged, (w) => w.weaponType === 'rifle');
-    const equippedSmgId = pickEquipped(local.equippedSmgId, cloud.equippedSmgId, wMerge.merged, (w) => w.weaponType === 'smg');
-    const equippedShotgunId = pickEquipped(local.equippedShotgunId, cloud.equippedShotgunId, wMerge.merged, (w) => w.weaponType === 'shotgun');
-    const equippedAwpId = pickEquipped(local.equippedAwpId, cloud.equippedAwpId, wMerge.merged, (w) => w.weaponType === 'awp');
-    const equippedRevolverId = pickEquipped(local.equippedRevolverId, cloud.equippedRevolverId, wMerge.merged, (w) => w.weaponType === 'revolver');
-    const equippedDeagleId = pickEquipped(local.equippedDeagleId, cloud.equippedDeagleId, wMerge.merged, (w) => w.weaponType === 'deagle');
-    const equippedPistolId = pickEquipped(local.equippedPistolId, cloud.equippedPistolId, wMerge.merged, (w) => w.weaponType === 'pistol');
+    const equippedWeaponIds = {};
+    for (const wt of WEAPON_TYPE_IDS) {
+      const localId = local.equippedWeaponIds ? local.equippedWeaponIds[wt] : undefined;
+      const cloudId = cloud.equippedWeaponIds ? cloud.equippedWeaponIds[wt] : undefined;
+      equippedWeaponIds[wt] = pickEquipped(localId, cloudId, wMerge.merged, (w) => w.weaponType === wt);
+    }
 
     const totalOpened = Math.max(local.totalOpened, cloud.totalOpened);
     const lastDailyDropDate = local.lastDailyDropDate >= cloud.lastDailyDropDate
@@ -2513,13 +2972,14 @@
       coins,
       equippedKnifeId,
       equippedGloveId,
-      equippedRifleId,
-      equippedSmgId,
-      equippedShotgunId,
-      equippedAwpId,
-      equippedRevolverId,
-      equippedDeagleId,
-      equippedPistolId,
+      equippedRifleId: equippedWeaponIds.rifle,
+      equippedSmgId: equippedWeaponIds.smg,
+      equippedShotgunId: equippedWeaponIds.shotgun,
+      equippedAwpId: equippedWeaponIds.awp,
+      equippedRevolverId: equippedWeaponIds.revolver,
+      equippedDeagleId: equippedWeaponIds.deagle,
+      equippedPistolId: equippedWeaponIds.pistol,
+      equippedWeaponIds,
       caseCounts,
       totalOpened,
       lastDailyDropDate,

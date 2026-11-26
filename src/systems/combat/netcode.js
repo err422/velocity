@@ -127,12 +127,29 @@
 
   const KILLFEED_WEAPON_NAMES = {
     rifle: 'V-47',
+    famas: 'F-33',
+    scar: 'SC-20',
+    honeybadger: 'HB-7',
     smg: 'VX-9',
+    mp7: 'MP-7',
     shotgun: 'M870',
+    sawedoff: 'DB-12',
+    leverslug: 'LV-45',
     awp: 'AWP',
+    dmr: 'MK-14',
+    scout: 'SSG-08',
+    katana: 'KATANA',
     revolver: 'R-88',
     deagle: 'DEAGLE',
     pistol: 'USP-9',
+    g18: 'G-18',
+    akimbo: 'AKIMBO',
+    usps: 'USP-S',
+    rpg: 'RPG-7',
+    minigun: 'M-134',
+    railcannon: 'RAIL',
+    grenadelauncher: 'MGL-6',
+    nuke: 'NUKE',
     melee: 'MELEE',
     knife: 'MELEE',
     void: 'VOID'
@@ -583,6 +600,9 @@
     if (killed) {
       state.localAlive = false;
       state.respawnTimer = WARMUP_RESPAWN_SEC;
+      if (root.CombatSystem && typeof root.CombatSystem.resetLifeStreak === 'function') {
+        root.CombatSystem.resetLifeStreak();
+      }
       const attackerName = String(botName || 'AI BOT').slice(0, 24);
       if (root.BotAISystem && typeof root.BotAISystem.recordPlayerDeath === 'function') {
         root.BotAISystem.recordPlayerDeath();
@@ -806,6 +826,11 @@
     const attacker = state.players.get(attackerUid);
     const victim = state.players.get(victimUid);
     if (!attacker || !victim || !victim.alive || attackerUid === victimUid) return;
+    // If local host player is actively deflecting with Katana, reflect bullet straight back!
+    if (victimUid === state.localUid && root.CombatSystem && typeof root.CombatSystem.isLocalKatanaDeflecting === 'function' && root.CombatSystem.isLocalKatanaDeflecting()) {
+      root.CombatSystem.tryInterceptDeflect(null, null, null, null);
+      return;
+    }
 
     const cleanDmg = Math.max(1, Math.min(260, Math.round(Number(damage) || 0)));
     victim.lastAttackerUid = attackerUid;
@@ -964,6 +989,9 @@
     if (pkt.victimUid === state.localUid) {
       state.localHp = pkt.hp;
       state.localAlive = pkt.alive;
+      if (pkt.killed && root.CombatSystem && typeof root.CombatSystem.resetLifeStreak === 'function') {
+        root.CombatSystem.resetLifeStreak();
+      }
       if (root.CombatSystem) root.CombatSystem.triggerDamageFlash();
       if (typeof callbacks.onLocalDamage === 'function') {
         callbacks.onLocalDamage(pkt);
@@ -978,7 +1006,16 @@
       });
     }
     if (pkt.attackerUid === state.localUid && pkt.killed) {
-      if (root.CombatSystem) root.CombatSystem.triggerHitmarker(pkt.headshot, true);
+      if (root.CombatSystem) {
+        root.CombatSystem.triggerHitmarker(pkt.headshot, true);
+        if (pkt.victimUid !== state.localUid && typeof root.CombatSystem.recordPvpKill === 'function') {
+          root.CombatSystem.recordPvpKill({
+            weaponId: pkt.slot,
+            isHeadshot: Boolean(pkt.headshot),
+            victimIsBot: Boolean(pkt.victimIsBot)
+          });
+        }
+      }
       const isOnline = state.role === 'host' || state.role === 'client';
       if (isOnline && pkt.victimUid !== state.localUid && typeof callbacks.onLocalKill === 'function') {
         callbacks.onLocalKill({
@@ -1173,6 +1210,24 @@
       return;
     }
 
+    if (msg.t === 'nuke_launch') {
+      const sender = state.players.get(peerUid);
+      const ownerName = (sender && sender.name) || msg.ownerName || 'RUNNER';
+      broadcastGame({ t: 'nuke_launch', ownerName, ownerUid: peerUid }, peerUid);
+      if (root.CombatSystem && typeof root.CombatSystem.triggerRemoteNuke === 'function') {
+        root.CombatSystem.triggerRemoteNuke(ownerName);
+      }
+      return;
+    }
+
+    if (msg.t === 'nuke_detonate' && state.phase === 'live') {
+      const sender = state.players.get(peerUid);
+      const ownerName = (sender && sender.name) || msg.ownerName || 'RUNNER';
+      pushKillFeed(ownerName, 'ARENA', 'nuke', false);
+      hostBeginMapVote(peerUid, ownerName);
+      return;
+    }
+
     if (msg.t === 'rematch_request' && state.phase === 'match_over') {
       if (state.mapVote.active) {
         hostFinalizeMapVote();
@@ -1346,6 +1401,13 @@
       resetMapVoteState();
       if (typeof callbacks.onMapChange === 'function') callbacks.onMapChange(nextId);
       emitState();
+      return;
+    }
+
+    if (msg.t === 'nuke_launch') {
+      if (root.CombatSystem && typeof root.CombatSystem.triggerRemoteNuke === 'function') {
+        root.CombatSystem.triggerRemoteNuke(msg.ownerName || 'ENEMY');
+      }
       return;
     }
 
@@ -1979,6 +2041,27 @@
     });
   }
 
+  function reportNukeLaunch(ownerName) {
+    const cleanName = String(ownerName || state.localName || 'RUNNER').slice(0, 24);
+    if (state.role === 'host') {
+      broadcastGame({ t: 'nuke_launch', ownerName: cleanName, ownerUid: state.localUid });
+    } else if (state.role === 'client') {
+      sendToHostGame({ t: 'nuke_launch', ownerName: cleanName });
+    }
+  }
+
+  function reportNukeDetonate(ownerName) {
+    const cleanName = String(ownerName || state.localName || 'RUNNER').slice(0, 24);
+    pushKillFeed(cleanName, 'ARENA', 'nuke', false);
+    if (state.role === 'host' && state.phase === 'live') {
+      hostBeginMapVote(state.localUid, cleanName);
+    } else if (state.role === 'client') {
+      sendToHostGame({ t: 'nuke_detonate', ownerName: cleanName });
+    } else if (state.role === 'warmup') {
+      showBanner('TACTICAL NUKE DETONATED', `${cleanName.toUpperCase()} WIPED THE ARENA`, 3200);
+    }
+  }
+
   const exported = {
     setCallbacks: (cbs) => Object.assign(callbacks, cbs || {}),
     setArenaSpawns,
@@ -1992,6 +2075,8 @@
     computeVoteTally,
     reportVoidFall,
     reportShot,
+    reportNukeLaunch,
+    reportNukeDetonate,
     applyWarmupDamage,
     applyBotDamage,
     canBotDamageTarget,

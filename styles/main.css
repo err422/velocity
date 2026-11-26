@@ -4634,4 +4634,448 @@
     }
   }
 
+  /* =========================================================================
+     ARSENAL EXPANSION: RONIN CASE ART, SCORESTREAK & KATANA HUD, CAMOS
+     ========================================================================= */
+  .case-art-ronin {
+    background: linear-gradient(135deg, #2a0d16 0%, #14101f 55%, #09131e 100%);
+  }
+  .case-art-ronin::before {
+    background:
+      linear-gradient(125deg, transparent 34%, rgba(255, 84, 118, .28) 34% 37%, transparent 37%),
+      linear-gradient(125deg, transparent 58%, rgba(255, 196, 92, .32) 58% 60%, transparent 60%),
+      radial-gradient(circle at 76% 28%, rgba(255, 134, 168, .26), transparent 46%);
+  }
+
+  /* Camo Unlock Toast Accent (reuses #weaponXpToast cleanly) */
+  #weaponXpToast.camo-mode {
+    border-color: rgba(196, 136, 255, .82);
+    border-left: 3px solid #c488ff;
+    background: rgba(10, 12, 24, .96);
+  }
+  #weaponXpToast.camo-mode .wxp-kicker {
+    color: #d8adff;
+  }
+
+  /* HUD Scorestreak Meter (above bottom-right weapon HUD) */
+  #hudScorestreak {
+    position: fixed;
+    right: 26px;
+    bottom: 186px;
+    z-index: 4;
+    width: 196px;
+    padding: 7px 10px 8px;
+    background: rgba(6, 13, 22, .84);
+    border: 1px solid rgba(111, 210, 238, .22);
+    border-left: 2px solid rgba(101, 231, 255, .65);
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .16s ease, background .16s ease;
+  }
+  #hudScorestreak.ready {
+    border-color: rgba(255, 184, 77, .82);
+    border-left-color: #ffb84d;
+    background: rgba(26, 18, 9, .92);
+  }
+  #hudScorestreak.active-weapon {
+    border-color: rgba(255, 92, 116, .88);
+    border-left-color: #ff5c74;
+    background: rgba(28, 10, 16, .92);
+  }
+  #hudScorestreak .hs-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9.5px;
+    font-weight: 850;
+    letter-spacing: .1em;
+    color: #d8eff9;
+  }
+  #hudScorestreak .hs-key {
+    display: inline-grid;
+    place-items: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    background: rgba(101, 231, 255, .14);
+    border: 1px solid rgba(101, 231, 255, .45);
+    color: #9bf2ff;
+    font-size: 9px;
+    font-weight: 900;
+  }
+  #hudScorestreak.ready .hs-key {
+    background: #ffb84d;
+    border-color: #ffe0a8;
+    color: #0b131c;
+  }
+  #hudScorestreak .hs-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #hudScorestreak .hs-pts {
+    color: #8bb4ca;
+    font-size: 9px;
+    font-weight: 850;
+    white-space: nowrap;
+  }
+  #hudScorestreak.ready .hs-pts {
+    color: #ffd388;
+  }
+  #hudScorestreak .hs-bar {
+    margin-top: 5px;
+    height: 3px;
+    width: 100%;
+    background: rgba(130, 175, 198, .18);
+    overflow: hidden;
+  }
+  #hudScorestreak .hs-fill {
+    height: 100%;
+    width: 0%;
+    background: #65e7ff;
+    transition: width .12s linear;
+  }
+  #hudScorestreak.ready .hs-fill {
+    background: #ffb84d;
+  }
+  #hudScorestreak.active-weapon .hs-fill {
+    background: #ff5c74;
+  }
+
+  /* HUD Katana Slash-Dash + Timed Deflect Energy Gauge */
+  #hudKatana {
+    position: fixed;
+    left: 50%;
+    bottom: 92px;
+    transform: translateX(-50%);
+    z-index: 4;
+    width: 244px;
+    padding: 8px 11px 9px;
+    background: rgba(6, 13, 22, .86);
+    border: 1px solid rgba(101, 231, 255, .28);
+    border-top: 2px solid #65e7ff;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+  }
+  #hudKatana.deflecting {
+    border-color: #65e7ff;
+    background: rgba(8, 28, 42, .94);
+    box-shadow: 0 0 18px rgba(101, 231, 255, .28);
+  }
+  #hudKatana.recharging {
+    border-top-color: #ffb84d;
+  }
+  #hudKatana .hk-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 9.5px;
+    font-weight: 850;
+    letter-spacing: .12em;
+    color: #cfe7f4;
+    margin-bottom: 4px;
+  }
+  #hudKatana .hk-key {
+    min-width: 28px;
+    text-align: center;
+    padding: 1px 4px;
+    border: 1px solid rgba(130, 185, 208, .42);
+    background: rgba(101, 231, 255, .10);
+    color: #9bf2ff;
+    font-size: 8.5px;
+    font-weight: 900;
+  }
+  #hudKatana .hk-lbl {
+    flex: 1;
+    color: #8aa9bc;
+  }
+  #hudKatana .hk-val {
+    color: #eef9ff;
+    font-weight: 900;
+  }
+  #hudKatana .hk-val.ready { color: #6effa6; }
+  #hudKatana .hk-val.cool { color: #ffb84d; }
+  #hudKatana .hk-val.active { color: #65e7ff; }
+  #hudKatana .hk-bar {
+    position: relative;
+    height: 5px;
+    width: 100%;
+    background: rgba(130, 175, 198, .18);
+    overflow: hidden;
+  }
+  #hudKatana .hk-threshold {
+    position: absolute;
+    left: 30%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 255, 255, .55);
+    z-index: 2;
+  }
+  #hudKatana .hk-fill {
+    height: 100%;
+    width: 100%;
+    background: #65e7ff;
+    transition: width .05s linear;
+  }
+  #hudKatana.recharging .hk-fill {
+    background: #ffb84d;
+  }
+
+  /* Tactical Nuke Inbound Banner & Detonation Flash */
+  #nukeBanner {
+    position: fixed;
+    left: 50%;
+    top: 78px;
+    transform: translateX(-50%);
+    z-index: 9;
+    min-width: 280px;
+    padding: 10px 20px;
+    background: rgba(34, 9, 13, .95);
+    border: 1px solid #ff5c74;
+    border-top: 3px solid #ffb84d;
+    text-align: center;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+  }
+  #nukeBanner .nk-kicker {
+    font-size: 9.5px;
+    font-weight: 900;
+    letter-spacing: .24em;
+    color: #ffb84d;
+  }
+  #nukeBanner .nk-timer {
+    margin: 2px 0;
+    font-size: 26px;
+    font-weight: 950;
+    letter-spacing: .06em;
+    color: #ffffff;
+  }
+  #nukeBanner .nk-owner {
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .16em;
+    color: #ff9eab;
+  }
+  #nukeFlash {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle at 50% 45%, #ffffff 0%, #ffe6a8 45%, #ff7b3b 100%);
+  }
+
+  /* Loadouts Primary Class Filter Bar & Scorestreak Picker */
+  .cod-class-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-bottom: 4px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(125, 175, 198, .12);
+  }
+  #overlay .cod-class-btn {
+    width: auto;
+    margin: 0;
+    padding: 2px 6px;
+    border: 1px solid rgba(125, 175, 198, .16);
+    border-radius: 2px;
+    background: rgba(7, 14, 22, .75);
+    color: #7e9db2;
+    font-size: 8px;
+    font-weight: 850;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  #overlay .cod-class-btn:hover {
+    border-color: rgba(101, 231, 255, .5);
+    color: #eaf7ff;
+    transform: none;
+  }
+  #overlay .cod-class-btn.active {
+    border-color: #ffb84d;
+    background: rgba(255, 184, 77, .16);
+    color: #ffe3b0;
+  }
+  .cod-streak-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+  #overlay .cod-streak-btn {
+    width: 100%;
+    margin: 0;
+    padding: 6px 8px;
+    border: 1px solid rgba(125, 175, 198, .18);
+    border-radius: 2px;
+    background: rgba(9, 18, 28, .85);
+    color: #9ab5c7;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  #overlay .cod-streak-btn:hover {
+    border-color: rgba(101, 231, 255, .55);
+    color: #eef9ff;
+    transform: none;
+  }
+  #overlay .cod-streak-btn.active {
+    border-color: #ffb84d;
+    background: rgba(34, 24, 12, .92);
+    color: #fff6e5;
+  }
+  #overlay .cod-streak-btn.nuke-btn {
+    grid-column: 1 / -1;
+  }
+  .cod-streak-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    font-size: 9.5px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .cod-streak-cost {
+    color: #ffb84d;
+    font-size: 8.5px;
+    font-weight: 850;
+  }
+  .cod-streak-desc {
+    color: #7d99ad;
+    font-size: 8.5px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  /* Gunsmith Appearance Tab: Camo Challenges & Mastery Grid */
+  #gsAppearanceTray {
+    max-height: 52vh;
+    overflow-y: auto;
+  }
+  .gs-camo-section {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(125, 175, 198, .14);
+  }
+  .gs-camo-subhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    color: #9ab7ca;
+    text-transform: uppercase;
+  }
+  .gs-camo-subhead strong {
+    color: #ffb84d;
+  }
+  .gs-mastery-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 9px;
+  }
+  .gs-camo-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 7px;
+  }
+  #overlay .gs-camo-card {
+    width: 100%;
+    margin: 0;
+    padding: 8px 9px;
+    border: 1px solid rgba(125, 175, 198, .22);
+    border-top: 2px solid var(--camo-col, #65e7ff);
+    border-radius: 2px;
+    background: rgba(10, 19, 30, .92);
+    color: #e6f4fb;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  #overlay .gs-camo-card:hover {
+    border-color: #65e7ff;
+    background: rgba(15, 31, 46, .96);
+    transform: none;
+  }
+  #overlay .gs-camo-card.locked {
+    opacity: .68;
+  }
+  #overlay .gs-camo-card.equipped {
+    border-color: #ffb84d;
+    background: rgba(34, 24, 12, .94);
+  }
+  .gs-camo-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+  }
+  .gs-camo-name {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .gs-camo-state {
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: .1em;
+    color: #82a2b6;
+    white-space: nowrap;
+  }
+  .gs-camo-card.unlocked .gs-camo-state { color: #6effa6; }
+  .gs-camo-card.equipped .gs-camo-state { color: #ffb84d; }
+  .gs-camo-req {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #8ca8bc;
+    line-height: 1.25;
+  }
+  .gs-camo-bar {
+    height: 3px;
+    width: 100%;
+    background: rgba(130, 175, 198, .18);
+    overflow: hidden;
+    margin-top: 2px;
+  }
+  .gs-camo-fill {
+    height: 100%;
+    background: var(--camo-col, #65e7ff);
+  }
+  @media (max-width: 1080px) {
+    .gs-camo-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 720px) {
+    .gs-camo-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .gs-mastery-row {
+      grid-template-columns: 1fr;
+    }
+    #hudScorestreak {
+      bottom: 162px;
+      right: 12px;
+      width: 164px;
+    }
+  }
+
+
 

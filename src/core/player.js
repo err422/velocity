@@ -234,10 +234,14 @@ function step(dt){
   p.slideCd=Math.max(0,p.slideCd-dt);p.wallCd=Math.max(0,p.wallCd-dt);p.noGround=Math.max(0,p.noGround-moveDt);
   p.surfGrace=Math.max(0,p.surfGrace-moveDt);
 
-  // Full-auto firing (V-47 Rifle, VX-9 Vector SMG) & rapid Fan-the-Hammer hold (R-88 Revolver)
+  // Full-auto firing (ARs, SMGs, G-18 Auto, M-134 Minigun) & rapid Fan-the-Hammer hold (R-88 Revolver)
   if(window.CombatSystem){
     const cst=window.CombatSystem.getState();
-    if(isActionDown('fire')&&cst.auto){
+    const fireHeld=isActionDown('fire');
+    if(typeof window.CombatSystem.setMinigunHeld==='function'){
+      window.CombatSystem.setMinigunHeld(fireHeld&&cst.isScorestreak&&cst.weaponId==='minigun'&&!isArenaBlocked());
+    }
+    if(fireHeld&&cst.auto){
       performFire(false);
     }
     if(isActionDown('altFire')&&cst.altFireMode==='fan'){
@@ -247,7 +251,11 @@ function step(dt){
 
   // Freeze player movement during 1v1 round countdown or death respawn
   if(isArenaBlocked()){
-    if(window.CombatSystem&&typeof window.CombatSystem.setChargeHeld==='function')window.CombatSystem.setChargeHeld(false);
+    if(window.CombatSystem){
+      if(typeof window.CombatSystem.setChargeHeld==='function')window.CombatSystem.setChargeHeld(false);
+      if(typeof window.CombatSystem.setKatanaDeflectHeld==='function')window.CombatSystem.setKatanaDeflectHeld(false);
+      if(typeof window.CombatSystem.setMinigunHeld==='function')window.CombatSystem.setMinigunHeld(false);
+    }
     v.set(0,0,0);
     return;
   }

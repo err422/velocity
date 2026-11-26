@@ -84,6 +84,150 @@
       leftRelEuler: [0.06, -0.34, 1.48],
       rightPose: { index: 0.44, middle: 0.92, ring: 0.95, pinky: 0.95, thumb: 0.64, indexRingHook: 0, indexPoint: 0 },
       leftPose: { index: 0.78, middle: 0.86, ring: 0.90, pinky: 0.90, thumb: 0.42, indexRingHook: 0, indexPoint: 0 }
+    },
+    famas: {
+      gripCenter: [0.0, -0.052, 0.032],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, -0.008, -0.235],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.16, -0.46, 2.06],
+      rightPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.68, middle: 0.74, ring: 0.78, pinky: 0.76, thumb: 0.36, indexRingHook: 0, indexPoint: 0 }
+    },
+    scar: {
+      gripCenter: [0.0, -0.054, 0.052],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, 0.002, -0.245],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.16, -0.46, 2.08],
+      rightPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.68, middle: 0.74, ring: 0.78, pinky: 0.76, thumb: 0.36, indexRingHook: 0, indexPoint: 0 }
+    },
+    honeybadger: {
+      gripCenter: [0.0, -0.048, 0.052],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, 0.004, -0.240],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.16, -0.46, 2.06],
+      rightPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.68, middle: 0.74, ring: 0.78, pinky: 0.76, thumb: 0.36, indexRingHook: 0, indexPoint: 0 }
+    },
+    mp7: {
+      gripCenter: [0.0, -0.044, 0.032],
+      rightPocket: [0.003, -0.027, -0.038],
+      supportAnchor: [0.0, -0.034, -0.185],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.14, -0.40, 1.88],
+      rightPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.74, middle: 0.80, ring: 0.84, pinky: 0.82, thumb: 0.42, indexRingHook: 0, indexPoint: 0 }
+    },
+    sawedoff: {
+      gripCenter: [0.0, -0.034, 0.118],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, -0.004, -0.165],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.16, -0.46, 2.08],
+      rightPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.70, middle: 0.76, ring: 0.80, pinky: 0.78, thumb: 0.38, indexRingHook: 0, indexPoint: 0 }
+    },
+    leverslug: {
+      gripCenter: [0.0, -0.022, 0.095],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, -0.002, -0.255],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.16, -0.48, 2.10],
+      rightPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.68, middle: 0.74, ring: 0.78, pinky: 0.76, thumb: 0.36, indexRingHook: 0, indexPoint: 0 }
+    },
+    dmr: {
+      gripCenter: [0.0, -0.048, 0.054],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, 0.002, -0.320],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.16, -0.48, 2.08],
+      rightPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.66, middle: 0.72, ring: 0.76, pinky: 0.74, thumb: 0.36, indexRingHook: 0, indexPoint: 0 }
+    },
+    scout: {
+      gripCenter: [0.0, -0.044, 0.056],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, -0.006, -0.275],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.16, -0.48, 2.08],
+      rightPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.66, middle: 0.72, ring: 0.76, pinky: 0.74, thumb: 0.36, indexRingHook: 0, indexPoint: 0 }
+    },
+    g18: {
+      gripCenter: [0.0, -0.046, 0.028],
+      rightPocket: [0.003, -0.027, -0.035],
+      supportAnchor: [-0.014, -0.046, 0.024],
+      leftPocket: [0.0, -0.027, -0.035],
+      leftRelEuler: [0.06, -0.34, 1.48],
+      rightPose: { index: 0.44, middle: 0.92, ring: 0.95, pinky: 0.95, thumb: 0.64, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.78, middle: 0.86, ring: 0.90, pinky: 0.90, thumb: 0.42, indexRingHook: 0, indexPoint: 0 }
+    },
+    usps: {
+      gripCenter: [0.0, -0.046, 0.028],
+      rightPocket: [0.003, -0.027, -0.035],
+      supportAnchor: [-0.014, -0.046, 0.024],
+      leftPocket: [0.0, -0.027, -0.035],
+      leftRelEuler: [0.06, -0.34, 1.48],
+      rightPose: { index: 0.44, middle: 0.92, ring: 0.95, pinky: 0.95, thumb: 0.64, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.78, middle: 0.86, ring: 0.90, pinky: 0.90, thumb: 0.42, indexRingHook: 0, indexPoint: 0 }
+    },
+    akimbo: {
+      gripCenter: [0.0, -0.046, 0.026],
+      rightPocket: [0.003, -0.027, -0.035],
+      supportAnchor: [-0.27, -0.046, 0.026],
+      leftPocket: [-0.003, -0.027, -0.035],
+      leftRelEuler: [0.0, 0.0, 1.42],
+      rightPose: { index: 0.44, middle: 0.92, ring: 0.95, pinky: 0.95, thumb: 0.64, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.44, middle: 0.92, ring: 0.95, pinky: 0.95, thumb: 0.64, indexRingHook: 0, indexPoint: 0 }
+    },
+    katana: {
+      gripCenter: [0.0, 0.0, 0.055],
+      rightPocket: [0.004, -0.026, -0.036],
+      supportAnchor: [0.0, -0.004, 0.165],
+      leftPocket: [0.002, -0.024, -0.034],
+      leftRelEuler: [0.08, -0.22, 1.56],
+      rightPose: { index: 0.92, middle: 0.94, ring: 0.95, pinky: 0.95, thumb: 0.76, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.90, middle: 0.92, ring: 0.94, pinky: 0.94, thumb: 0.72, indexRingHook: 0, indexPoint: 0 }
+    },
+    rpg: {
+      gripCenter: [0.0, -0.040, 0.032],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, -0.038, -0.220],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.10, -0.35, 1.80],
+      rightPose: { index: 0.48, middle: 0.92, ring: 0.94, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.80, middle: 0.86, ring: 0.88, pinky: 0.88, thumb: 0.50, indexRingHook: 0, indexPoint: 0 }
+    },
+    minigun: {
+      gripCenter: [0.0, -0.048, 0.110],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, 0.095, -0.120],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [-0.20, -0.40, 0.20],
+      rightPose: { index: 0.60, middle: 0.92, ring: 0.94, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.85, middle: 0.88, ring: 0.90, pinky: 0.90, thumb: 0.56, indexRingHook: 0, indexPoint: 0 }
+    },
+    railcannon: {
+      gripCenter: [0.0, -0.048, 0.050],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, -0.006, -0.280],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.16, -0.46, 2.08],
+      rightPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.68, middle: 0.74, ring: 0.78, pinky: 0.76, thumb: 0.36, indexRingHook: 0, indexPoint: 0 }
+    },
+    grenadelauncher: {
+      gripCenter: [0.0, -0.048, 0.055],
+      rightPocket: [0.003, -0.027, -0.040],
+      supportAnchor: [0.0, -0.040, -0.300],
+      leftPocket: [0.002, -0.024, -0.032],
+      leftRelEuler: [0.12, -0.38, 1.85],
+      rightPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
+      leftPose: { index: 0.76, middle: 0.82, ring: 0.84, pinky: 0.84, thumb: 0.46, indexRingHook: 0, indexPoint: 0 }
     }
   };
 
@@ -190,6 +334,73 @@
     out.lifterPush = 0;
     out.showReloadShells = false;
     out.showReloadBullet = false;
+
+    // -1) Primary Ronin Katana combat choreography: 3-hit slash combo, directional dash-lunge, and time-limited RMB bullet deflect guard!
+    if (wt === 'katana') {
+      // Base samurai high-ready diagonal poise
+      out.rx += 0.045;
+      out.ry += -0.025;
+      out.rz += -0.035;
+      out.rRotX += 0.36;
+      out.rRotY += -0.44;
+      out.rRotZ += -0.38;
+
+      const slashT = Number.isFinite(state.katanaSlashT) ? state.katanaSlashT : 1;
+      const combo = Number.isFinite(state.katanaSlashCombo) ? (state.katanaSlashCombo % 3) : 0;
+      if (slashT < 1) {
+        const windup = bell(slashT, 0.0, 0.24);
+        const strike = smoothstep(0.18, 0.56, slashT) * (1 - smoothstep(0.58, 1.0, slashT));
+        if (combo === 0) {
+          // Diagonal slash: upper-right -> lower-left
+          out.rx += 0.08 * windup - 0.32 * strike;
+          out.ry += 0.09 * windup - 0.14 * strike;
+          out.rz += -0.08 * strike;
+          out.rRotX += 0.35 * windup - 1.15 * strike;
+          out.rRotY += -0.40 * windup + 1.45 * strike;
+          out.rRotZ += -0.30 * windup + 0.95 * strike;
+        } else if (combo === 1) {
+          // Reverse diagonal slash: lower-left -> upper-right
+          out.rx += -0.22 * windup + 0.16 * strike;
+          out.ry += -0.10 * windup + 0.12 * strike;
+          out.rz += -0.10 * strike;
+          out.rRotX += -0.45 * windup + 0.85 * strike;
+          out.rRotY += 0.95 * windup - 1.35 * strike;
+          out.rRotZ += 0.85 * windup - 1.10 * strike;
+        } else {
+          // Crisp horizontal iaido cleave
+          out.rx += 0.12 * windup - 0.36 * strike;
+          out.ry += -0.03 * strike;
+          out.rz += -0.12 * strike;
+          out.rRotX += -0.32 * strike;
+          out.rRotY += -0.55 * windup + 1.85 * strike;
+          out.rRotZ += 1.25 * strike;
+        }
+      }
+
+      const dashT = Number.isFinite(state.katanaDashT) ? state.katanaDashT : 1;
+      if (dashT < 1) {
+        const thrust = bell(dashT, 0.0, 0.88);
+        out.rx += -0.14 * thrust;
+        out.ry += 0.02 * thrust;
+        out.rz += -0.22 * thrust;
+        out.rRotX += -0.34 * thrust;
+        out.rRotY += 0.56 * thrust;
+        out.rRotZ += 1.32 * thrust;
+      }
+
+      const defP = Number.isFinite(state.katanaDeflectProgress) ? state.katanaDeflectProgress : 0;
+      if (defP > 0.001) {
+        const dp = smoothstep(0, 1, defP);
+        // Horizontal two-handed deflect barrier centered right in front of camera
+        out.rx = THREE.MathUtils.lerp(out.rx, -0.145, dp);
+        out.ry = THREE.MathUtils.lerp(out.ry, 0.068, dp);
+        out.rz = THREE.MathUtils.lerp(out.rz, -0.125, dp);
+        out.rRotX = THREE.MathUtils.lerp(out.rRotX, -0.12, dp);
+        out.rRotY = THREE.MathUtils.lerp(out.rRotY, 1.38, dp);
+        out.rRotZ = THREE.MathUtils.lerp(out.rRotZ, 0.98, dp);
+      }
+      return;
+    }
 
     // 0) R-88 Revolver bespoke draw twirl, 0.20s double-action charge, Fan-the-Hammer palm-slap & live shell-by-shell reload!
     if (wt === 'revolver') {
@@ -1125,6 +1336,34 @@
       for (let i = 0; i < mesh.userData.shellMeshes.length; i++) {
         mesh.userData.shellMeshes[i].visible = visCount < 0 ? true : i < visCount;
       }
+    }
+    // Katana glowing slash trail & RMB Deflect energy aura feedback
+    if (mesh.userData.bladeTrail && mesh.userData.bladeTrail.material) {
+      const trailOp = wOut && Number.isFinite(wOut.katanaTrailOpacity) ? wOut.katanaTrailOpacity : 0;
+      mesh.userData.bladeTrail.material.opacity = trailOp;
+    }
+    if (mesh.userData.deflectAura && mesh.userData.deflectAura.material) {
+      const defOp = wOut && Number.isFinite(wOut.katanaDeflectAura) ? wOut.katanaDeflectAura : 0;
+      mesh.userData.deflectAura.material.opacity = defOp;
+      mesh.userData.deflectAura.rotation.x += 0.14 * (defOp > 0.05 ? 1 : 0);
+      const s = 0.85 + defOp * 0.45;
+      mesh.userData.deflectAura.scale.setScalar(s);
+    }
+    // Dual Akimbo alternating recoil slide kicks
+    if (mesh.userData.akimboRight && mesh.userData.akimboLeft) {
+      const rKick = wOut && Number.isFinite(wOut.akimboRightKick) ? wOut.akimboRightKick : 0;
+      const lKick = wOut && Number.isFinite(wOut.akimboLeftKick) ? wOut.akimboLeftKick : 0;
+      mesh.userData.akimboRight.position.z = rKick * 0.048;
+      mesh.userData.akimboRight.rotation.x = rKick * 0.24;
+      mesh.userData.akimboLeft.position.z = lKick * 0.048;
+      mesh.userData.akimboLeft.rotation.x = lKick * 0.24;
+    }
+    // M-134 Rotary Minigun barrel spin & MGL-6 drum index
+    if (mesh.userData.rotaryBarrels && wOut && Number.isFinite(wOut.minigunSpinAngle)) {
+      mesh.userData.rotaryBarrels.rotation.z = wOut.minigunSpinAngle;
+    }
+    if (mesh.userData.drumGroup && wOut && Number.isFinite(wOut.drumAngle)) {
+      mesh.userData.drumGroup.rotation.z = wOut.drumAngle;
     }
   }
 

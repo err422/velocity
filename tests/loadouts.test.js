@@ -13,10 +13,13 @@ function createMockStorage() {
   };
 }
 
-test('expanded 7-weapon roster separates Primary (5) and Secondary (2) cleanly', () => {
-  assert.deepEqual(LoadoutsSystem.PRIMARY_WEAPON_IDS, ['rifle', 'smg', 'shotgun', 'awp', 'revolver']);
-  assert.deepEqual(LoadoutsSystem.SECONDARY_WEAPON_IDS, ['deagle', 'pistol']);
-  assert.equal(LoadoutsSystem.WEAPON_IDS.length, 7);
+test('expanded 19-weapon roster separates Primary (14) and Secondary (5) cleanly', () => {
+  assert.deepEqual(LoadoutsSystem.PRIMARY_WEAPON_IDS, [
+    'rifle', 'smg', 'shotgun', 'awp', 'revolver',
+    'famas', 'scar', 'honeybadger', 'mp7', 'sawedoff', 'leverslug', 'dmr', 'scout', 'katana'
+  ]);
+  assert.deepEqual(LoadoutsSystem.SECONDARY_WEAPON_IDS, ['deagle', 'pistol', 'g18', 'akimbo', 'usps']);
+  assert.equal(LoadoutsSystem.WEAPON_IDS.length, 19);
   assert.equal(LoadoutsSystem.ATTACHMENT_SLOT_IDS.length, 9);
   assert.equal(LoadoutsSystem.MAX_ATTACHMENTS, 5);
   assert.equal(LoadoutsSystem.LOADOUT_COUNT, 5);
@@ -26,9 +29,11 @@ test('expanded 7-weapon roster separates Primary (5) and Secondary (2) cleanly',
     assert.ok(spec && spec.id === wid);
     assert.ok(spec.damageBody > 0 && spec.damageHead >= spec.damageBody);
     assert.ok(spec.baseWeightKg > 0);
-    // Every weapon must have Lv. 1 starter attachments available
-    const lv1Unlocks = LoadoutsSystem.getUnlockedAttachmentsAtLevel(wid, 1);
-    assert.ok(lv1Unlocks.length >= 3, `Expected at least 3 starter Lv. 1 attachments on ${wid}`);
+    if (!spec.isMeleeWeapon) {
+      // Every firearm must have Lv. 1 starter attachments available
+      const lv1Unlocks = LoadoutsSystem.getUnlockedAttachmentsAtLevel(wid, 1);
+      assert.ok(lv1Unlocks.length >= 3, `Expected at least 3 starter Lv. 1 attachments on ${wid}`);
+    }
   }
 });
 

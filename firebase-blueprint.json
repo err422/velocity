@@ -301,7 +301,8 @@
             "spectrum": { "type": "integer" },
             "blacksite": { "type": "integer" },
             "overdrive": { "type": "integer" },
-            "eclipse": { "type": "integer" }
+            "eclipse": { "type": "integer" },
+            "ronin": { "type": "integer" }
           },
           "required": ["velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse"]
         },
@@ -385,7 +386,7 @@
         },
         "caseId": {
           "type": "string",
-          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse"]
+          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin"]
         },
         "createdAt": {
           "type": "string",
@@ -472,7 +473,7 @@
         },
         "caseId": {
           "type": "string",
-          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse"]
+          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin"]
         },
         "createdAt": {
           "type": "string",
@@ -513,7 +514,7 @@
         },
         "weaponType": {
           "type": "string",
-          "enum": ["rifle", "smg", "shotgun", "awp", "revolver", "deagle", "pistol"]
+          "enum": ["rifle", "famas", "scar", "honeybadger", "smg", "mp7", "shotgun", "sawedoff", "leverslug", "awp", "dmr", "scout", "katana", "revolver", "deagle", "pistol", "g18", "akimbo", "usps"]
         },
         "skinId": {
           "type": "string",
@@ -537,7 +538,19 @@
             "redshift",
             "nitro",
             "solarflare",
-            "voidglass"
+            "voidglass",
+            "tactical_carbon",
+            "cyber_wireframe",
+            "holo_prism",
+            "molten_magma",
+            "ronin_sakura",
+            "oni_crimson",
+            "shogun_gold",
+            "reactive_overdrive",
+            "reactive_oni",
+            "camo_gold",
+            "camo_diamond",
+            "camo_dark_matter"
           ]
         },
         "rarity": {
@@ -557,7 +570,7 @@
         "bluePct": { "type": "integer" },
         "caseId": {
           "type": "string",
-          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse"]
+          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin"]
         },
         "createdAt": {
           "type": "string",
@@ -645,7 +658,7 @@
     },
     "UserLoadouts": {
       "title": "UserLoadouts",
-      "description": "Private owner-only 5 custom loadouts, Gunsmith attachments (including Apex Chrono Kit), per-weapon XP, and equipped weapon skins.",
+      "description": "Private owner-only 5 custom loadouts (with scorestreak selection), Gunsmith attachments (including Apex Chrono Kit), per-weapon XP, equipped weapon skins, and CoD-style camo challenge progression.",
       "type": "object",
       "properties": {
         "uid": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "minLength": 1, "maxLength": 128 },
@@ -653,6 +666,8 @@
         "loadouts": { "type": "array" },
         "weaponXp": { "type": "object" },
         "equippedWeaponSkins": { "type": "object" },
+        "camoProgress": { "type": "object" },
+        "equippedWeaponCamos": { "type": "object" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },

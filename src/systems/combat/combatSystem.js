@@ -228,6 +228,37 @@
     };
   }
 
+  function advanceKatanaDeflect(energy, active, held, dt, cfg) {
+    const c = cfg || {};
+    const maxSec = Math.max(0.25, Number(c.deflectMaxDurationSec) || 2.0);
+    const rechargeSec = Math.max(0.5, Number(c.deflectRechargeSec) || 5.5);
+    const minPct = Math.max(0.05, Math.min(0.95, Number(c.deflectMinChargePct) || 0.30));
+    let nextEnergy = Math.max(0, Math.min(1, Number(energy)));
+    if (!Number.isFinite(nextEnergy)) nextEnergy = 1;
+    const delta = Math.max(0, Number(dt) || 0);
+    const canEngage = Boolean(held) && (active ? nextEnergy > 0.0005 : nextEnergy >= minPct);
+    let nextActive = false;
+    let depleted = false;
+    if (canEngage) {
+      nextActive = true;
+      nextEnergy = Math.max(0, nextEnergy - delta / maxSec);
+      if (nextEnergy <= 0.0001) {
+        nextEnergy = 0;
+        nextActive = false;
+        depleted = true;
+      }
+    } else {
+      nextActive = false;
+      nextEnergy = Math.min(1, nextEnergy + delta / rechargeSec);
+    }
+    return {
+      energy: nextEnergy,
+      active: nextActive,
+      depleted,
+      canEngage: nextActive || nextEnergy >= minPct
+    };
+  }
+
   // If running in Node unit tests without THREE, return pure helpers
   if (!root.THREE || typeof document === 'undefined') {
     return {
@@ -241,6 +272,7 @@
       advanceChronoState,
       advanceTriggerCharge,
       stepShellReload,
+      advanceKatanaDeflect,
       computeGauntletSummary,
       evaluateDuelRoundResult,
       evaluateFfaScoreboard,
@@ -366,9 +398,47 @@
     hitmarkerTimer: 0,
     hitmarkerHeadshot: false,
     hitmarkerKill: false,
-    damageFlashTimer: 0
+    damageFlashTimer: 0,
+    // Burst & Akimbo
+    burstRemaining: 0,
+    burstTimer: 0,
+    burstReady: false,
+    akimboSide: 'right',
+    // Katana melee, slash-dash & time-limited RMB deflect
+    katanaSlashCombo: 0,
+    katanaDashCooldown: 0,
+    katanaDashTimer: 0,
+    katanaDeflectHeld: false,
+    katanaDeflectActive: false,
+    katanaDeflectEnergy: 1.0,
+    katanaDeflectFlash: 0,
+    // Persistent Scorestreaks & special weapons
+    scorestreakId: 'rpg',
+    scorestreakPoints: 0,
+    activeScorestreakWeapon: '',
+    scorestreakAmmo: 0,
+    scorestreakMaxAmmo: 0,
+    minigunSpin: 0,
+    minigunHeld: false,
+    mglDrumAngle: 0,
+    currentLifeKillStreak: 0,
+    nukeState: {
+      active: false,
+      timer: 0,
+      maxTimer: 5.0,
+      ownerName: '',
+      isLocal: false,
+      flashAlpha: 0
+    },
+    lastPlayerPos: new THREE.Vector3(),
+    lastPlayerDir: new THREE.Vector3(0, 0, -1),
+    lastPlayerAirborne: false,
+    lastPlayerSpeed: 0
   };
   let onWeaponXpCb = null;
+  let onCombatKillCb = null;
+  let onNukeEventCb = null;
+  const projectiles = [];
 
   // Reusable scratch vectors (zero per-frame allocations)
   const _rayOrigin = new THREE.Vector3();
@@ -460,16 +530,92 @@
     if (fxPool) fxPool.spawnBurst(pos, colorHex, count, speed);
   }
   // ---------- Loadout, Weapon Slot, True ADS & Full Mobility Management ----------
+  function getScorestreakDef(id) {
+    const key = id || state.scorestreakId || 'rpg';
+    if (LS && LS.SCORESTREAKS && LS.SCORESTREAKS[key]) return LS.SCORESTREAKS[key];
+    return {
+      id: 'rpg', name: 'RPG-7 Launcher', shortName: 'RPG-7', cost: 300,
+      type: 'weapon', weaponId: 'rpg', ammo: 3, fireInterval: 0.95,
+      splashRadius: 7.2, maxDamage: 145, projectileSpeed: 46, rocketJumpImpulse: 22
+    };
+  }
+
+  function makeScorestreakBuild(streakWeaponId) {
+    const def = getScorestreakDef(streakWeaponId);
+    const id = def.id;
+    return {
+      weaponId: id,
+      name: def.name,
+      shortName: def.shortName || id.toUpperCase(),
+      auto: id === 'minigun',
+      isScorestreak: true,
+      attachments: {},
+      damageBody: def.damageBody || def.maxDamage || 120,
+      damageHead: def.damageHead || (def.maxDamage ? def.maxDamage * 1.2 : 200),
+      pellets: 1,
+      pelletSpread: 0,
+      falloffStart: 90,
+      falloffEnd: 240,
+      minFalloffMul: 0.85,
+      armorPen: 1.5,
+      rpm: id === 'minigun' ? 1400 : 80,
+      fireInterval: def.fireInterval || 0.5,
+      magSize: def.ammo || 4,
+      reloadTime: 1.0,
+      range: 280,
+      spreadHip: id === 'minigun' ? 0.022 : 0.002,
+      spreadAds: id === 'minigun' ? 0.014 : 0.0005,
+      spreadMove: id === 'minigun' ? 0.012 : 0.002,
+      recoilPitch: id === 'railcannon' ? 0.055 : id === 'minigun' ? 0.007 : 0.036,
+      recoilYaw: id === 'minigun' ? 0.006 : 0.008,
+      kickbackForce: def.kickbackForce || (id === 'railcannon' ? 10.5 : id === 'rpg' ? 6.5 : 0),
+      kickbackGroundLift: id === 'railcannon' ? 4.8 : id === 'rpg' ? 3.2 : 0,
+      adsTimeSec: 0.22,
+      weightKg: id === 'minigun' ? 7.2 : 5.4,
+      mobilityMult: id === 'minigun' ? 0.80 : 0.88,
+      surfAirMult: 0.90,
+      adsMoveMult: 0.65,
+      opticType: 'iron',
+      adsZoom: 1.15,
+      adsZoomAlt: 0,
+      adsFovMul: 0.88,
+      adsFovMulAlt: 0,
+      adsSensMul: 0.88,
+      adsSensMulAlt: 0,
+      suppressed: false,
+      tracerStyle: id === 'railcannon' ? 'cyan' : 'brass',
+      ammoType: 'standard',
+      isScopedOptic: false,
+      hasChronoKit: false,
+      chronoTimeScale: 1.0,
+      chronoTier: 0,
+      chargeTimeSec: 0,
+      altFireMode: 'ads',
+      reloadMode: 'mag',
+      scorestreakDef: def
+    };
+  }
+
   function normalizeSlotName(slot) {
     if (slot === 'primary' || slot === 'secondary' || slot === 'melee') return slot;
+    if (slot === 'scorestreak' && state.activeScorestreakWeapon) return 'scorestreak';
     if (slot === 'knife') return 'melee';
-    if (slot === 'deagle' || slot === 'pistol') return 'secondary';
-    if (slot === 'rifle' || slot === 'smg' || slot === 'shotgun' || slot === 'awp' || slot === 'revolver') return 'primary';
+    if (LS && LS.WEAPON_SPECS && LS.WEAPON_SPECS[slot]) {
+      return LS.WEAPON_SPECS[slot].slot === 'secondary' ? 'secondary' : 'primary';
+    }
+    if (slot === 'deagle' || slot === 'pistol' || slot === 'g18' || slot === 'akimbo' || slot === 'usps') return 'secondary';
+    if (slot === 'rifle' || slot === 'famas' || slot === 'scar' || slot === 'honeybadger' ||
+        slot === 'smg' || slot === 'mp7' || slot === 'shotgun' || slot === 'sawedoff' ||
+        slot === 'leverslug' || slot === 'awp' || slot === 'dmr' || slot === 'scout' ||
+        slot === 'katana' || slot === 'revolver') return 'primary';
     return 'melee';
   }
 
   function getActiveBuild(slot) {
     const s = normalizeSlotName(slot || state.activeSlot);
+    if (s === 'scorestreak' && state.activeScorestreakWeapon) {
+      return makeScorestreakBuild(state.activeScorestreakWeapon);
+    }
     if (s === 'primary') return state.builds.primary;
     if (s === 'secondary') return state.builds.secondary;
     return null;
@@ -477,12 +623,13 @@
 
   function getActiveWeaponType(slot) {
     const s = normalizeSlotName(slot || state.activeSlot);
+    if (s === 'scorestreak' && state.activeScorestreakWeapon) return state.activeScorestreakWeapon;
     if (s === 'melee') return 'knife';
     const b = getActiveBuild(s);
     return b ? b.weaponId : 'rifle';
   }
 
-  function applyLoadout(loadout, inventory, equippedWeaponSkins) {
+  function applyLoadout(loadout, inventory, equippedWeaponSkins, equippedWeaponCamos) {
     const lo = loadout && typeof loadout === 'object' ? loadout : null;
     const pWid = (lo && lo.primary && lo.primary.weaponId) || 'rifle';
     const sWid = (lo && lo.secondary && lo.secondary.weaponId) || 'deagle';
@@ -490,10 +637,18 @@
     const sAtts = (lo && lo.secondary && lo.secondary.attachments) || {};
 
     state.loadoutName = (lo && lo.name) || 'Custom Loadout';
+    state.scorestreakId = (lo && lo.scorestreakId && LS && LS.SCORESTREAKS && LS.SCORESTREAKS[lo.scorestreakId])
+      ? lo.scorestreakId
+      : (state.scorestreakId || 'rpg');
     state.builds.primary = LS ? LS.resolveWeaponBuild(pWid, pAtts) : makeFallbackBuild(pWid);
     state.builds.secondary = LS ? LS.resolveWeaponBuild(sWid, sAtts) : makeFallbackBuild(sWid);
     state.ammo.primary = state.builds.primary.magSize;
     state.ammo.secondary = state.builds.secondary.magSize;
+    state.burstRemaining = 0;
+    state.burstTimer = 0;
+    state.burstReady = false;
+    state.katanaDeflectHeld = false;
+    state.katanaDeflectActive = false;
     clearReloadState();
     resetCharge();
     state.fireCooldown = 0;
@@ -502,12 +657,17 @@
     if (root.ViewmodelSystem && KS) {
       const resolveSkin = (wt, slotSkinId) => {
         const inv = inventory || KS.createStarterInventory();
+        let item = null;
         const prefId = slotSkinId || (equippedWeaponSkins && equippedWeaponSkins[wt]) || '';
         if (prefId) {
-          const match = (inv.weapons || []).find((w) => w.id === prefId && w.weaponType === wt);
-          if (match) return match;
+          item = (inv.weapons || []).find((w) => w.id === prefId && w.weaponType === wt) || null;
         }
-        return KS.getEquippedWeapon(inv, wt);
+        if (!item) item = KS.getEquippedWeapon(inv, wt);
+        const camoOverride = equippedWeaponCamos && equippedWeaponCamos[wt];
+        if (camoOverride && item) {
+          return { ...item, skinId: camoOverride, floatValue: 0.01, patternSeed: 42 };
+        }
+        return item;
       };
       root.ViewmodelSystem.equipWeaponBuild(resolveSkin(pWid, lo && lo.primary && lo.primary.skinItemId), state.builds.primary.attachments);
       root.ViewmodelSystem.equipWeaponBuild(resolveSkin(sWid, lo && lo.secondary && lo.secondary.skinItemId), state.builds.secondary.attachments);
@@ -779,6 +939,547 @@
       adsMoveMult: build.adsMoveMult,
       adsProgress: state.adsProgress
     };
+  }
+
+  // ---------- Katana Abilities, Persistent Scorestreaks & 3D Projectiles ----------
+  function awardScorestreakPoints(amount) {
+    const pts = Math.max(0, Math.round(Number(amount) || 0));
+    if (!pts) return state.scorestreakPoints;
+    const def = getScorestreakDef(state.scorestreakId);
+    const maxCost = def ? def.cost : 300;
+    const wasReady = state.scorestreakPoints >= maxCost;
+    state.scorestreakPoints = Math.min(maxCost, state.scorestreakPoints + pts);
+    if (!wasReady && state.scorestreakPoints >= maxCost && root.WeaponAudio) {
+      root.WeaponAudio.roundHorn(true);
+    }
+    return state.scorestreakPoints;
+  }
+
+  function resetMatchStreaks() {
+    state.scorestreakPoints = 0;
+    state.activeScorestreakWeapon = '';
+    state.scorestreakAmmo = 0;
+    state.scorestreakMaxAmmo = 0;
+    state.currentLifeKillStreak = 0;
+    state.katanaDashCooldown = 0;
+    state.katanaDeflectEnergy = 1.0;
+    state.katanaDeflectActive = false;
+    state.katanaDeflectHeld = false;
+    state.nukeState = { active: false, timer: 0, maxTimer: 5.0, ownerName: '', isLocal: false, flashAlpha: 0 };
+    clearProjectiles();
+    if (root.ViewmodelSystem && typeof root.ViewmodelSystem.setMatchKillStreak === 'function') {
+      root.ViewmodelSystem.setMatchKillStreak(0);
+    }
+  }
+
+  function resetLifeStreak() {
+    state.currentLifeKillStreak = 0;
+    state.katanaDeflectActive = false;
+    state.katanaDeflectHeld = false;
+    state.minigunHeld = false;
+    state.minigunSpin = 0;
+    if (root.ViewmodelSystem && typeof root.ViewmodelSystem.setMatchKillStreak === 'function') {
+      root.ViewmodelSystem.setMatchKillStreak(0);
+    }
+  }
+
+  function recordCombatKill(info) {
+    const ev = info || {};
+    state.currentLifeKillStreak += 1;
+    // Katana dash cooldown resets instantly on ANY kill!
+    state.katanaDashCooldown = 0;
+    if (root.ViewmodelSystem && typeof root.ViewmodelSystem.setMatchKillStreak === 'function') {
+      root.ViewmodelSystem.setMatchKillStreak(state.currentLifeKillStreak);
+    }
+    // Persistent scorestreak points (kills, headshots, air/surf, deflects)
+    if (!ev.isScorestreakKill) {
+      let pts = ev.isBot ? 75 : 100;
+      if (ev.isHeadshot) pts += 50;
+      if (ev.isAirOrSurf) pts += 25;
+      if (ev.isDeflectKill) pts += 50;
+      awardScorestreakPoints(pts);
+    }
+    if (typeof onCombatKillCb === 'function') {
+      onCombatKillCb({
+        weaponId: ev.weaponId || getActiveWeaponType(),
+        isBot: Boolean(ev.isBot),
+        isHeadshot: Boolean(ev.isHeadshot),
+        distance: Number(ev.distance) || 12,
+        isAirOrSurf: Boolean(ev.isAirOrSurf || state.lastPlayerAirborne),
+        isHighSpeed: Boolean(ev.isHighSpeed || state.lastPlayerSpeed >= 13.5),
+        isDashKill: Boolean(ev.isDashKill),
+        isDeflectKill: Boolean(ev.isDeflectKill),
+        streakCount: state.currentLifeKillStreak
+      });
+    }
+  }
+
+  function recordPvpKill(info) {
+    recordCombatKill({
+      ...(info || {}),
+      isBot: Boolean(info && info.victimIsBot)
+    });
+  }
+
+  function isKatanaEquipped() {
+    const b = getActiveBuild(state.activeSlot);
+    return Boolean(b && b.weaponId === 'katana');
+  }
+
+  function isLocalKatanaDeflecting() {
+    return isKatanaEquipped() && state.katanaDeflectActive && state.katanaDeflectEnergy > 0.001;
+  }
+
+  function setKatanaDeflectHeld(held) {
+    if (!isKatanaEquipped()) {
+      state.katanaDeflectHeld = false;
+      state.katanaDeflectActive = false;
+      return false;
+    }
+    const want = Boolean(held);
+    state.katanaDeflectHeld = want;
+    if (!want) {
+      state.katanaDeflectActive = false;
+    }
+    return state.katanaDeflectHeld;
+  }
+
+  function consumeBurstShot() {
+    if (!state.burstReady) return false;
+    state.burstReady = false;
+    return true;
+  }
+
+  function setMinigunHeld(held) {
+    state.minigunHeld = Boolean(held);
+  }
+
+  function tryKatanaDash(origin, forwardDir, playerObj, solidList) {
+    if (!isKatanaEquipped()) return { dashed: false };
+    if (state.katanaDashCooldown > 0.001) return { dashed: false, onCooldown: true, remaining: state.katanaDashCooldown };
+    const build = getActiveBuild(state.activeSlot);
+    const kCfg = (build && build.katanaConfig) || { dashCooldownSec: 4.5, dashSpeed: 33, dashDamage: 120, dashReach: 6.8 };
+    const dir = forwardDir.clone().normalize();
+    state.katanaDashCooldown = kCfg.dashCooldownSec || 4.5;
+    state.katanaDashTimer = 0.28;
+    state.katanaDeflectActive = false;
+    state.katanaDeflectHeld = false;
+    if (playerObj && playerObj.vel) {
+      const dashSpd = kCfg.dashSpeed || 33;
+      playerObj.vel.copy(dir).multiplyScalar(dashSpd);
+      if (playerObj.grounded && dir.y < 0.25) {
+        playerObj.vel.y = Math.max(playerObj.vel.y, 4.6);
+        playerObj.grounded = false;
+        playerObj.noGround = 0.08;
+      }
+    }
+    if (root.WeaponAudio && typeof root.WeaponAudio.katanaDash === 'function') {
+      root.WeaponAudio.katanaDash();
+    }
+    if (root.ViewmodelSystem && typeof root.ViewmodelSystem.triggerKatanaDash === 'function') {
+      root.ViewmodelSystem.triggerKatanaDash();
+    }
+    // Slash-dash cleave corridor (damages bots & remote players in path)
+    const reach = kCfg.dashReach || 6.8;
+    const dmg = kCfg.dashDamage || 120;
+    const hitResults = [];
+    const evalCleaveTarget = (targetPos, onHit) => {
+      const to = _tmpA.copy(targetPos).sub(origin);
+      const along = to.dot(dir);
+      if (along < -0.5 || along > reach) return;
+      const perpSq = to.lengthSq() - along * along;
+      if (perpSq <= 2.35 * 2.35) {
+        onHit(Math.max(1, along));
+      }
+    };
+    let killedAny = false;
+    if (warmupEnabled) {
+      for (const bot of warmupBots) {
+        if (!bot.alive) continue;
+        const pos = _tmpB.set(bot.pos.x, bot.pos.y + 1.1, bot.pos.z);
+        evalCleaveTarget(pos, (dist) => {
+          bot.hp = Math.max(0, bot.hp - dmg);
+          const ratio = bot.hp / 100;
+          bot.visual.hpFill.scale.x = Math.max(0.001, ratio);
+          bot.visual.hpFill.position.x = -(1 - ratio) * 0.455;
+          spawnBurst(pos, 0x65e7ff, 14, 8.0);
+          if (bot.hp <= 0) {
+            killedAny = true;
+            bot.alive = false;
+            bot.respawnTimer = 2.4;
+            bot.chronoTier = 0;
+            bot.grapplePoint = null;
+            bot.visual.group.visible = false;
+            updateAvatarChronoVisual(bot.visual, 0, 0);
+            updateAvatarGrappleVisual(bot.visual, null, null);
+            warmupKills += 1;
+            triggerHitmarker(false, true);
+            recordCombatKill({
+              weaponId: 'katana',
+              isBot: true,
+              isHeadshot: false,
+              distance: dist,
+              isAirOrSurf: Boolean(playerObj && (!playerObj.grounded || playerObj.surfing)),
+              isDashKill: true
+            });
+            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'katana', weaponId: 'katana', isHeadshot: false, totalKills: warmupKills });
+          } else {
+            triggerHitmarker(false, false);
+          }
+        });
+      }
+    }
+    for (const [uid, av] of remoteAvatars) {
+      if (!av.alive) continue;
+      const pos = _tmpB.set(av.pos.x, av.pos.y + 1.1, av.pos.z);
+      evalCleaveTarget(pos, (dist) => {
+        spawnBurst(pos, 0x65e7ff, 14, 8.0);
+        triggerHitmarker(false, false);
+        hitResults.push({
+          fired: true,
+          slot: 'katana',
+          weaponId: 'katana',
+          origin: origin.clone(),
+          endPoint: pos.clone(),
+          hitKind: 'player',
+          hitId: uid,
+          damage: dmg,
+          isHeadshot: false,
+          isDashKill: true,
+          distance: dist
+        });
+      });
+    }
+    // Spawn sleek cyan katana slash trail beam
+    spawnTracer(origin.clone().addScaledVector(dir, 0.4), origin.clone().addScaledVector(dir, reach * 0.85), 0x65e7ff);
+    return { dashed: true, killedAny, hitResults };
+  }
+
+  function tryInterceptDeflect(incomingOrigin, playerPos, playerDir, solidList) {
+    if (!isLocalKatanaDeflecting()) return false;
+    state.katanaDeflectFlash = 0.24;
+    if (root.WeaponAudio && typeof root.WeaponAudio.katanaDeflect === 'function') {
+      root.WeaponAudio.katanaDeflect();
+    }
+    awardScorestreakPoints(50);
+    const origin = (playerPos ? playerPos.clone() : state.lastPlayerPos.clone());
+    const dir = (playerDir ? playerDir.clone() : state.lastPlayerDir.clone()).normalize();
+    const sparkPos = origin.clone().addScaledVector(dir, 0.85);
+    spawnBurst(sparkPos, 0x65e7ff, 16, 8.5);
+    // Fire deflected high-velocity cyan bolt straight at the player's crosshair!
+    const maxRange = 220;
+    const solidsArr = Array.isArray(solidList) ? solidList : (typeof root.solidMeshes !== 'undefined' ? root.solidMeshes : []);
+    _combatRay.set(origin, dir);
+    _combatRay.near = 0.1;
+    _combatRay.far = maxRange;
+    let closestWorldDist = maxRange;
+    if (solidsArr && solidsArr.length > 0) {
+      const wh = _combatRay.intersectObjects(solidsArr, false);
+      if (wh.length > 0) closestWorldDist = wh[0].distance;
+    }
+    const shootables = [];
+    if (warmupEnabled) {
+      for (const b of warmupBots) {
+        if (b.alive) shootables.push(b.visual.headMesh, b.visual.bodyMesh);
+      }
+    }
+    for (const [, av] of remoteAvatars) {
+      if (av.alive) shootables.push(av.visual.headMesh, av.visual.bodyMesh);
+    }
+    let bestHit = null;
+    if (shootables.length > 0) {
+      const dh = _combatRay.intersectObjects(shootables, false);
+      bestHit = pickBestDynamicHit(dh, closestWorldDist);
+    }
+    const hitDist = bestHit ? bestHit.distance : closestWorldDist;
+    const endPt = origin.clone().addScaledVector(dir, hitDist);
+    spawnTracer(sparkPos, endPt, 0x65e7ff);
+    if (bestHit) {
+      const ud = bestHit.object.userData || {};
+      const deflectDmg = 115;
+      if (typeof ud.botIndex === 'number') {
+        const bot = warmupBots[ud.botIndex];
+        if (bot && bot.alive) {
+          bot.hp = Math.max(0, bot.hp - deflectDmg);
+          const ratio = bot.hp / 100;
+          bot.visual.hpFill.scale.x = Math.max(0.001, ratio);
+          bot.visual.hpFill.position.x = -(1 - ratio) * 0.455;
+          spawnBurst(bestHit.point, 0x65e7ff, 14, 7.5);
+          if (bot.hp <= 0) {
+            bot.alive = false;
+            bot.respawnTimer = 2.4;
+            bot.chronoTier = 0;
+            bot.grapplePoint = null;
+            bot.visual.group.visible = false;
+            updateAvatarChronoVisual(bot.visual, 0, 0);
+            updateAvatarGrappleVisual(bot.visual, null, null);
+            warmupKills += 1;
+            triggerHitmarker(true, true);
+            recordCombatKill({
+              weaponId: 'katana',
+              isBot: true,
+              isHeadshot: ud.hitbox === 'head',
+              distance: hitDist,
+              isDeflectKill: true
+            });
+            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'katana', weaponId: 'katana', isHeadshot: ud.hitbox === 'head', totalKills: warmupKills });
+          } else {
+            triggerHitmarker(false, false);
+          }
+        }
+      } else if (ud.remoteUid && root.NetcodeSystem && typeof root.NetcodeSystem.reportShot === 'function') {
+        spawnBurst(bestHit.point, 0x65e7ff, 14, 7.5);
+        triggerHitmarker(ud.hitbox === 'head', false);
+        root.NetcodeSystem.reportShot({
+          fired: true,
+          slot: 'katana',
+          weaponId: 'katana',
+          origin: sparkPos,
+          endPoint: endPt,
+          hitKind: 'player',
+          hitId: ud.remoteUid,
+          damage: deflectDmg,
+          isHeadshot: ud.hitbox === 'head',
+          isDeflectKill: true
+        });
+      }
+    }
+    return true;
+  }
+
+  function clearProjectiles() {
+    for (const p of projectiles) {
+      if (p.mesh && p.mesh.parent) p.mesh.parent.remove(p.mesh);
+    }
+    projectiles.length = 0;
+  }
+
+  function spawnProjectile(kind, origin, dir, weaponId) {
+    if (!fxGroup) return;
+    const isRpg = kind === 'rpg';
+    const mesh = new THREE.Mesh(
+      isRpg ? new THREE.CylinderGeometry(0.08, 0.11, 0.56, 8) : new THREE.SphereGeometry(0.11, 8, 8),
+      new THREE.MeshBasicMaterial({ color: isRpg ? 0xff7a33 : 0x52ffa0 })
+    );
+    mesh.position.copy(origin);
+    if (isRpg) {
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    }
+    fxGroup.add(mesh);
+    const def = getScorestreakDef(weaponId);
+    const speed = def.projectileSpeed || (isRpg ? 46 : 28);
+    projectiles.push({
+      kind,
+      weaponId,
+      mesh,
+      pos: origin.clone(),
+      vel: dir.clone().normalize().multiplyScalar(speed),
+      age: 0,
+      maxAge: isRpg ? 4.0 : (def.fuseSec || 1.65),
+      bounces: 0,
+      maxBounces: isRpg ? 0 : (def.maxBounces || 3),
+      gravity: isRpg ? 0 : (def.gravity || 22),
+      splashRadius: def.splashRadius || (isRpg ? 7.2 : 6.2),
+      maxDamage: def.maxDamage || (isRpg ? 145 : 125),
+      rocketJumpImpulse: def.rocketJumpImpulse || 0
+    });
+  }
+
+  function detonateExplosion(pos, radius, maxDmg, weaponId, rocketJumpImpulse, playerObj) {
+    if (root.WeaponAudio && typeof root.WeaponAudio.explosion === 'function') {
+      root.WeaponAudio.explosion();
+    }
+    spawnBurst(pos, 0xff8c32, 26, 12.0);
+    spawnBurst(pos, 0xffe49a, 14, 7.5);
+    // Rocket-jump physics impulse for local player!
+    if (playerObj && playerObj.pos && playerObj.vel) {
+      const pCenter = _tmpA.set(playerObj.pos.x, playerObj.pos.y + 1.0, playerObj.pos.z);
+      const dist = pCenter.distanceTo(pos);
+      if (dist < radius && rocketJumpImpulse > 0) {
+        const falloff = Math.max(0.25, 1 - dist / radius);
+        const pushDir = pCenter.sub(pos);
+        if (pushDir.lengthSq() < 0.01) pushDir.set(0, 1, 0);
+        else pushDir.normalize();
+        pushDir.y = Math.max(0.48, pushDir.y + 0.35);
+        pushDir.normalize();
+        playerObj.vel.addScaledVector(pushDir, rocketJumpImpulse * falloff);
+        playerObj.grounded = false;
+        playerObj.noGround = 0.12;
+      }
+    }
+    // Splash damage to Warmup Bots
+    if (warmupEnabled) {
+      for (const bot of warmupBots) {
+        if (!bot.alive) continue;
+        const bPos = _tmpB.set(bot.pos.x, bot.pos.y + 1.0, bot.pos.z);
+        const dist = bPos.distanceTo(pos);
+        if (dist <= radius) {
+          const dmg = Math.round(maxDmg * Math.max(0.28, 1 - (dist / radius) * 0.72));
+          bot.hp = Math.max(0, bot.hp - dmg);
+          const ratio = bot.hp / 100;
+          bot.visual.hpFill.scale.x = Math.max(0.001, ratio);
+          bot.visual.hpFill.position.x = -(1 - ratio) * 0.455;
+          if (bot.hp <= 0) {
+            bot.alive = false;
+            bot.respawnTimer = 2.4;
+            bot.chronoTier = 0;
+            bot.grapplePoint = null;
+            bot.visual.group.visible = false;
+            updateAvatarChronoVisual(bot.visual, 0, 0);
+            updateAvatarGrappleVisual(bot.visual, null, null);
+            warmupKills += 1;
+            triggerHitmarker(false, true);
+            recordCombatKill({ weaponId, isBot: true, isHeadshot: false, distance: dist, isScorestreakKill: true });
+            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: weaponId, weaponId, isHeadshot: false, totalKills: warmupKills });
+          } else {
+            triggerHitmarker(false, false);
+          }
+        }
+      }
+    }
+    // Splash damage to Remote PvP Players / Arena Bots
+    for (const [uid, av] of remoteAvatars) {
+      if (!av.alive) continue;
+      const aPos = _tmpB.set(av.pos.x, av.pos.y + 1.0, av.pos.z);
+      const dist = aPos.distanceTo(pos);
+      if (dist <= radius && root.NetcodeSystem && typeof root.NetcodeSystem.reportShot === 'function') {
+        const dmg = Math.round(maxDmg * Math.max(0.28, 1 - (dist / radius) * 0.72));
+        triggerHitmarker(false, false);
+        root.NetcodeSystem.reportShot({
+          fired: true,
+          slot: weaponId,
+          weaponId,
+          origin: pos.clone(),
+          endPoint: aPos.clone(),
+          hitKind: 'player',
+          hitId: uid,
+          damage: dmg,
+          isHeadshot: false
+        });
+      }
+    }
+  }
+
+  function updateProjectiles(dt, solidList, playerObj) {
+    if (projectiles.length === 0) return;
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i];
+      p.age += dt;
+      if (p.gravity > 0) p.vel.y -= p.gravity * dt;
+      const stepDist = p.vel.length() * dt;
+      const moveDir = _tmpA.copy(p.vel);
+      if (stepDist > 0.0001) moveDir.divideScalar(p.vel.length());
+      let hitWall = null;
+      if (solidList && solidList.length > 0 && stepDist > 0.0001) {
+        _combatRay.set(p.pos, moveDir);
+        _combatRay.near = 0.01;
+        _combatRay.far = stepDist + 0.16;
+        const hits = _combatRay.intersectObjects(solidList, false);
+        if (hits.length > 0) hitWall = hits[0];
+      }
+      // Check direct enemy proximity
+      let directHit = false;
+      if (warmupEnabled) {
+        for (const bot of warmupBots) {
+          if (!bot.alive) continue;
+          if (p.pos.distanceTo(_tmpB.set(bot.pos.x, bot.pos.y + 1.0, bot.pos.z)) < 1.15) {
+            directHit = true;
+            break;
+          }
+        }
+      }
+      if (!directHit) {
+        for (const [, av] of remoteAvatars) {
+          if (!av.alive) continue;
+          if (p.pos.distanceTo(_tmpB.set(av.pos.x, av.pos.y + 1.0, av.pos.z)) < 1.15) {
+            directHit = true;
+            break;
+          }
+        }
+      }
+      let shouldExplode = directHit || p.age >= p.maxAge;
+      if (!shouldExplode && hitWall) {
+        if (p.kind === 'rpg' || p.bounces >= p.maxBounces) {
+          p.pos.copy(hitWall.point);
+          shouldExplode = true;
+        } else {
+          // Ricochet bounce for MGL-6 grenade
+          p.bounces += 1;
+          p.pos.copy(hitWall.point);
+          const n = hitWall.face ? hitWall.face.normal.clone().transformDirection(hitWall.object.matrixWorld).normalize() : new THREE.Vector3(0, 1, 0);
+          p.pos.addScaledVector(n, 0.14);
+          p.vel.reflect(n).multiplyScalar(0.68);
+          if (root.WeaponAudio && typeof root.WeaponAudio.grenadeBounce === 'function') {
+            root.WeaponAudio.grenadeBounce();
+          }
+        }
+      } else if (!shouldExplode) {
+        p.pos.addScaledVector(p.vel, dt);
+      }
+      p.mesh.position.copy(p.pos);
+      if (p.kind === 'rpg' && Math.random() < 0.65) {
+        spawnBurst(p.pos, 0xffaa44, 1, 2.2);
+      }
+      if (shouldExplode) {
+        detonateExplosion(p.pos, p.splashRadius, p.maxDamage, p.weaponId, p.rocketJumpImpulse, playerObj);
+        if (p.mesh && p.mesh.parent) p.mesh.parent.remove(p.mesh);
+        projectiles.splice(i, 1);
+      }
+    }
+  }
+
+  function triggerRemoteNuke(ownerName) {
+    if (state.nukeState.active) return;
+    state.nukeState = {
+      active: true,
+      timer: 5.0,
+      maxTimer: 5.0,
+      ownerName: ownerName || 'ENEMY',
+      isLocal: false,
+      flashAlpha: 0
+    };
+    if (root.WeaponAudio && typeof root.WeaponAudio.nukeSiren === 'function') {
+      root.WeaponAudio.nukeSiren();
+    }
+  }
+
+  function activateScorestreak(ownerName) {
+    const def = getScorestreakDef(state.scorestreakId);
+    if (!def) return { activated: false };
+    if (state.scorestreakPoints < def.cost) {
+      return { activated: false, needed: def.cost - state.scorestreakPoints };
+    }
+    state.scorestreakPoints = 0;
+    if (def.type === 'nuke') {
+      state.nukeState = {
+        active: true,
+        timer: def.countdownSec || 5.0,
+        maxTimer: def.countdownSec || 5.0,
+        ownerName: ownerName || 'RUNNER',
+        isLocal: true,
+        flashAlpha: 0
+      };
+      if (root.WeaponAudio && typeof root.WeaponAudio.nukeSiren === 'function') {
+        root.WeaponAudio.nukeSiren();
+      }
+      if (typeof onNukeEventCb === 'function') {
+        onNukeEventCb({ type: 'launch', ownerName: state.nukeState.ownerName, isLocal: true });
+      }
+      return { activated: true, type: 'nuke', def };
+    }
+    state.activeScorestreakWeapon = def.id;
+    state.scorestreakAmmo = def.ammo || 4;
+    state.scorestreakMaxAmmo = def.ammo || 4;
+    state.lastSlot = state.activeSlot === 'scorestreak' ? 'primary' : state.activeSlot;
+    state.activeSlot = 'scorestreak';
+    clearReloadState();
+    resetCharge();
+    clearScope();
+    state.fireCooldown = 0.25;
+    if (root.ViewmodelSystem) {
+      root.ViewmodelSystem.setActiveSlot(def.id, true);
+    }
+    return { activated: true, type: 'weapon', def };
   }
 
   // ---------- Holographic Targets & Sandbox Range ----------
@@ -1214,6 +1915,10 @@
           updateChronoVisual: updateAvatarChronoVisual,
           updateGrappleVisual: updateAvatarGrappleVisual,
           onDamage: (damage, weapon, isHeadshot) => {
+            if (target && target.uid === playerState.uid && isLocalKatanaDeflecting()) {
+              tryInterceptDeflect(bot.pos, _tmpA.set(playerState.position.x, playerState.position.y + (playerState.eye || 1.6), playerState.position.z), state.lastPlayerDir, solidList);
+              return;
+            }
             if (target && root.NetcodeSystem && typeof root.NetcodeSystem.applyBotDamage === 'function') {
               root.NetcodeSystem.applyBotDamage(bot.uid, target.uid, damage, weapon, Boolean(isHeadshot));
             }
@@ -1377,12 +2082,14 @@
   function tryFire(origin, forwardDir, opts) {
     const o = opts || {};
     const slot = state.activeSlot;
+    const isScorestreak = slot === 'scorestreak' && Boolean(state.activeScorestreakWeapon);
     const isKnife = slot === 'melee';
     const build = getActiveBuild(slot);
     const weaponId = isKnife ? 'knife' : (build ? build.weaponId : 'rifle');
+    const isKatana = weaponId === 'katana';
     const isFan = Boolean(o.fanFire && build && build.altFireMode === 'fan');
 
-    if (state.reloading) {
+    if (state.reloading && !isScorestreak && !isKatana) {
       if (build && build.reloadMode === 'shell') {
         interruptReload();
         return { fired: false, interruptedReload: true };
@@ -1391,7 +2098,179 @@
     }
     if (state.fireCooldown > 0) return { fired: false };
 
-    if (!isKnife) {
+    // Minigun requires brief rotary spin-up before unleashing 1400 RPM
+    if (isScorestreak && weaponId === 'minigun' && state.minigunSpin < 0.55) {
+      return { fired: false, spinningUp: true };
+    }
+
+    // Primary Ronin Katana 3-hit directional slash combo (unlimited uses, wide melee cleave)
+    if (isKatana) {
+      const combo = state.katanaSlashCombo;
+      state.katanaSlashCombo = (state.katanaSlashCombo + 1) % 3;
+      state.fireCooldown = build.fireInterval || 0.36;
+      state.katanaDeflectActive = false;
+      if (root.WeaponAudio) root.WeaponAudio.fireWeapon('katana', { combo });
+      if (root.ViewmodelSystem && typeof root.ViewmodelSystem.triggerKatanaSlash === 'function') {
+        root.ViewmodelSystem.triggerKatanaSlash(combo);
+      }
+      const reach = (build.katanaConfig && build.katanaConfig.slashRange) || 4.8;
+      const dir = forwardDir.clone().normalize();
+      const slashRes = {
+        fired: true,
+        slot: 'katana',
+        loadoutSlot: slot,
+        weaponId: 'katana',
+        weaponName: build.name,
+        origin: origin.clone(),
+        dir: dir.clone(),
+        endPoint: origin.clone().addScaledVector(dir, reach),
+        hitKind: 'world',
+        hitId: null,
+        isHeadshot: false,
+        damage: 0,
+        killed: false,
+        distance: reach,
+        recoilPitch: 0,
+        recoilYaw: 0,
+        kickbackForce: 0,
+        kickbackGroundLift: 0
+      };
+      // Cleave targets, warmup bots, and remote players inside front 60-degree arc
+      const baseDmg = combo === 2 ? 95 : 75;
+      const critDmg = combo === 2 ? 150 : 125;
+      if (warmupEnabled) {
+        for (const bot of warmupBots) {
+          if (!bot.alive) continue;
+          const bPos = _tmpA.set(bot.pos.x, bot.pos.y + 1.15, bot.pos.z);
+          const to = _tmpB.copy(bPos).sub(origin);
+          const dist = to.length();
+          if (dist <= reach && to.divideScalar(Math.max(0.01, dist)).dot(dir) >= 0.45) {
+            const isCrit = Math.abs((origin.y + dir.y * dist) - (bot.pos.y + 1.72)) < 0.42;
+            const dmg = isCrit ? critDmg : baseDmg;
+            bot.hp = Math.max(0, bot.hp - dmg);
+            const ratio = bot.hp / 100;
+            bot.visual.hpFill.scale.x = Math.max(0.001, ratio);
+            bot.visual.hpFill.position.x = -(1 - ratio) * 0.455;
+            slashRes.hitKind = 'bot';
+            slashRes.hitId = bot.name;
+            slashRes.damage += dmg;
+            slashRes.isHeadshot = slashRes.isHeadshot || isCrit;
+            slashRes.distance = dist;
+            spawnBurst(bPos, isCrit ? 0xffb347 : 0x65e7ff, 12, 7.0);
+            if (bot.hp <= 0) {
+              bot.alive = false;
+              bot.respawnTimer = 2.4;
+              bot.chronoTier = 0;
+              bot.grapplePoint = null;
+              bot.visual.group.visible = false;
+              updateAvatarChronoVisual(bot.visual, 0, 0);
+              updateAvatarGrappleVisual(bot.visual, null, null);
+              slashRes.killed = true;
+              warmupKills += 1;
+              triggerHitmarker(isCrit, true);
+              recordCombatKill({
+                weaponId: 'katana',
+                isBot: true,
+                isHeadshot: isCrit,
+                distance: dist,
+                isAirOrSurf: Boolean(o.airborne || o.isSurfing),
+                isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5
+              });
+              if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'katana', weaponId: 'katana', isHeadshot: isCrit, totalKills: warmupKills });
+            } else {
+              triggerHitmarker(isCrit, false);
+            }
+          }
+        }
+      }
+      for (const [uid, av] of remoteAvatars) {
+        if (!av.alive) continue;
+        const aPos = _tmpA.set(av.pos.x, av.pos.y + 1.15, av.pos.z);
+        const to = _tmpB.copy(aPos).sub(origin);
+        const dist = to.length();
+        if (dist <= reach && to.divideScalar(Math.max(0.01, dist)).dot(dir) >= 0.45) {
+          const isCrit = Math.abs((origin.y + dir.y * dist) - (av.pos.y + 1.72)) < 0.42;
+          const dmg = isCrit ? critDmg : baseDmg;
+          slashRes.hitKind = 'player';
+          slashRes.hitId = uid;
+          slashRes.isHeadshot = isCrit;
+          slashRes.damage = dmg;
+          slashRes.distance = dist;
+          slashRes.endPoint.copy(aPos);
+          spawnBurst(aPos, isCrit ? 0xffb347 : 0x65e7ff, 12, 7.0);
+          triggerHitmarker(isCrit, false);
+          break;
+        }
+      }
+      // Also check holo targets within katana slash
+      for (let i = 0; i < targets.length; i++) {
+        const tgt = targets[i];
+        if (!tgt.alive) continue;
+        const tPos = tgt.group.position;
+        const to = _tmpB.copy(tPos).sub(origin);
+        const dist = to.length();
+        if (dist <= reach && to.divideScalar(Math.max(0.01, dist)).dot(dir) >= 0.45) {
+          tgt.alive = false;
+          tgt.group.visible = false;
+          spawnBurst(tPos, 0x65e7ff, 10, 7.0);
+          triggerHitmarker(false, false);
+          if (root.WeaponAudio) root.WeaponAudio.targetShatter(false);
+        }
+      }
+      return slashRes;
+    }
+
+    // Handle Scorestreak Ammo & Projectiles (RPG-7, MGL-6 Grenade Launcher, Hyper-Rail, Minigun)
+    let akimboSide = state.akimboSide;
+    if (isScorestreak) {
+      if (!build || state.scorestreakAmmo <= 0) {
+        state.activeScorestreakWeapon = '';
+        switchSlot('primary', true);
+        return { fired: false, empty: true };
+      }
+      state.scorestreakAmmo -= 1;
+      state.fireCooldown = build.fireInterval;
+      if (weaponId === 'grenadelauncher') {
+        state.mglDrumAngle += Math.PI / 3;
+      }
+      if (root.WeaponAudio) root.WeaponAudio.fireWeapon(weaponId, {});
+      if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil(weaponId, {});
+
+      if (weaponId === 'rpg' || weaponId === 'grenadelauncher') {
+        const dir = forwardDir.clone().normalize();
+        const muzzle = origin.clone().addScaledVector(dir, 0.7);
+        spawnProjectile(weaponId, muzzle, dir, weaponId);
+        const resProj = {
+          fired: true,
+          slot: weaponId,
+          loadoutSlot: 'scorestreak',
+          weaponId,
+          weaponName: build.name,
+          origin: origin.clone(),
+          dir,
+          endPoint: origin.clone().addScaledVector(dir, 40),
+          hitKind: 'world',
+          hitId: null,
+          isHeadshot: false,
+          damage: 0,
+          killed: false,
+          distance: 40,
+          recoilPitch: build.recoilPitch,
+          recoilYaw: (Math.random() - 0.5) * 0.01,
+          kickbackForce: build.kickbackForce || 0,
+          kickbackGroundLift: build.kickbackGroundLift || 0
+        };
+        if (state.scorestreakAmmo <= 0) {
+          setTimeout(() => {
+            if (state.activeSlot === 'scorestreak' && state.scorestreakAmmo <= 0) {
+              state.activeScorestreakWeapon = '';
+              switchSlot('primary', true);
+            }
+          }, 320);
+        }
+        return resProj;
+      }
+    } else if (!isKnife) {
       if (!build) return { fired: false };
       if (state.ammo[slot] <= 0) {
         if (root.WeaponAudio) root.WeaponAudio.dryFire();
@@ -1399,7 +2278,20 @@
         return { fired: false, empty: true };
       }
       state.ammo[slot] -= 1;
-      state.fireCooldown = isFan ? (build.fanFireInterval || 0.21) : build.fireInterval;
+      // 3-round burst queueing (F-33 Burst / FAMAS)
+      if (!o.isBurstFollowup && build.burstCount && build.burstCount > 1) {
+        state.burstRemaining = Math.min(build.burstCount - 1, state.ammo[slot]);
+        state.burstTimer = build.burstDelay || 0.068;
+        state.fireCooldown = build.burstCooldown || 0.30;
+      } else if (o.isBurstFollowup) {
+        state.fireCooldown = state.burstRemaining > 0 ? 0.01 : (build.burstCooldown || 0.26);
+      } else {
+        state.fireCooldown = isFan ? (build.fanFireInterval || 0.21) : build.fireInterval;
+      }
+      if (build.dualWield) {
+        akimboSide = state.akimboSide;
+        state.akimboSide = state.akimboSide === 'right' ? 'left' : 'right';
+      }
       if (weaponId === 'revolver') {
         state.cylinderIndex = (state.cylinderIndex + 1) % Math.max(1, build.magSize || 6);
         state.chargeProgress = 0;
@@ -1407,7 +2299,7 @@
         state.chargeRatchetStage = 0;
       }
       if (root.WeaponAudio) root.WeaponAudio.fireWeapon(weaponId, { suppressed: build.suppressed, fanFire: isFan });
-      if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil(weaponId, { fanFire: isFan });
+      if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil(weaponId, { fanFire: isFan, akimboSide });
     } else {
       state.fireCooldown = o.heavy ? 0.65 : 0.42;
       if (root.ViewmodelSystem) root.ViewmodelSystem.triggerFireRecoil('knife');
@@ -1441,7 +2333,7 @@
       } else {
         baseSpread = build.spreadHip + (build.spreadAds - build.spreadHip) * adsT;
         if (moveSpeed > 3.5) baseSpread += Math.min(build.spreadMove, (moveSpeed - 3.5) * 0.00075) * (1 - adsT * 0.35) * (1 - chronoW * 0.25);
-        if (airborne) baseSpread += ((weaponId === 'awp' && adsT < 0.6) ? 0.018 : (0.0042 * (1 - adsT * 0.35))) * chronoAirMul;
+        if (airborne) baseSpread += (((weaponId === 'awp' || weaponId === 'scout') && adsT < 0.6) ? 0.016 : (0.0042 * (1 - adsT * 0.35))) * chronoAirMul;
         baseSpread += state.spreadBloom;
         state.spreadBloom = Math.min(0.026, state.spreadBloom + (build.auto ? 0.0028 : 0.0052));
       }
@@ -1463,13 +2355,15 @@
     }
 
     const tracerColors = {
-      standard: weaponId === 'awp' ? 0x7ef2ff : weaponId === 'revolver' ? (isFan ? 0xffb85c : 0xffe48a) : weaponId === 'deagle' ? 0xffcf70 : 0xffe8a6,
+      standard: weaponId === 'awp' || weaponId === 'scout' || weaponId === 'railcannon' ? 0x7ef2ff : weaponId === 'revolver' ? (isFan ? 0xffb85c : 0xffe48a) : weaponId === 'deagle' ? 0xffcf70 : 0xffe8a6,
       brass: 0xffd15c,
       crimson: 0xff5e78,
       cyan: 0x4ef2ff,
       stealth: 0
     };
     const tracerCol = isKnife ? 0 : (tracerColors[build.tracerStyle] ?? 0xffe8a6);
+    const kickbackForce = isKnife ? 0 : (isFan && build.fanKickbackForce ? build.fanKickbackForce : (build.kickbackForce || 0));
+    const kickbackGroundLift = isKnife ? 0 : (build.kickbackGroundLift || 0);
 
     const result = {
       fired: true,
@@ -1488,11 +2382,14 @@
       killed: false,
       distance: maxRange,
       recoilPitch: isKnife ? 0 : (isFan ? build.recoilPitch * 0.72 : build.recoilPitch * (1 - state.adsProgress * 0.18)),
-      recoilYaw: isKnife ? 0 : (Math.random() - 0.5) * 2 * build.recoilYaw * (isFan ? 1.85 : (1 - state.adsProgress * 0.22))
+      recoilYaw: isKnife ? 0 : (Math.random() - 0.5) * 2 * build.recoilYaw * (isFan ? 1.85 : (1 - state.adsProgress * 0.22)),
+      kickbackForce,
+      kickbackGroundLift
     };
 
     const playerDmgMap = new Map();
     const botDmgMap = new Map();
+    const isPiercingRail = isScorestreak && weaponId === 'railcannon';
 
     for (let pIdx = 0; pIdx < pellets; pIdx++) {
       _rayOrigin.copy(origin);
@@ -1519,136 +2416,166 @@
       }
 
       let bestHit = null;
+      let pierceHits = null;
       if (shootables.length > 0) {
         const dynHits = _combatRay.intersectObjects(shootables, false);
-        bestHit = pickBestDynamicHit(dynHits, closestWorldDist);
+        if (isPiercingRail) {
+          pierceHits = dynHits.filter((h) => h && h.distance <= closestWorldDist + 0.05);
+          bestHit = pierceHits[0] || null;
+        } else {
+          bestHit = pickBestDynamicHit(dynHits, closestWorldDist);
+        }
       }
 
-      const hitDist = bestHit ? bestHit.distance : closestWorldDist;
+      const hitDist = isPiercingRail ? closestWorldDist : (bestHit ? bestHit.distance : closestWorldDist);
       const endPoint = _tmpB.copy(_rayOrigin).addScaledVector(_rayDir, hitDist).clone();
       if (pIdx === 0) {
         result.dir.copy(_rayDir);
         result.endPoint.copy(endPoint);
-        result.distance = hitDist;
+        result.distance = bestHit ? bestHit.distance : hitDist;
       }
 
       // Draw tracer unless suppressed Subsonic stealth round
       if (!isKnife && tracerCol && (pellets === 1 || pIdx < 4)) {
         _right.crossVectors(_rayDir, _worldUp).normalize();
+        const sideOffset = build.dualWield ? (akimboSide === 'left' ? -0.17 : 0.17) : (state.adsProgress > 0.45 ? 0.0 : 0.14);
         const muzzleStart = _rayOrigin.clone()
           .addScaledVector(_rayDir, 0.55)
-          .addScaledVector(_right, state.adsProgress > 0.45 ? 0.0 : 0.14)
+          .addScaledVector(_right, sideOffset)
           .addScaledVector(_worldUp, state.adsProgress > 0.45 ? -0.03 : -0.10);
         spawnTracer(muzzleStart, endPoint, tracerCol);
+        if (isPiercingRail) {
+          spawnTracer(muzzleStart.clone().addScaledVector(_worldUp, 0.02), endPoint, 0xd46bff);
+        }
       }
 
-      if (!bestHit) {
+      const hitsToProcess = isPiercingRail && pierceHits ? pierceHits : (bestHit ? [bestHit] : []);
+      if (hitsToProcess.length === 0) {
         if (!isKnife && closestWorldDist < maxRange && pIdx < 3) {
-          spawnBurst(endPoint, 0xffe2a0, pellets > 1 ? 2 : 5, 4.2);
+          spawnBurst(endPoint, isPiercingRail ? 0x56f0ff : 0xffe2a0, pellets > 1 ? 2 : 5, 4.2);
         }
         continue;
       }
 
-      const ud = bestHit.object.userData || {};
+      const seenPiercedKeys = isPiercingRail ? new Set() : null;
+      for (const curHit of hitsToProcess) {
+        const ud = curHit.object.userData || {};
 
-      // Case A: Sandbox Range Reset Switch
-      if (ud.isRangeReset) {
-        result.hitKind = 'range_reset';
-        resetTargets();
-        spawnBurst(endPoint, 0x7dff9e, 12, 6.0);
-        if (root.WeaponAudio) root.WeaponAudio.targetShatter(true);
-        break;
-      }
+        // Case A: Sandbox Range Reset Switch
+        if (ud.isRangeReset) {
+          result.hitKind = 'range_reset';
+          resetTargets();
+          spawnBurst(endPoint, 0x7dff9e, 12, 6.0);
+          if (root.WeaponAudio) root.WeaponAudio.targetShatter(true);
+          break;
+        }
 
-      // Case B: Holographic Target (Range or Gauntlet)
-      if (typeof ud.targetIndex === 'number') {
-        const tgt = targets[ud.targetIndex];
-        if (tgt && tgt.alive) {
-          const isHead = ud.targetRole === 'head';
-          tgt.alive = false;
-          tgt.group.visible = false;
-          result.hitKind = 'target';
-          result.hitId = tgt.id;
-          result.isHeadshot = result.isHeadshot || isHead;
-          result.killed = true;
-          spawnBurst(bestHit.point, isHead ? 0xffb347 : 0x56eeff, isHead ? 14 : 10, 7.2);
-          triggerHitmarker(isHead, false);
-          if (root.WeaponAudio) root.WeaponAudio.targetShatter(isHead);
+        // Case B: Holographic Target (Range or Gauntlet)
+        if (typeof ud.targetIndex === 'number') {
+          const tgt = targets[ud.targetIndex];
+          if (tgt && tgt.alive) {
+            const isHead = ud.targetRole === 'head';
+            tgt.alive = false;
+            tgt.group.visible = false;
+            result.hitKind = 'target';
+            result.hitId = tgt.id;
+            result.isHeadshot = result.isHeadshot || isHead;
+            result.killed = true;
+            spawnBurst(curHit.point, isHead ? 0xffb347 : 0x56eeff, isHead ? 14 : 10, 7.2);
+            triggerHitmarker(isHead, false);
+            if (root.WeaponAudio) root.WeaponAudio.targetShatter(isHead);
 
-          if (!isKnife && onWeaponXpCb && LS) {
-            onWeaponXpCb({
-              weaponId,
-              source: isHead ? 'bullseye' : 'target',
-              amount: isHead ? LS.XP_REWARDS.bullseyeHit : LS.XP_REWARDS.targetHit,
-              isHeadshot: isHead
-            });
-          }
-
-          if (targetMode === 'range') {
-            if (!rangeStats.active && rangeStats.hits === 0) {
-              rangeStats.active = true;
-              rangeStats.startTime = performance.now();
+            if (!isKnife && !isScorestreak && onWeaponXpCb && LS) {
+              onWeaponXpCb({
+                weaponId,
+                source: isHead ? 'bullseye' : 'target',
+                amount: isHead ? LS.XP_REWARDS.bullseyeHit : LS.XP_REWARDS.targetHit,
+                isHeadshot: isHead
+              });
             }
-            rangeStats.hits += 1;
-            if (isHead) rangeStats.headshots += 1;
-            if (rangeStats.hits >= rangeStats.total) {
-              rangeStats.active = false;
-              rangeStats.clearTime = (performance.now() - rangeStats.startTime) / 1000;
-              if (root.WeaponAudio) root.WeaponAudio.roundHorn(true);
+
+            if (targetMode === 'range') {
+              if (!rangeStats.active && rangeStats.hits === 0) {
+                rangeStats.active = true;
+                rangeStats.startTime = performance.now();
+              }
+              rangeStats.hits += 1;
+              if (isHead) rangeStats.headshots += 1;
+              if (rangeStats.hits >= rangeStats.total) {
+                rangeStats.active = false;
+                rangeStats.clearTime = (performance.now() - rangeStats.startTime) / 1000;
+                if (root.WeaponAudio) root.WeaponAudio.roundHorn(true);
+              }
+              updateRangeScoreboard();
+            } else if (targetMode === 'gauntlet') {
+              gauntletHits += 1;
+              if (onTargetProgressCb) onTargetProgressCb(getTargetProgress());
             }
-            updateRangeScoreboard();
-          } else if (targetMode === 'gauntlet') {
-            gauntletHits += 1;
-            if (onTargetProgressCb) onTargetProgressCb(getTargetProgress());
           }
+          continue;
         }
-        continue;
-      }
 
-      // Case C: Solo Arena / Sandbox Adaptive Bot (aggregate pellet damage cleanly!)
-      if (typeof ud.botIndex === 'number') {
-        const bot = warmupBots[ud.botIndex];
-        if (bot && bot.alive) {
-          const isHead = ud.hitbox === 'head';
-          const dmg = isKnife
-            ? (o.heavy ? 100 : 55)
-            : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, true, isFan) : (isHead ? build.damageHead : build.damageBody));
-          if (root.BotAISystem && typeof root.BotAISystem.alertBotDamage === 'function') {
-            root.BotAISystem.alertBotDamage(bot, origin);
+        // Case C: Solo Arena / Sandbox Adaptive Bot (aggregate pellet damage cleanly!)
+        if (typeof ud.botIndex === 'number') {
+          if (seenPiercedKeys) {
+            const pk = 'b:' + ud.botIndex;
+            if (seenPiercedKeys.has(pk)) continue;
+            seenPiercedKeys.add(pk);
           }
-          const prev = botDmgMap.get(ud.botIndex) || { bot, dmg: 0, isHead: false, point: bestHit.point };
-          prev.dmg += dmg;
-          prev.isHead = prev.isHead || isHead;
-          prev.point = bestHit.point;
-          botDmgMap.set(ud.botIndex, prev);
+          const bot = warmupBots[ud.botIndex];
+          if (bot && bot.alive) {
+            const isHead = ud.hitbox === 'head';
+            const dmg = isKnife
+              ? (o.heavy ? 100 : 55)
+              : isScorestreak
+                ? (isHead ? build.damageHead : build.damageBody)
+                : (LS ? LS.computeDistanceDamage(build, curHit.distance, isHead, true, isFan) : (isHead ? build.damageHead : build.damageBody));
+            if (root.BotAISystem && typeof root.BotAISystem.alertBotDamage === 'function') {
+              root.BotAISystem.alertBotDamage(bot, origin);
+            }
+            const prev = botDmgMap.get(ud.botIndex) || { bot, dmg: 0, isHead: false, point: curHit.point, dist: curHit.distance };
+            prev.dmg += dmg;
+            prev.isHead = prev.isHead || isHead;
+            prev.point = curHit.point;
+            prev.dist = curHit.distance;
+            botDmgMap.set(ud.botIndex, prev);
+          }
+          continue;
         }
-        continue;
-      }
 
-      // Case D: Remote WebRTC Player Avatar (aggregate pellet damage cleanly!)
-      if (ud.remoteUid) {
-        const av = remoteAvatars.get(ud.remoteUid);
-        if (av && av.alive) {
-          const isHead = ud.hitbox === 'head';
-          const dmg = isKnife
-            ? (o.heavy ? 100 : 55)
-            : (LS ? LS.computeDistanceDamage(build, hitDist, isHead, false, isFan) : (isHead ? build.damageHead : build.damageBody));
-          const hostBot = arenaBotAi.get(ud.remoteUid);
-          if (hostBot && root.BotAISystem && typeof root.BotAISystem.alertBotDamage === 'function') {
-            root.BotAISystem.alertBotDamage(hostBot, origin);
+        // Case D: Remote WebRTC Player Avatar (aggregate pellet damage cleanly!)
+        if (ud.remoteUid) {
+          if (seenPiercedKeys) {
+            const pk = 'p:' + ud.remoteUid;
+            if (seenPiercedKeys.has(pk)) continue;
+            seenPiercedKeys.add(pk);
           }
-          const prev = playerDmgMap.get(ud.remoteUid) || { uid: ud.remoteUid, dmg: 0, isHead: false, point: bestHit.point };
-          prev.dmg += dmg;
-          prev.isHead = prev.isHead || isHead;
-          prev.point = bestHit.point;
-          playerDmgMap.set(ud.remoteUid, prev);
+          const av = remoteAvatars.get(ud.remoteUid);
+          if (av && av.alive) {
+            const isHead = ud.hitbox === 'head';
+            const dmg = isKnife
+              ? (o.heavy ? 100 : 55)
+              : isScorestreak
+                ? (isHead ? build.damageHead : build.damageBody)
+                : (LS ? LS.computeDistanceDamage(build, curHit.distance, isHead, false, isFan) : (isHead ? build.damageHead : build.damageBody));
+            const hostBot = arenaBotAi.get(ud.remoteUid);
+            if (hostBot && root.BotAISystem && typeof root.BotAISystem.alertBotDamage === 'function') {
+              root.BotAISystem.alertBotDamage(hostBot, origin);
+            }
+            const prev = playerDmgMap.get(ud.remoteUid) || { uid: ud.remoteUid, dmg: 0, isHead: false, point: curHit.point, dist: curHit.distance };
+            prev.dmg += dmg;
+            prev.isHead = prev.isHead || isHead;
+            prev.point = curHit.point;
+            prev.dist = curHit.distance;
+            playerDmgMap.set(ud.remoteUid, prev);
+          }
         }
       }
     }
 
     // Resolve aggregated Warmup Bot hits
     for (const entry of botDmgMap.values()) {
-      const { bot, dmg, isHead, point } = entry;
+      const { bot, dmg, isHead, point, dist } = entry;
       bot.hp = Math.max(0, bot.hp - dmg);
       const ratio = bot.hp / 100;
       bot.visual.hpFill.scale.x = Math.max(0.001, ratio);
@@ -1674,7 +2601,7 @@
           root.BotAISystem.recordPlayerKill();
         }
         triggerHitmarker(isHead, true);
-        if (!isKnife && onWeaponXpCb && LS) {
+        if (!isKnife && !isScorestreak && onWeaponXpCb && LS) {
           const baseXp = isHead ? LS.XP_REWARDS.botHeadshot : LS.XP_REWARDS.botKill;
           const amount = (root.BotAISystem && typeof root.BotAISystem.computeBotXpReward === 'function')
             ? root.BotAISystem.computeBotXpReward(baseXp)
@@ -1686,6 +2613,15 @@
             isHeadshot: isHead
           });
         }
+        recordCombatKill({
+          weaponId,
+          isBot: true,
+          isHeadshot: isHead,
+          distance: dist || result.distance,
+          isAirOrSurf: Boolean(o.airborne || o.isSurfing),
+          isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5,
+          isScorestreakKill: isScorestreak
+        });
         if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: weaponId, weaponId, isHeadshot: isHead, totalKills: warmupKills });
       } else {
         triggerHitmarker(isHead, false);
@@ -1703,23 +2639,31 @@
         result.hitId = top.uid;
         result.isHeadshot = top.isHead;
         result.damage = top.dmg;
+        result.distance = top.dist || result.distance;
         spawnBurst(top.point, top.isHead ? 0xffb347 : 0xff4d6d, top.isHead ? 12 : 7, 6.5);
         triggerHitmarker(top.isHead, false);
       }
     }
 
-    // Bolt-action AWP unscopes cleanly on shot so player sees bolt cycle
-    if (weaponId === 'awp' && state.adsHeld) {
+    // Bolt-action AWP / Scout unscopes cleanly on shot so player sees bolt cycle
+    if ((weaponId === 'awp' || weaponId === 'scout') && state.adsHeld) {
       clearScope();
     }
 
-    // Auto-reload when magazine hits 0
-    if (!isKnife && state.ammo[slot] === 0) {
+    // Auto-clear Scorestreak weapon when out of ammo
+    if (isScorestreak && state.scorestreakAmmo <= 0) {
+      setTimeout(() => {
+        if (state.activeSlot === 'scorestreak' && state.scorestreakAmmo <= 0) {
+          state.activeScorestreakWeapon = '';
+          switchSlot('primary', true);
+        }
+      }, 280);
+    } else if (!isKnife && !isScorestreak && state.ammo[slot] === 0) {
       setTimeout(() => {
         if (state.activeSlot === slot && state.ammo[slot] === 0 && !state.reloading) {
           startReload();
         }
-      }, weaponId === 'awp' ? 480 : weaponId === 'revolver' ? 280 : 180);
+      }, (weaponId === 'awp' || weaponId === 'scout') ? 480 : weaponId === 'revolver' ? 280 : 180);
     }
 
     return result;
@@ -1745,11 +2689,106 @@
     if (state.spreadBloom > 0) state.spreadBloom = Math.max(0, state.spreadBloom - dt * 0.055);
     if (state.hitmarkerTimer > 0) state.hitmarkerTimer = Math.max(0, state.hitmarkerTimer - dt);
     if (state.damageFlashTimer > 0) state.damageFlashTimer = Math.max(0, state.damageFlashTimer - dt);
+    if (state.katanaDashCooldown > 0) state.katanaDashCooldown = Math.max(0, state.katanaDashCooldown - dt);
+    if (state.katanaDashTimer > 0) state.katanaDashTimer = Math.max(0, state.katanaDashTimer - dt);
+    if (state.katanaDeflectFlash > 0) state.katanaDeflectFlash = Math.max(0, state.katanaDeflectFlash - dt);
+
+    // Track local player aim/position snapshot for Katana bullet deflection & camo stats
+    if (playerPos) {
+      state.lastPlayerPos.set(playerPos.x, playerPos.y + playerEye, playerPos.z);
+    }
+    if (playerState && typeof playerState.yaw === 'number') {
+      const pitch = typeof playerState.pitch === 'number' ? playerState.pitch : 0;
+      const cp = Math.cos(pitch);
+      state.lastPlayerDir.set(-Math.sin(playerState.yaw) * cp, Math.sin(pitch), -Math.cos(playerState.yaw) * cp).normalize();
+    }
+    if (playerState && playerState.playerObj) {
+      const po = playerState.playerObj;
+      state.lastPlayerAirborne = Boolean(!po.grounded || po.surfing);
+      state.lastPlayerSpeed = po.vel ? Math.hypot(po.vel.x, po.vel.z) : 0;
+    }
+
+    // 3-round burst timer (F-33 Burst / FAMAS)
+    if (state.burstRemaining > 0) {
+      state.burstTimer -= dt;
+      if (state.burstTimer <= 0) {
+        state.burstRemaining -= 1;
+        state.burstTimer = 0.068;
+        state.burstReady = true;
+      }
+    }
+
+    // Katana time-limited bullet deflect gauge (2.0s max active / 5.5s full recharge / 30% min)
+    const activeBuild = getActiveBuild(state.activeSlot);
+    const katanaActive = Boolean(activeBuild && activeBuild.weaponId === 'katana');
+    const deflectStep = advanceKatanaDeflect(
+      state.katanaDeflectEnergy,
+      state.katanaDeflectActive,
+      katanaActive && state.katanaDeflectHeld && playerAlive,
+      dt,
+      activeBuild && activeBuild.katanaConfig
+    );
+    state.katanaDeflectEnergy = deflectStep.energy;
+    state.katanaDeflectActive = deflectStep.active;
+    if (root.ViewmodelSystem && typeof root.ViewmodelSystem.setKatanaState === 'function') {
+      root.ViewmodelSystem.setKatanaState({
+        deflecting: state.katanaDeflectActive,
+        deflectEnergy: state.katanaDeflectEnergy,
+        dashing: state.katanaDashTimer > 0,
+        combo: state.katanaSlashCombo
+      });
+    }
+
+    // Scorestreak Minigun spin-up & MGL-6 drum sync
+    const isMinigun = state.activeSlot === 'scorestreak' && state.activeScorestreakWeapon === 'minigun';
+    if (isMinigun && state.minigunHeld && state.scorestreakAmmo > 0) {
+      state.minigunSpin = Math.min(1, state.minigunSpin + dt / 0.38);
+    } else {
+      state.minigunSpin = Math.max(0, state.minigunSpin - dt * 2.2);
+    }
+    if (root.ViewmodelSystem && typeof root.ViewmodelSystem.setScorestreakAnimState === 'function') {
+      root.ViewmodelSystem.setScorestreakAnimState({
+        minigunSpin: state.minigunSpin,
+        mglDrumAngle: state.mglDrumAngle
+      });
+    }
+
+    // Step 3D RPG Rockets & MGL-6 Bouncing Grenades
+    updateProjectiles(dt, botSolids, playerState && playerState.playerObj);
+
+    // Tactical Nuke 5s Orbital Countdown & Detonation
+    if (state.nukeState.flashAlpha > 0) {
+      state.nukeState.flashAlpha = Math.max(0, state.nukeState.flashAlpha - dt * 0.55);
+    }
+    if (state.nukeState.active) {
+      state.nukeState.timer = Math.max(0, state.nukeState.timer - dt);
+      if (state.nukeState.timer <= 0) {
+        state.nukeState.active = false;
+        state.nukeState.flashAlpha = 1.0;
+        if (root.WeaponAudio && typeof root.WeaponAudio.nukeDetonate === 'function') {
+          root.WeaponAudio.nukeDetonate();
+        }
+        // Vaporize all warmup bots
+        if (warmupEnabled) {
+          for (const bot of warmupBots) {
+            if (!bot.alive) continue;
+            bot.hp = 0;
+            bot.alive = false;
+            bot.respawnTimer = 4.0;
+            bot.visual.group.visible = false;
+            warmupKills += 1;
+            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'nuke', weaponId: 'nuke', isHeadshot: false, totalKills: warmupKills });
+          }
+        }
+        if (typeof onNukeEventCb === 'function') {
+          onNukeEventCb({ type: 'detonate', ownerName: state.nukeState.ownerName, isLocal: state.nukeState.isLocal });
+        }
+      }
+    }
 
     // ADS follows only the input/reload state. Viewmodel draw readiness must
     // never reverse the transition while the player is still holding aim.
-    const activeBuild = getActiveBuild(state.activeSlot);
-    const adsTarget = Boolean(activeBuild && activeBuild.altFireMode !== 'fan' && state.adsHeld && !state.reloading);
+    const adsTarget = Boolean(activeBuild && !katanaActive && activeBuild.altFireMode !== 'fan' && state.adsHeld && !state.reloading);
     const adsDur = activeBuild ? activeBuild.adsTimeSec : 0.18;
     state.adsProgress = advanceAdsProgress(state.adsProgress, adsTarget, dt, adsDur);
 
@@ -1952,6 +2991,10 @@
             updateChronoVisual: updateAvatarChronoVisual,
             updateGrappleVisual: updateAvatarGrappleVisual,
             onDamage: (damage, weapon, isHeadshot) => {
+              if (isLocalKatanaDeflecting()) {
+                tryInterceptDeflect(bot.pos, state.lastPlayerPos, state.lastPlayerDir, botSolids);
+                return;
+              }
               if (root.NetcodeSystem && typeof root.NetcodeSystem.applyWarmupDamage === 'function') {
                 root.NetcodeSystem.applyWarmupDamage(damage, bot.name, weapon, Boolean(isHeadshot));
               }
@@ -2005,6 +3048,7 @@
     advanceChronoState,
     advanceTriggerCharge,
     stepShellReload,
+    advanceKatanaDeflect,
     AVATAR_HITBOX,
     pickBestDynamicHit,
     computeGauntletSummary,
@@ -2020,6 +3064,8 @@
     interruptReload,
     setChargeHeld,
     consumeChargedShot,
+    consumeBurstShot,
+    setMinigunHeld,
     setAdsHeld,
     cycleScopeZoom,
     toggleScope,
@@ -2031,6 +3077,17 @@
     getActiveMobilityProfile,
     getActiveBuild,
     getActiveWeaponType,
+    isKatanaEquipped,
+    isLocalKatanaDeflecting,
+    setKatanaDeflectHeld,
+    tryKatanaDash,
+    tryInterceptDeflect,
+    activateScorestreak,
+    awardScorestreakPoints,
+    triggerRemoteNuke,
+    resetMatchStreaks,
+    resetLifeStreak,
+    recordPvpKill,
     tryFire,
     spawnTracer,
     spawnBurst,
@@ -2042,6 +3099,8 @@
     getTargetProgress,
     setOnTargetProgress: (cb) => { onTargetProgressCb = cb; },
     setOnWeaponXp: (cb) => { onWeaponXpCb = cb; },
+    setOnCombatKill: (cb) => { onCombatKillCb = cb; },
+    setOnNukeEvent: (cb) => { onNukeEventCb = cb; },
     setupWarmupBots,
     clearWarmupBots,
     hasActiveWarmupBots,
@@ -2058,6 +3117,14 @@
     update,
     getState: () => {
       const b = getActiveBuild(state.activeSlot);
+      const isScorestreak = state.activeSlot === 'scorestreak' && Boolean(state.activeScorestreakWeapon);
+      const sDef = getScorestreakDef(state.scorestreakId);
+      const ammoVal = state.activeSlot === 'melee' || (b && b.weaponId === 'katana')
+        ? null
+        : isScorestreak
+          ? state.scorestreakAmmo
+          : (state.ammo[state.activeSlot] ?? null);
+      const magVal = isScorestreak ? state.scorestreakMaxAmmo : (b && b.weaponId !== 'katana' ? b.magSize : null);
       return {
         activeSlot: state.activeSlot,
         weaponId: getActiveWeaponType(state.activeSlot),
@@ -2067,9 +3134,11 @@
         secondaryBuild: state.builds.secondary,
         activeBuild: b,
         auto: Boolean(b && b.auto),
+        isKatana: Boolean(b && b.weaponId === 'katana'),
+        isScorestreak,
         loadoutName: state.loadoutName,
-        ammo: state.activeSlot === 'melee' ? null : (state.ammo[state.activeSlot] ?? null),
-        magSize: b ? b.magSize : null,
+        ammo: ammoVal,
+        magSize: magVal,
         reloading: state.reloading,
         reloadMode: b ? (b.reloadMode || 'mag') : 'mag',
         reloadPhase: state.reloadPhase,
@@ -2095,6 +3164,32 @@
         hitmarkerHeadshot: state.hitmarkerHeadshot,
         hitmarkerKill: state.hitmarkerKill,
         damageFlashTimer: state.damageFlashTimer,
+        currentLifeKillStreak: state.currentLifeKillStreak,
+        katana: {
+          equipped: isKatanaEquipped(),
+          dashCooldown: state.katanaDashCooldown,
+          dashMaxCooldown: 4.5,
+          dashReady: state.katanaDashCooldown <= 0.001,
+          deflectActive: state.katanaDeflectActive,
+          deflectEnergy: state.katanaDeflectEnergy,
+          deflectMinPct: 0.30,
+          deflectCanEngage: state.katanaDeflectActive || state.katanaDeflectEnergy >= 0.30,
+          deflectFlash: state.katanaDeflectFlash
+        },
+        scorestreak: {
+          id: sDef.id,
+          name: sDef.name,
+          shortName: sDef.shortName,
+          type: sDef.type,
+          cost: sDef.cost,
+          points: state.scorestreakPoints,
+          ready: state.scorestreakPoints >= sDef.cost,
+          activeWeapon: state.activeScorestreakWeapon,
+          ammo: state.scorestreakAmmo,
+          maxAmmo: state.scorestreakMaxAmmo,
+          minigunSpin: state.minigunSpin
+        },
+        nuke: { ...state.nukeState },
         warmupKills
       };
     }

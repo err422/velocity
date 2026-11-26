@@ -22,20 +22,21 @@
     let studioEnv = null;
     let rig = null;
     let currentKnifeMesh = null;
-    const ALL_WEAPON_TYPES = ['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol'];
-    let currentWeaponMeshes = { rifle: null, smg: null, shotgun: null, awp: null, revolver: null, deagle: null, pistol: null };
-    let currentWeaponItems = {
-      rifle: KS.createStarterWeapon('rifle'),
-      smg: KS.createStarterWeapon('smg'),
-      shotgun: KS.createStarterWeapon('shotgun'),
-      awp: KS.createStarterWeapon('awp'),
-      revolver: KS.createStarterWeapon('revolver'),
-      deagle: KS.createStarterWeapon('deagle'),
-      pistol: KS.createStarterWeapon('pistol')
-    };
-    let currentWeaponAttachments = { rifle: {}, smg: {}, shotgun: {}, awp: {}, revolver: {}, deagle: {}, pistol: {} };
-    let currentWeaponBuildSig = { rifle: '', smg: '', shotgun: '', awp: '', revolver: '', deagle: '', pistol: '' };
-    let activeSlot = 'knife'; // 'rifle' | 'smg' | 'shotgun' | 'awp' | 'revolver' | 'deagle' | 'pistol' | 'knife'
+    const SCORESTREAK_SLOTS = ['rpg', 'minigun', 'railcannon', 'grenadelauncher'];
+    const ALL_WEAPON_TYPES = [...(Array.isArray(KS.WEAPON_TYPE_IDS) ? KS.WEAPON_TYPE_IDS : ['rifle', 'smg', 'shotgun', 'awp', 'revolver', 'deagle', 'pistol']), ...SCORESTREAK_SLOTS];
+    let currentWeaponMeshes = {};
+    let currentWeaponItems = {};
+    let currentWeaponAttachments = {};
+    let currentWeaponBuildSig = {};
+    for (const wt of ALL_WEAPON_TYPES) {
+      currentWeaponMeshes[wt] = null;
+      currentWeaponItems[wt] = SCORESTREAK_SLOTS.includes(wt)
+        ? { id: 'streak_' + wt, weaponType: wt, skinId: 'tactical_carbon', floatValue: 0.04, patternSeed: 1 }
+        : KS.createStarterWeapon(wt);
+      currentWeaponAttachments[wt] = {};
+      currentWeaponBuildSig[wt] = '';
+    }
+    let activeSlot = 'knife';
     let isScoped = false;
     let adsActive = false;
     let adsProgress = 0;
@@ -43,6 +44,7 @@
     let currentItem = null;
     let currentGlove = KS.createStarterGlove();
     let mainRenderer = null;
+    let matchKillStreak = 0;
 
     const vmOffset = { offsetX: 0, offsetY: 0, offsetZ: 0, fov: 62 };
 
@@ -71,7 +73,19 @@
       revolverReloadPhase: 'none',
       revolverReloadPhaseProgress: 0,
       revolverCylinderIndex: 0,
-      slashT: 1
+      slashT: 1,
+      katanaSlashT: 1,
+      katanaSlashCombo: 0,
+      katanaDashT: 1,
+      katanaDeflectProgress: 0,
+      katanaDeflectActive: false,
+      katanaDeflectEnergy: 1,
+      akimboLeftKick: 0,
+      akimboRightKick: 0,
+      akimboSideToggle: 0,
+      minigunSpinSpeed: 0,
+      minigunSpinAngle: 0,
+      drumAngle: 0
     };
 
     const animState = {
@@ -172,11 +186,15 @@
         typeof arg1 === 'string' && arg2 && typeof arg2 === 'object'
           ? { ...arg2, weaponType: arg2.weaponType || arg1 }
           : arg1;
-      const clean = KS.sanitizeWeaponItem(rawItem);
-      const wt = clean.weaponType;
-      const nextAtts = attachments && typeof attachments === 'object'
-        ? Object.assign({}, attachments)
-        : (currentWeaponAttachments[wt] || {});
+      const rawWt = rawItem && rawItem.weaponType;
+      const isStreak = SCORESTREAK_SLOTS.includes(rawWt);
+      const clean = isStreak
+        ? { id: 'streak_' + rawWt, weaponType: rawWt, skinId: 'tactical_carbon', floatValue: 0.04, patternSeed: 1 }
+        : KS.sanitizeWeaponItem(rawItem);
+      const wt = isStreak ? rawWt : clean.weaponType;
+      const nextAtts = isStreak
+        ? {}
+        : (attachments && typeof attachments === 'object' ? Object.assign({}, attachments) : (currentWeaponAttachments[wt] || {}));
       const sig = buildWeaponSignature(clean, nextAtts);
       currentWeaponItems[wt] = clean;
       currentWeaponAttachments[wt] = nextAtts;
@@ -203,8 +221,37 @@
 
     function ensureWeaponMesh(wt) {
       if (!currentWeaponMeshes[wt] && rig && vmScene) {
-        equipWeaponSkin(currentWeaponItems[wt] || KS.createStarterWeapon(wt), null, currentWeaponAttachments[wt] || {});
+        const fallback = SCORESTREAK_SLOTS.includes(wt)
+          ? { id: 'streak_' + wt, weaponType: wt, skinId: 'tactical_carbon', floatValue: 0.04, patternSeed: 1 }
+          : KS.createStarterWeapon(wt);
+        equipWeaponSkin(currentWeaponItems[wt] || fallback, null, currentWeaponAttachments[wt] || {});
       }
+    }
+
+    function setKatanaState(st) {
+      if (!st) return;
+      weaponAnim.katanaDeflectActive = Boolean(st.deflecting);
+      if (Number.isFinite(st.deflectEnergy)) weaponAnim.katanaDeflectEnergy = st.deflectEnergy;
+    }
+
+    function triggerKatanaSlash(comboIdx) {
+      weaponAnim.katanaSlashT = 0;
+      weaponAnim.katanaSlashCombo = Number.isFinite(comboIdx) ? comboIdx : ((weaponAnim.katanaSlashCombo + 1) % 3);
+      weaponAnim.inspectT = 1;
+    }
+
+    function triggerKatanaDash() {
+      weaponAnim.katanaDashT = 0;
+      weaponAnim.inspectT = 1;
+    }
+
+    function setScorestreakAnimState(st) {
+      if (!st) return;
+      if (Number.isFinite(st.spinRate)) weaponAnim.minigunSpinSpeed = Math.max(0, Math.min(1, st.spinRate));
+    }
+
+    function setMatchKillStreak(streak) {
+      matchKillStreak = Math.max(0, Math.floor(Number(streak) || 0));
     }
 
     function setRevolverState(st) {
@@ -274,20 +321,57 @@
       weaponAnim.inspectT = 1;
       weaponAnim.spinBonus = 0;
       const adsDamp = 1 - adsProgress * 0.48;
-      weaponAnim.recoilKick = (s === 'awp' ? 0.088 : s === 'shotgun' ? 0.078 : s === 'revolver' ? (isFan ? 0.056 : 0.074) : s === 'deagle' ? 0.058 : s === 'smg' ? 0.022 : s === 'pistol' ? 0.028 : 0.030) * adsDamp;
-      weaponAnim.recoilPitch = (s === 'awp' ? 0.24 : s === 'shotgun' ? 0.22 : s === 'revolver' ? (isFan ? 0.20 : 0.30) : s === 'deagle' ? 0.21 : s === 'smg' ? 0.052 : s === 'pistol' ? 0.095 : 0.075) * adsDamp;
+      weaponAnim.recoilKick = (
+        s === 'sawedoff' || s === 'rpg' || s === 'railcannon' ? 0.112
+        : s === 'awp' || s === 'scout' || s === 'leverslug' ? 0.088
+        : s === 'shotgun' || s === 'grenadelauncher' ? 0.082
+        : s === 'revolver' ? (isFan ? 0.056 : 0.078)
+        : s === 'deagle' || s === 'scar' || s === 'dmr' ? 0.056
+        : s === 'smg' || s === 'mp7' || s === 'g18' || s === 'minigun' ? 0.020
+        : s === 'pistol' || s === 'usps' || s === 'akimbo' ? 0.026
+        : 0.030
+      ) * adsDamp;
+      weaponAnim.recoilPitch = (
+        s === 'sawedoff' || s === 'rpg' || s === 'railcannon' ? 0.32
+        : s === 'awp' || s === 'scout' || s === 'leverslug' ? 0.24
+        : s === 'shotgun' || s === 'grenadelauncher' ? 0.23
+        : s === 'revolver' ? (isFan ? 0.20 : 0.30)
+        : s === 'deagle' || s === 'scar' || s === 'dmr' ? 0.19
+        : s === 'smg' || s === 'mp7' || s === 'g18' || s === 'minigun' ? 0.048
+        : s === 'pistol' || s === 'usps' || s === 'akimbo' ? 0.085
+        : 0.072
+      ) * adsDamp;
       weaponAnim.slideKick = 1.0;
       weaponAnim.hammerKick = s === 'revolver' ? 0.0 : 1.0;
       weaponAnim.flashTimer = 0.052;
       if (s === 'revolver' && isFan) {
         weaponAnim.fanT = 0;
       }
-      if (s === 'awp' || s === 'shotgun') {
+      if (s === 'awp' || s === 'shotgun' || s === 'scout' || s === 'leverslug') {
         weaponAnim.boltT = 0;
         weaponAnim.boltCueMask = 0;
       }
+      if (s === 'grenadelauncher') {
+        weaponAnim.drumAngle += Math.PI / 3;
+      }
       const mesh = currentWeaponMeshes[s];
-      if (mesh && mesh.userData.muzzleFlash) {
+      if (s === 'akimbo' && mesh) {
+        const useLeft = Boolean(opts && opts.akimboSide === 'left') || (weaponAnim.akimboSideToggle % 2 === 1);
+        weaponAnim.akimboSideToggle++;
+        if (useLeft) {
+          weaponAnim.akimboLeftKick = 1.0;
+          if (mesh.userData.muzzleFlashLeft) {
+            mesh.userData.muzzleFlashLeft.visible = true;
+            mesh.userData.muzzleFlashLeft.rotation.z = Math.random() * Math.PI * 2;
+          }
+        } else {
+          weaponAnim.akimboRightKick = 1.0;
+          if (mesh.userData.muzzleFlash) {
+            mesh.userData.muzzleFlash.visible = true;
+            mesh.userData.muzzleFlash.rotation.z = Math.random() * Math.PI * 2;
+          }
+        }
+      } else if (mesh && mesh.userData.muzzleFlash) {
         mesh.userData.muzzleFlash.visible = true;
         mesh.userData.muzzleFlash.rotation.z = Math.random() * Math.PI * 2;
       }
@@ -521,20 +605,29 @@
       weaponAnim.recoilPitch = Math.max(0, weaponAnim.recoilPitch - dt * 1.15);
       weaponAnim.slideKick = Math.max(0, weaponAnim.slideKick - dt * (wt === 'deagle' ? 8.5 : 11.5));
       weaponAnim.hammerKick = Math.max(0, weaponAnim.hammerKick - dt * 6.5);
+      weaponAnim.akimboLeftKick = Math.max(0, weaponAnim.akimboLeftKick - dt * 8.0);
+      weaponAnim.akimboRightKick = Math.max(0, weaponAnim.akimboRightKick - dt * 8.0);
+      if (weaponAnim.katanaSlashT < 1) weaponAnim.katanaSlashT = Math.min(1, weaponAnim.katanaSlashT + dt / 0.34);
+      if (weaponAnim.katanaDashT < 1) weaponAnim.katanaDashT = Math.min(1, weaponAnim.katanaDashT + dt / 0.28);
+      const targetDeflect = (wt === 'katana' && weaponAnim.katanaDeflectActive) ? 1 : 0;
+      weaponAnim.katanaDeflectProgress += (targetDeflect - weaponAnim.katanaDeflectProgress) * Math.min(1, dt * 16);
+      if (wt === 'minigun') {
+        weaponAnim.minigunSpinAngle += dt * (2.5 + weaponAnim.minigunSpinSpeed * 28.0);
+      }
+
       if (weaponAnim.flashTimer > 0) {
         weaponAnim.flashTimer -= dt;
-        if (weaponAnim.flashTimer <= 0 && mesh.userData.muzzleFlash) {
-          mesh.userData.muzzleFlash.visible = false;
+        if (weaponAnim.flashTimer <= 0) {
+          if (mesh.userData.muzzleFlash) mesh.userData.muzzleFlash.visible = false;
+          if (mesh.userData.muzzleFlashLeft) mesh.userData.muzzleFlashLeft.visible = false;
         }
       }
       if (weaponAnim.drawT < 1) weaponAnim.drawT = Math.min(1, weaponAnim.drawT + dt / weaponAnim.drawDuration);
       if (weaponAnim.reloadT < 1) weaponAnim.reloadT = Math.min(1, weaponAnim.reloadT + dt / weaponAnim.reloadDuration);
       if (weaponAnim.inspectT < 1) weaponAnim.inspectT = Math.min(1, weaponAnim.inspectT + dt / weaponAnim.inspectDuration);
-      if (weaponAnim.boltT < 1) weaponAnim.boltT = Math.min(1, weaponAnim.boltT + dt / (wt === 'shotgun' ? 0.45 : 0.85));
+      if (weaponAnim.boltT < 1) weaponAnim.boltT = Math.min(1, weaponAnim.boltT + dt / (wt === 'shotgun' || wt === 'leverslug' ? 0.45 : 0.78));
       if (weaponAnim.fanT < 1) weaponAnim.fanT = Math.min(1, weaponAnim.fanT + dt / 0.20);
 
-      // adsProgress is supplied by CombatSystem so camera, overlay, and weapon
-      // all use the exact same per-frame transition value.
       if (adsScopedOptic) {
         const shouldHideForScope = adsProgress >= 0.72 && adsActive;
         if (isScoped !== shouldHideForScope) {
@@ -553,28 +646,36 @@
       evaluateWeaponChoreography(wt, weaponAnim, _weaponOut, true);
       evaluateWeaponReloadAndAction(wt, weaponAnim, _weaponOut, true);
 
-      const adsEase = smoothstep(0, 1, adsProgress);
-      // Weapon draw should not tug the model away from the sight line after ADS starts.
+      // Attach live Katana / Akimbo / Scorestreak FX fields to _weaponOut
+      _weaponOut.katanaTrailOpacity = wt === 'katana'
+        ? Math.max(
+            weaponAnim.katanaSlashT < 1 ? Math.sin(weaponAnim.katanaSlashT * Math.PI) * 0.85 : 0,
+            weaponAnim.katanaDashT < 1 ? Math.sin(weaponAnim.katanaDashT * Math.PI) * 0.95 : 0
+          )
+        : 0;
+      _weaponOut.katanaDeflectAura = wt === 'katana' ? weaponAnim.katanaDeflectProgress * (0.45 + 0.45 * weaponAnim.katanaDeflectEnergy) : 0;
+      _weaponOut.akimboLeftKick = weaponAnim.akimboLeftKick;
+      _weaponOut.akimboRightKick = weaponAnim.akimboRightKick;
+      _weaponOut.minigunSpinAngle = weaponAnim.minigunSpinAngle;
+      _weaponOut.drumAngle = weaponAnim.drumAngle;
+
+      const adsEase = wt === 'katana' || wt === 'akimbo' ? 0 : smoothstep(0, 1, adsProgress);
       const drawDip = (1 - smoothstep(0, 1, weaponAnim.drawT)) * (wt === 'revolver' ? 0.16 : 0.22) * (1 - adsEase);
       const reloadArc = weaponAnim.reloadT < 1 ? Math.sin(weaponAnim.reloadT * Math.PI) : 0;
-      const boltArc = (wt === 'awp' || wt === 'shotgun') && weaponAnim.boltT < 1 ? Math.sin(weaponAnim.boltT * Math.PI) : 0;
-      // Fully stabilize the weapon at full ADS; do not retain surf bank or idle sway.
+      const boltArc = (wt === 'awp' || wt === 'scout' || wt === 'shotgun' || wt === 'leverslug') && weaponAnim.boltT < 1 ? Math.sin(weaponAnim.boltT * Math.PI) : 0;
       const motionDamp = 1 - adsEase;
 
-      // Scale inverse-compensated weapon socket offsets by the same (1 - adsEase)
-      // factor as rightHandPivot offsets so AWP right-hand bolt cycling stays locked.
       _weaponOut.wPosX *= motionDamp;
       _weaponOut.wPosY *= motionDamp;
       _weaponOut.wPosZ *= motionDamp;
 
-      const isPistol = wt === 'deagle' || wt === 'pistol' || wt === 'revolver';
-      const hipRx = wt === 'revolver' ? 0.132 : isPistol ? 0.138 : wt === 'awp' ? 0.168 : wt === 'smg' ? 0.148 : 0.162;
-      const hipRy = wt === 'revolver' ? -0.148 : isPistol ? -0.152 : wt === 'awp' ? -0.172 : wt === 'smg' ? -0.158 : -0.166;
-      const hipRz = wt === 'revolver' ? -0.305 : isPistol ? -0.320 : wt === 'awp' ? -0.252 : wt === 'smg' ? -0.285 : -0.268;
+      const isPistol = wt === 'deagle' || wt === 'pistol' || wt === 'revolver' || wt === 'g18' || wt === 'usps';
+      const isLong = wt === 'awp' || wt === 'dmr' || wt === 'scout' || wt === 'railcannon' || wt === 'rpg';
+      const hipRx = wt === 'akimbo' ? 0.135 : wt === 'katana' ? 0.165 : wt === 'revolver' ? 0.132 : isPistol ? 0.138 : isLong ? 0.168 : (wt === 'smg' || wt === 'mp7') ? 0.148 : 0.162;
+      const hipRy = wt === 'akimbo' ? -0.145 : wt === 'katana' ? -0.160 : wt === 'revolver' ? -0.148 : isPistol ? -0.152 : isLong ? -0.172 : (wt === 'smg' || wt === 'mp7') ? -0.158 : -0.166;
+      const hipRz = wt === 'akimbo' ? -0.320 : wt === 'katana' ? -0.240 : wt === 'revolver' ? -0.305 : isPistol ? -0.320 : isLong ? -0.252 : (wt === 'smg' || wt === 'mp7') ? -0.285 : -0.268;
 
-      // Apply the animated weapon socket transform before solving its actual
-      // optic point; the old gripCenter/eyeY shortcut ignored X/Z and rotation.
-      const adsRz = isPistol ? -0.245 : wt === 'smg' ? -0.205 : -0.190;
+      const adsRz = isPistol ? -0.245 : (wt === 'smg' || wt === 'mp7') ? -0.205 : -0.190;
       applyWeaponSocketTransform(mesh, wt, _weaponOut);
       const adsPivot = solveAdsPivotPosition(mesh, adsRz);
 
@@ -627,6 +728,9 @@
 
     function update(dt, playerState, sharedAdsProgress, chronoWeight) {
       if (!rig || !currentItem) return;
+      if (typeof VI.updateDynamicSkinMaterials === 'function') {
+        VI.updateDynamicSkinMaterials(dt, matchKillStreak);
+      }
       if (Number.isFinite(sharedAdsProgress)) {
         adsProgress = Math.max(0, Math.min(1, sharedAdsProgress));
       }
@@ -728,6 +832,11 @@
       triggerFireRecoil,
       triggerReload,
       setRevolverState,
+      setKatanaState,
+      triggerKatanaSlash,
+      triggerKatanaDash,
+      setScorestreakAnimState,
+      setMatchKillStreak,
       setScoped,
       setAdsState,
       getAdsProgress: () => adsProgress,
@@ -882,171 +991,16 @@
     }
 
     function buildRunnerOperatorModel(weaponItem, attachments, gloveItem, targetRenderer) {
-      const rootGrp = new THREE.Group();
-      const upperBody = new THREE.Group();
-      rootGrp.add(upperBody);
-
-      // PBR materials with clear roughness/metalness separation
-      const suitMat = new THREE.MeshStandardMaterial({ color: 0x131d29, roughness: 0.82, metalness: 0.14 });
-      const armorMat = new THREE.MeshStandardMaterial({ color: 0x1e2c3c, roughness: 0.48, metalness: 0.42 });
-      const darkTrimMat = new THREE.MeshStandardMaterial({ color: 0x0b1118, roughness: 0.62, metalness: 0.28 });
-      const bootMat = new THREE.MeshStandardMaterial({ color: 0x0d131b, roughness: 0.72, metalness: 0.18 });
-      const visorMat = new THREE.MeshStandardMaterial({
-        color: 0x102838,
-        emissive: 0x2692b8,
-        emissiveIntensity: 0.65,
-        roughness: 0.14,
-        metalness: 0.92
-      });
-      const cyanAccentMat = new THREE.MeshStandardMaterial({
-        color: 0x65e7ff,
-        emissive: 0x4fd2ef,
-        emissiveIntensity: 0.9,
-        roughness: 0.25,
-        metalness: 0.5
-      });
-      const amberAccentMat = new THREE.MeshStandardMaterial({
-        color: 0xffb84d,
-        emissive: 0xd98a26,
-        emissiveIntensity: 0.72,
-        roughness: 0.3,
-        metalness: 0.55
-      });
-
-      // Procedural glove texture matching player's equipped glove skin!
-      const cleanGlove = KS.sanitizeGloveItem(gloveItem || KS.createStarterGlove());
-      const glovePaint = paintGloveToCanvases(cleanGlove, 256);
-      const gloveMap = new THREE.CanvasTexture(glovePaint.albedoCanvas);
-      gloveMap.colorSpace = THREE.SRGBColorSpace;
-      const gloveMat = new THREE.MeshStandardMaterial({
-        map: gloveMap,
-        roughness: 0.64,
-        metalness: 0.22
-      });
-
-      const addPart = (parent, geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => {
-        const m = new THREE.Mesh(geo, mat);
-        m.position.set(x, y, z);
-        m.rotation.set(rx, ry, rz);
-        parent.add(m);
-        return m;
-      };
-
-      // Grounded tactical stance: pivot at y = 0 (soles flush with studio floor)
-      // Left & Right Legs + Boots + Knee Pads
-      for (const side of [-1, 1]) {
-        const lx = side * 0.135;
-        const lz = side < 0 ? 0.035 : -0.04;
-        // Boot sole + upper
-        addPart(rootGrp, new THREE.BoxGeometry(0.11, 0.08, 0.22), bootMat, lx, 0.04, lz + 0.03, 0, side * 0.1, 0);
-        addPart(rootGrp, new THREE.CylinderGeometry(0.056, 0.062, 0.12, 12), bootMat, lx, 0.12, lz);
-        // Lower leg / greave
-        addPart(rootGrp, new THREE.CylinderGeometry(0.064, 0.056, 0.34, 12), suitMat, lx, 0.34, lz, side < 0 ? -0.05 : 0.06, 0, 0);
-        // Armored knee pad
-        addPart(rootGrp, new THREE.BoxGeometry(0.095, 0.10, 0.07), armorMat, lx, 0.51, lz + 0.045);
-        // Upper thigh
-        addPart(rootGrp, new THREE.CylinderGeometry(0.082, 0.068, 0.36, 12), suitMat, lx * 0.96, 0.71, lz * 0.6);
-        // Side thigh rig pouch / holster
-        addPart(rootGrp, new THREE.BoxGeometry(0.045, 0.15, 0.10), darkTrimMat, lx + side * 0.075, 0.70, lz * 0.5);
+      if (typeof VI.buildTacticalOperatorModel === 'function') {
+        return VI.buildTacticalOperatorModel({
+          detail: 'showcase',
+          weaponItem,
+          attachments,
+          gloveItem,
+          targetRenderer
+        });
       }
-
-      // Pelvis & Tactical Utility Belt
-      addPart(rootGrp, new THREE.BoxGeometry(0.32, 0.15, 0.20), suitMat, 0, 0.92, 0);
-      addPart(rootGrp, new THREE.BoxGeometry(0.35, 0.065, 0.225), darkTrimMat, 0, 0.96, 0);
-      addPart(rootGrp, new THREE.BoxGeometry(0.07, 0.048, 0.03), amberAccentMat, 0, 0.96, 0.118);
-
-      // Upper Body (subtle breathing animation group pivoted at waist)
-      upperBody.position.set(0, 0.98, 0);
-
-      // Torso Core + Armored Plate Carrier
-      addPart(upperBody, new THREE.BoxGeometry(0.34, 0.44, 0.21), suitMat, 0, 0.24, 0);
-      addPart(upperBody, new THREE.BoxGeometry(0.31, 0.35, 0.245), armorMat, 0, 0.26, 0.01);
-      // Chest tactical mag pouches (3 across front)
-      for (let i = -1; i <= 1; i++) {
-        addPart(upperBody, new THREE.BoxGeometry(0.068, 0.11, 0.042), darkTrimMat, i * 0.082, 0.16, 0.145);
-      }
-      // Collar guard + velocity chest chevron light
-      addPart(upperBody, new THREE.CylinderGeometry(0.11, 0.14, 0.07, 14), armorMat, 0, 0.46, 0.0);
-      addPart(upperBody, new THREE.BoxGeometry(0.11, 0.018, 0.02), cyanAccentMat, 0, 0.36, 0.138);
-      addPart(upperBody, new THREE.BoxGeometry(0.055, 0.014, 0.02), amberAccentMat, 0.095, 0.39, 0.136);
-
-      // Tactical Backpack / Thruster Spine Pack
-      addPart(upperBody, new THREE.BoxGeometry(0.24, 0.32, 0.11), darkTrimMat, 0, 0.27, -0.155);
-      addPart(upperBody, new THREE.BoxGeometry(0.03, 0.18, 0.02), cyanAccentMat, -0.07, 0.27, -0.21);
-      addPart(upperBody, new THREE.BoxGeometry(0.03, 0.18, 0.02), cyanAccentMat, 0.07, 0.27, -0.21);
-
-      // Neck & Tactical Ballistic Helmet + Reflective Visor
-      const headGrp = new THREE.Group();
-      headGrp.position.set(0, 0.56, 0.01);
-      headGrp.rotation.y = -0.14;
-      upperBody.add(headGrp);
-
-      addPart(headGrp, new THREE.CylinderGeometry(0.062, 0.07, 0.10, 12), darkTrimMat, 0, -0.03, 0);
-      // Lower face balaclava / respirator
-      addPart(headGrp, new THREE.SphereGeometry(0.105, 18, 16), darkTrimMat, 0, 0.06, 0.005);
-      // Helmet dome shell
-      const dome = new THREE.Mesh(
-        new THREE.SphereGeometry(0.126, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
-        armorMat
-      );
-      dome.position.set(0, 0.08, -0.005);
-      headGrp.add(dome);
-      // Helmet brim + NVG shroud mount + side rails + ear comms
-      addPart(headGrp, new THREE.BoxGeometry(0.055, 0.045, 0.035), darkTrimMat, 0, 0.145, 0.118, -0.2, 0, 0);
-      addPart(headGrp, new THREE.BoxGeometry(0.025, 0.014, 0.02), amberAccentMat, 0, 0.155, 0.135);
-      addPart(headGrp, new THREE.BoxGeometry(0.036, 0.075, 0.075), darkTrimMat, -0.126, 0.075, -0.01);
-      addPart(headGrp, new THREE.BoxGeometry(0.036, 0.075, 0.075), darkTrimMat, 0.126, 0.075, -0.01);
-      // Curved ballistic visor
-      const visor = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.114, 0.110, 0.062, 18, 1, true, -Math.PI * 0.36, Math.PI * 0.72),
-        visorMat
-      );
-      visor.position.set(0, 0.088, 0.018);
-      headGrp.add(visor);
-
-      // Shoulders + Articulated Arms in COD Low-Ready Weapon Hold
-      for (const side of [-1, 1]) {
-        // Armored shoulder pauldron
-        addPart(upperBody, new THREE.SphereGeometry(0.086, 14, 12), armorMat, side * 0.22, 0.40, 0);
-        addPart(upperBody, new THREE.BoxGeometry(0.018, 0.06, 0.07), side > 0 ? amberAccentMat : cyanAccentMat, side * 0.28, 0.40, 0.01);
-      }
-
-      // Right arm (trigger hand tucked near right chest / pistol grip)
-      addPart(upperBody, new THREE.CylinderGeometry(0.054, 0.048, 0.26, 12), suitMat, -0.23, 0.26, 0.04, -0.35, 0, 0.22);
-      addPart(upperBody, new THREE.CylinderGeometry(0.046, 0.040, 0.24, 12), suitMat, -0.17, 0.15, 0.17, -1.18, 0.22, -0.18);
-      addPart(upperBody, new THREE.BoxGeometry(0.068, 0.062, 0.082), gloveMat, -0.10, 0.15, 0.26, 0.1, 0.3, 0);
-
-      // Left arm (support hand reaching forward under handguard)
-      addPart(upperBody, new THREE.CylinderGeometry(0.054, 0.048, 0.26, 12), suitMat, 0.23, 0.26, 0.06, -0.52, 0, -0.26);
-      addPart(upperBody, new THREE.CylinderGeometry(0.046, 0.040, 0.25, 12), suitMat, 0.15, 0.18, 0.20, -1.25, -0.45, 0.24);
-      addPart(upperBody, new THREE.BoxGeometry(0.068, 0.062, 0.082), gloveMat, 0.075, 0.20, 0.285, 0.05, -0.3, 0);
-
-      // Live 3D Equipped Primary Weapon held across chest!
-      const weaponPivot = new THREE.Group();
-      weaponPivot.position.set(0.02, 0.20, 0.295);
-      upperBody.add(weaponPivot);
-
-      const cleanWep = KS.sanitizeWeaponItem(weaponItem || KS.createStarterWeapon('rifle'));
-      const wepModel = buildWeaponModel(cleanWep, targetRenderer, attachments || {});
-      // Orient weapon across chest barrel pointing right-downward (COD low-ready hero pose)
-      wepModel.rotation.set(0.14, Math.PI * 0.44, -0.22);
-      const wBox = new THREE.Box3().setFromObject(wepModel);
-      const wCenter = new THREE.Vector3();
-      const wSize = new THREE.Vector3();
-      wBox.getCenter(wCenter);
-      wBox.getSize(wSize);
-      const wMax = Math.max(wSize.x, wSize.y, wSize.z, 0.2);
-      const isShort = cleanWep.weaponType === 'smg' || cleanWep.weaponType === 'deagle' || cleanWep.weaponType === 'pistol' || cleanWep.weaponType === 'revolver';
-      const targetLen = isShort ? 0.56 : (cleanWep.weaponType === 'awp' ? 0.88 : 0.74);
-      const wScale = targetLen / wMax;
-      wepModel.scale.setScalar(wScale);
-      wepModel.position.set(-wCenter.x * wScale, -wCenter.y * wScale, -wCenter.z * wScale);
-      weaponPivot.add(wepModel);
-
-      rootGrp.userData.upperBody = upperBody;
-      rootGrp.userData.headGrp = headGrp;
-      rootGrp.userData.wepModel = wepModel;
-      return rootGrp;
+      return new THREE.Group();
     }
 
     function ensureInit(canvas) {
@@ -1532,17 +1486,20 @@
       if (!active) return;
       const dt = Math.min(0.05, (now - lastTick) / 1000);
       lastTick = now;
+      if (typeof VI.updateDynamicSkinMaterials === 'function') {
+        VI.updateDynamicSkinMaterials(dt, 3);
+      }
 
       if (previewMode === 'runner') {
         if (!dragging) {
-          // Gentle alive idle sway around current user yaw
+          // Gentle alive idle sway around current user yaw (upperBody is child of pelvisGrp at y = 0.08)
           const breathe = Math.sin(now * 0.0018);
           if (runnerMesh && runnerMesh.userData.upperBody) {
-            runnerMesh.userData.upperBody.position.y = 0.98 + breathe * 0.006;
-            runnerMesh.userData.upperBody.rotation.x = breathe * 0.008;
+            runnerMesh.userData.upperBody.position.y = 0.08 + breathe * 0.005;
+            runnerMesh.userData.upperBody.rotation.x = breathe * 0.007;
           }
           if (runnerMesh && runnerMesh.userData.headGrp) {
-            runnerMesh.userData.headGrp.rotation.y = -0.14 + Math.sin(now * 0.0007) * 0.06;
+            runnerMesh.userData.headGrp.rotation.y = -0.10 + Math.sin(now * 0.0007) * 0.05;
           }
         }
         if (runnerMesh && runnerMesh.userData.wepModel && runnerMesh.userData.wepModel.userData && runnerMesh.userData.wepModel.userData.chronoGyro) {
