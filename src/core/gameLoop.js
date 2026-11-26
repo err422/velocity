@@ -292,6 +292,21 @@ function render(dt){
     ViewmodelSystem.update(dt,p,combatFrameState.adsProgress,combatFrameState.chronoWeight||0);
     updateCombatHud();
   }
+  if(window.MobileControls){
+    const overlayHidden=overlay.style.display==='none';
+    const voting=typeof isMatchOverVoting==='function'&&isMatchOverVoting();
+    const touchVis=window.MobileControls.updateVisibility({inLevel,overlayHidden,voting});
+    if(touchVis&&inLevel){
+      window.MobileControls.syncHudState({
+        combat:combatFrameState,
+        netcode:NetcodeSystem.getState(),
+        isDedicatedSurf:isDedicatedSurfMap(),
+        hasCourse:Boolean(course),
+        burstCd,
+        grappleActive:Boolean(p.grapple)
+      });
+    }
+  }
   document.body.dataset.runStarted=p.runStarted?'1':'0';
   if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)toast.style.opacity=0;}
   if(weaponXpToastTimer>0){weaponXpToastTimer-=dt;if(weaponXpToastTimer<=0&&weaponXpToastEl)weaponXpToastEl.style.opacity='0';}

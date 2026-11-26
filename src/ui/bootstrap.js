@@ -54,6 +54,9 @@ function showMenu(){
   pauseEl.style.display='none';
   arenaScoreboardEl.style.display='none';
   awpScopeOverlayEl.style.display='none';
+  if(window.MobileControls&&typeof window.MobileControls.updateVisibility==='function'){
+    window.MobileControls.updateVisibility({inLevel:false,overlayHidden:false,voting:false});
+  }
   document.body.dataset.state='title';
   refreshTodayButton();
   refreshMenuCourseStats();
@@ -95,6 +98,9 @@ function showPause(){
   renderQuickLoadoutStrips();
   renderBotDifficultyUi();
   renderArenaHudStatic();
+  if(window.MobileControls&&typeof window.MobileControls.updateVisibility==='function'){
+    window.MobileControls.updateVisibility({inLevel,overlayHidden:false,voting:false});
+  }
   document.body.dataset.state='paused';
 }
 
@@ -126,7 +132,11 @@ function enter(){
   render(0.016);
   renderer.render(scene,camera);
   if(inLevel&&!pauseWorldViewActive)ViewmodelSystem.render(renderer);
-  if(isMatchOverVoting()){
+  const useTouchControls=Boolean(window.MobileControls&&typeof window.MobileControls.isTouchModeEnabled==='function'&&window.MobileControls.isTouchModeEnabled());
+  if(window.MobileControls&&typeof window.MobileControls.updateVisibility==='function'){
+    window.MobileControls.updateVisibility({inLevel,overlayHidden:true,voting:isMatchOverVoting()});
+  }
+  if(isMatchOverVoting()||useTouchControls){
     if(document.pointerLockElement===renderer.domElement){
       document.exitPointerLock?.();
     }
@@ -827,6 +837,23 @@ document.querySelectorAll('[data-ch-style]').forEach(btn=>{
 document.querySelectorAll('[data-ch-color]').forEach(btn=>{
   btn.onclick=()=>commitSettings({...window.activeSettings,crosshair:{...window.activeSettings.crosshair,color:btn.dataset.chColor}});
 });
+if(window.MobileControls){
+  window.MobileControls.init();
+  const commitTouch=(patch)=>{
+    window.MobileControls.setPrefs(patch);
+    renderSettingsPanel();
+  };
+  document.querySelectorAll('[data-touch-mode]').forEach(btn=>{
+    btn.onclick=()=>commitTouch({mode:btn.dataset.touchMode});
+  });
+  const tsRange=$('setTouchSensRange');
+  if(tsRange)tsRange.addEventListener('input',()=>commitTouch({sensitivity:Number(tsRange.value)}));
+  const tScRange=$('setTouchScaleRange');
+  if(tScRange)tScRange.addEventListener('input',()=>commitTouch({scale:Number(tScRange.value)}));
+  const lfOn=$('setTouchLeftFireOn'),lfOff=$('setTouchLeftFireOff');
+  if(lfOn)lfOn.onclick=()=>commitTouch({leftFire:true});
+  if(lfOff)lfOff.onclick=()=>commitTouch({leftFire:false});
+}
 $('resume').onclick=enter;
 $('restart').onclick=()=>{resetPlayer();enter();};
 $('pauseArchive').onclick=()=>openDailyHub(level.meta&&level.meta.dateKey?level.meta.dateKey:DailyCourseGen.getTodayDateKey());

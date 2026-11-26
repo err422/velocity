@@ -5077,5 +5077,738 @@
     }
   }
 
+  /* =====================================================================
+     MOBILE & IPAD MULTI-TOUCH CONTROLS (CoD Mobile / MW4 Tactical Style)
+     Zero backdrop-filter over WebGL · 44px+ ergonomic thumb targets
+     ===================================================================== */
+  canvas {
+    touch-action: none;
+  }
+
+  #mobileControls {
+    --mt-scale: 1;
+    --mt-auto-scale: 1;
+    --mt-s: calc(var(--mt-scale, 1) * var(--mt-auto-scale, 1));
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+  }
+
+  /* Right-half camera look-pad (sits beneath right action buttons) */
+  .mt-look-zone {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 58vw;
+    height: 100vh;
+    z-index: 1;
+    pointer-events: auto;
+    touch-action: none;
+  }
+
+  /* Left-bottom virtual analog movement thumbstick zone */
+  .mt-move-zone {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 42vw;
+    height: 58vh;
+    z-index: 2;
+    pointer-events: auto;
+    touch-action: none;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding-left: calc(28px + env(safe-area-inset-left));
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+
+  .mt-joy-base {
+    position: relative;
+    width: calc(122px * var(--mt-s));
+    height: calc(122px * var(--mt-s));
+    border-radius: 50%;
+    background: rgba(8, 15, 25, 0.52);
+    border: 1.5px solid rgba(154, 210, 232, 0.36);
+    box-shadow: inset 0 0 0 1px rgba(101, 231, 255, 0.1), 0 6px 20px rgba(0, 0, 0, 0.42);
+    display: grid;
+    place-items: center;
+    will-change: transform;
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .mt-joy-base.active {
+    background: rgba(8, 19, 32, 0.68);
+    border-color: rgba(101, 231, 255, 0.72);
+  }
+  .mt-joy-base.sprint-lock {
+    border-color: #ffb84d;
+    box-shadow: inset 0 0 0 1px rgba(255, 184, 77, 0.35), 0 0 18px rgba(255, 184, 77, 0.25);
+  }
+
+  .mt-joy-tick {
+    position: absolute;
+    background: rgba(154, 210, 232, 0.48);
+    pointer-events: none;
+  }
+  .mt-joy-tick.top { top: 7px; left: 50%; width: 2px; height: 7px; transform: translateX(-50%); }
+  .mt-joy-tick.bottom { bottom: 7px; left: 50%; width: 2px; height: 7px; transform: translateX(-50%); }
+  .mt-joy-tick.left { left: 7px; top: 50%; width: 7px; height: 2px; transform: translateY(-50%); }
+  .mt-joy-tick.right { right: 7px; top: 50%; width: 7px; height: 2px; transform: translateY(-50%); }
+  .mt-joy-base.active .mt-joy-tick {
+    background: rgba(101, 231, 255, 0.78);
+  }
+
+  .mt-joy-knob {
+    width: calc(52px * var(--mt-s));
+    height: calc(52px * var(--mt-s));
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 35%, rgba(208, 245, 255, 0.92), rgba(74, 186, 214, 0.85) 68%, rgba(20, 62, 86, 0.94) 100%);
+    border: 1.5px solid rgba(226, 250, 255, 0.85);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+    will-change: transform;
+    pointer-events: none;
+  }
+  .mt-joy-base.sprint-lock .mt-joy-knob {
+    background: radial-gradient(circle at 38% 35%, #fff0cc, #ffb84d 70%, #8a4a12 100%);
+    border-color: #fff3d6;
+  }
+
+  /* Top-Right Compact Utility Toolbar (Pause, Scoreboard, Inspect, Retry) */
+  .mt-top-utils {
+    position: absolute;
+    top: calc(10px + env(safe-area-inset-top));
+    right: calc(12px + env(safe-area-inset-right));
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: auto;
+  }
+
+  #mobileControls .mt-util-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    margin: 0;
+    border-radius: 6px;
+    border: 1px solid rgba(154, 206, 228, 0.36);
+    background: rgba(8, 15, 25, 0.78);
+    color: #d9f3ff;
+    display: grid;
+    place-items: center;
+    touch-action: none;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+    transition: transform .08s ease, border-color .1s ease, background .1s ease;
+  }
+  #mobileControls .mt-util-btn svg {
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+  }
+  #mobileControls .mt-util-btn:hover {
+    filter: none;
+    transform: none;
+  }
+  #mobileControls .mt-util-btn.pressed,
+  #mobileControls .mt-util-btn:active {
+    transform: scale(0.92);
+    border-color: #65e7ff;
+    background: rgba(18, 48, 68, 0.92);
+    color: #ffffff;
+  }
+  #mobileControls .mt-util-btn.toggled {
+    border-color: #65e7ff;
+    background: rgba(24, 72, 96, 0.92);
+    color: #65e7ff;
+  }
+  #mobileControls .mt-pause-btn {
+    border-color: rgba(255, 184, 77, 0.52);
+    color: #ffe2b3;
+  }
+
+  /* Shared Tactical Touch Action Button */
+  #mobileControls .mt-btn {
+    position: absolute;
+    padding: 0;
+    margin: 0;
+    border-radius: 50%;
+    border: 1.5px solid rgba(162, 210, 232, 0.42);
+    background: rgba(9, 16, 26, 0.72);
+    color: #e6f6ff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: .06em;
+    line-height: 1;
+    pointer-events: auto;
+    touch-action: none;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.48);
+    transition: transform .07s ease, border-color .1s ease, background .1s ease, color .1s ease;
+  }
+  #mobileControls .mt-btn:hover {
+    filter: none;
+    transform: none;
+  }
+  #mobileControls .mt-btn svg {
+    width: calc(20px * var(--mt-s));
+    height: calc(20px * var(--mt-s));
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+  #mobileControls .mt-btn span {
+    font-size: calc(8.5px * var(--mt-s));
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #mobileControls .mt-btn.pressed {
+    transform: scale(0.92);
+    border-color: #65e7ff;
+    background: rgba(20, 62, 88, 0.88);
+    color: #ffffff;
+  }
+  #mobileControls .mt-btn.toggled {
+    border-color: #65e7ff;
+    background: rgba(18, 72, 98, 0.88);
+    color: #9bf2ff;
+    box-shadow: 0 0 0 2px rgba(101, 231, 255, 0.28), 0 4px 14px rgba(0, 0, 0, 0.48);
+  }
+  #mobileControls .mt-btn.on-cd {
+    opacity: 0.56;
+    border-color: rgba(140, 170, 190, 0.28);
+  }
+  #mobileControls .mt-btn.reloading {
+    border-color: #ffb84d;
+    color: #ffd591;
+  }
+  #mobileControls .mt-btn.katana-mode {
+    border-color: rgba(101, 231, 255, 0.72);
+    color: #9bf2ff;
+  }
+
+  /* Secondary Left-Thumb Fire Button (positioned comfortably above left thumbstick) */
+  #mobileControls .mt-left-fire {
+    left: calc(24px + env(safe-area-inset-left));
+    bottom: calc(174px * var(--mt-s) + env(safe-area-inset-bottom));
+    width: calc(54px * var(--mt-s));
+    height: calc(54px * var(--mt-s));
+    min-width: 46px;
+    min-height: 46px;
+    z-index: 4;
+    border-color: rgba(255, 138, 61, 0.72);
+    background: rgba(34, 16, 10, 0.76);
+    color: #ffd9be;
+  }
+  #mobileControls .mt-left-fire.pressed {
+    border-color: #ff9b55;
+    background: rgba(255, 118, 46, 0.92);
+    color: #0b121a;
+  }
+
+  /* Right-Thumb Ergonomic Combat Arc */
+  .mt-right-cluster {
+    position: absolute;
+    right: calc(14px + env(safe-area-inset-right));
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    width: calc(222px * var(--mt-s));
+    height: calc(226px * var(--mt-s));
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  /* Primary Fire + Simultaneous Drag-to-Aim Button */
+  #mobileControls .mt-fire-btn {
+    right: calc(14px * var(--mt-s));
+    bottom: calc(54px * var(--mt-s));
+    width: calc(74px * var(--mt-s));
+    height: calc(74px * var(--mt-s));
+    min-width: 58px;
+    min-height: 58px;
+    border-width: 2px;
+    border-color: rgba(255, 155, 85, 0.88);
+    background: radial-gradient(circle at 50% 42%, rgba(255, 134, 58, 0.34), rgba(26, 12, 8, 0.82) 72%);
+    color: #ffe6d4;
+    box-shadow: 0 0 0 2px rgba(255, 138, 61, 0.16), 0 6px 18px rgba(0, 0, 0, 0.55);
+  }
+  #mobileControls .mt-fire-btn svg {
+    width: calc(26px * var(--mt-s));
+    height: calc(26px * var(--mt-s));
+  }
+  #mobileControls .mt-fire-btn span {
+    font-size: calc(9.5px * var(--mt-s));
+    font-weight: 900;
+  }
+  #mobileControls .mt-fire-btn.pressed {
+    border-color: #ffd2ad;
+    background: rgba(255, 126, 52, 0.92);
+    color: #091118;
+  }
+
+  /* Jump / Wall-Jump Button */
+  #mobileControls .mt-jump-btn {
+    right: calc(2px * var(--mt-s));
+    bottom: calc(138px * var(--mt-s));
+    width: calc(54px * var(--mt-s));
+    height: calc(54px * var(--mt-s));
+    min-width: 44px;
+    min-height: 44px;
+    border-color: rgba(101, 231, 255, 0.62);
+  }
+
+  /* ADS / Scope / Katana Deflect / Fan Button */
+  #mobileControls .mt-ads-btn {
+    right: calc(98px * var(--mt-s));
+    bottom: calc(114px * var(--mt-s));
+    width: calc(54px * var(--mt-s));
+    height: calc(54px * var(--mt-s));
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Slide / Crouch Button */
+  #mobileControls .mt-slide-btn {
+    right: calc(96px * var(--mt-s));
+    bottom: calc(48px * var(--mt-s));
+    width: calc(50px * var(--mt-s));
+    height: calc(50px * var(--mt-s));
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Reload Button */
+  #mobileControls .mt-reload-btn {
+    right: calc(28px * var(--mt-s));
+    bottom: 0px;
+    width: calc(46px * var(--mt-s));
+    height: calc(46px * var(--mt-s));
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Grapple Tether & Burst / Katana Dash Buttons */
+  #mobileControls .mt-grapple-btn {
+    right: calc(162px * var(--mt-s));
+    bottom: calc(108px * var(--mt-s));
+    width: calc(46px * var(--mt-s));
+    height: calc(46px * var(--mt-s));
+    min-width: 44px;
+    min-height: 44px;
+  }
+  #mobileControls .mt-burst-btn {
+    right: calc(160px * var(--mt-s));
+    bottom: calc(50px * var(--mt-s));
+    width: calc(46px * var(--mt-s));
+    height: calc(46px * var(--mt-s));
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Contextual Scorestreak & Scope Zoom Buttons */
+  #mobileControls .mt-streak-btn {
+    right: calc(64px * var(--mt-s));
+    bottom: calc(178px * var(--mt-s));
+    width: calc(58px * var(--mt-s));
+    height: calc(46px * var(--mt-s));
+    min-width: 52px;
+    min-height: 44px;
+    border-radius: 10px;
+    border-color: #ffb84d;
+    background: rgba(42, 26, 8, 0.92);
+    color: #ffe1a8;
+    box-shadow: 0 0 14px rgba(255, 184, 77, 0.35);
+  }
+  #mobileControls .mt-zoom-btn {
+    right: calc(132px * var(--mt-s));
+    bottom: calc(178px * var(--mt-s));
+    width: calc(46px * var(--mt-s));
+    height: calc(46px * var(--mt-s));
+    min-width: 44px;
+    min-height: 44px;
+    border-color: #65e7ff;
+    color: #a9f4ff;
+  }
+
+  /* Bottom-Center Weapon Slot Dock */
+  .mt-slot-dock {
+    position: absolute;
+    left: 50%;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: auto;
+  }
+
+  #mobileControls .mt-slot-btn {
+    width: auto;
+    min-width: 64px;
+    min-height: 44px;
+    padding: 6px 10px;
+    margin: 0;
+    border-radius: 4px;
+    border: 1px solid rgba(154, 206, 228, 0.3);
+    background: rgba(8, 15, 25, 0.78);
+    color: #a9c7d8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    touch-action: none;
+    transition: border-color .1s ease, background .1s ease, color .1s ease;
+  }
+  #mobileControls .mt-slot-btn:hover {
+    filter: none;
+    transform: none;
+  }
+  #mobileControls .mt-slot-btn b {
+    color: #65e7ff;
+    font-size: 10px;
+  }
+  #mobileControls .mt-slot-btn span {
+    max-width: 62px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #mobileControls .mt-slot-btn.active {
+    border-color: #65e7ff;
+    border-top: 2px solid #65e7ff;
+    background: rgba(16, 44, 62, 0.92);
+    color: #ffffff;
+  }
+
+  /* =====================================================================
+     TOUCH PLAY HUD REFLOW (Relocates telemetry cleanly out of thumb zones)
+     ===================================================================== */
+  body.touch-controls-active #hud .status,
+  body.touch-controls-active #hud #hudSlotStrip,
+  body.touch-controls-active #hud .ammo-meta {
+    display: none !important;
+  }
+
+  body.touch-controls-active #hud .topline {
+    top: calc(12px + env(safe-area-inset-top));
+    left: calc(14px + env(safe-area-inset-left));
+    gap: 7px;
+  }
+  body.touch-controls-active #hud .logo {
+    font-size: 12px;
+  }
+  body.touch-controls-active #hud .version {
+    font-size: 9px;
+    padding: 3px 6px;
+  }
+
+  /* Health + Speed + State move to upper-left below brand */
+  body.touch-controls-active #hud .stats {
+    top: calc(44px + env(safe-area-inset-top));
+    left: calc(14px + env(safe-area-inset-left));
+    bottom: auto;
+    gap: 14px;
+    align-items: flex-end;
+    background: rgba(6, 13, 22, 0.62);
+    border: 1px solid rgba(111, 210, 238, 0.18);
+    padding: 6px 10px;
+    border-radius: 4px;
+  }
+  body.touch-controls-active #hud .stat-label {
+    font-size: 8px;
+    margin-bottom: 2px;
+  }
+  body.touch-controls-active #hud .speed {
+    font-size: 26px;
+  }
+  body.touch-controls-active #hud .unit {
+    font-size: 9px;
+    margin-left: 3px;
+  }
+  body.touch-controls-active #hud .small-stat {
+    font-size: 13px;
+  }
+  body.touch-controls-active #hud #arenaHpWrap {
+    min-width: 72px;
+  }
+  body.touch-controls-active #hud .hp-val {
+    font-size: 22px;
+  }
+
+  /* Weapon Name + Ammo relocate to upper-right below utility buttons */
+  body.touch-controls-active #hud #weaponHud {
+    top: calc(60px + env(safe-area-inset-top));
+    right: calc(14px + env(safe-area-inset-right));
+    bottom: auto;
+    gap: 2px;
+    background: rgba(6, 13, 22, 0.62);
+    border: 1px solid rgba(111, 210, 238, 0.18);
+    padding: 6px 10px;
+    border-radius: 4px;
+  }
+  body.touch-controls-active #hud .ammo-name {
+    font-size: 10px;
+  }
+  body.touch-controls-active #hud .ammo-cur {
+    font-size: 24px;
+  }
+  body.touch-controls-active #hud .ammo-max {
+    font-size: 12px;
+  }
+
+  /* Course timer centers cleanly below top bar during touch play */
+  body.touch-controls-active #hud .rightstats {
+    top: calc(10px + env(safe-area-inset-top));
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    text-align: center;
+  }
+  body.touch-controls-active #hud .timer {
+    font-size: 22px;
+  }
+
+  /* Arena top scoreboard pill tightens cleanly */
+  body.touch-controls-active #hud #arenaTopBar {
+    top: calc(10px + env(safe-area-inset-top));
+    max-width: calc(100vw - 280px);
+  }
+  body.touch-controls-active #hud .arena-top-pill {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body.touch-controls-active #hud .arena-top-sub {
+    display: none;
+  }
+
+  /* Killfeed sits below relocated weapon HUD on upper-right */
+  body.touch-controls-active #hud #killFeed {
+    top: calc(130px + env(safe-area-inset-top));
+    right: calc(14px + env(safe-area-inset-right));
+  }
+
+  /* Scorestreak meter sits cleanly under upper-left stats & is tappable */
+  body.touch-controls-active #hud #hudScorestreak {
+    top: calc(106px + env(safe-area-inset-top));
+    left: calc(14px + env(safe-area-inset-left));
+    right: auto;
+    bottom: auto;
+    width: 158px;
+    padding: 5px 8px 6px;
+    pointer-events: auto;
+  }
+
+  /* Katana meter sits cleanly above bottom-center slot dock */
+  body.touch-controls-active #hud #hudKatana {
+    bottom: calc(62px + env(safe-area-inset-bottom));
+    width: 204px;
+    padding: 6px 9px;
+  }
+
+  body.touch-controls-active #hud #surfHint {
+    top: calc(54px + env(safe-area-inset-top));
+    bottom: auto;
+    font-size: 9px;
+    letter-spacing: .12em;
+    padding: 4px 10px;
+  }
+
+  /* Tablet / iPad ergonomic boost */
+  @media (min-width: 768px) {
+    #mobileControls {
+      --mt-auto-scale: 1.06;
+    }
+    .mt-move-zone {
+      padding-left: calc(40px + env(safe-area-inset-left));
+      padding-bottom: calc(36px + env(safe-area-inset-bottom));
+    }
+    .mt-right-cluster {
+      right: calc(26px + env(safe-area-inset-right));
+      bottom: calc(22px + env(safe-area-inset-bottom));
+    }
+    #mobileControls .mt-left-fire {
+      left: calc(38px + env(safe-area-inset-left));
+      bottom: calc(192px * var(--mt-s) + env(safe-area-inset-bottom));
+    }
+  }
+
+  /* Phone Landscape (tight vertical height, e.g. 844x390 / 667x375) */
+  @media (max-height: 460px) {
+    #mobileControls {
+      --mt-auto-scale: 0.84;
+    }
+    .mt-move-zone {
+      width: 36vw;
+      height: 62vh;
+      padding-left: calc(20px + env(safe-area-inset-left));
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+    #mobileControls .mt-left-fire {
+      left: calc(18px + env(safe-area-inset-left));
+      bottom: calc(144px * var(--mt-s) + env(safe-area-inset-bottom));
+    }
+    .mt-right-cluster {
+      right: calc(12px + env(safe-area-inset-right));
+      bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+    .mt-slot-dock {
+      bottom: calc(8px + env(safe-area-inset-bottom));
+      gap: 5px;
+    }
+    #mobileControls .mt-slot-btn {
+      min-width: 58px;
+      min-height: 40px;
+      padding: 4px 8px;
+      font-size: 9px;
+    }
+    body.touch-controls-active #hud .topline .version {
+      display: none;
+    }
+    body.touch-controls-active #hud #arenaTopBar {
+      max-width: calc(100vw - 290px);
+    }
+    body.touch-controls-active #hud .arena-top-pill {
+      font-size: 9.5px;
+      padding: 5px 10px;
+    }
+    body.touch-controls-active #hud .stats {
+      top: calc(38px + env(safe-area-inset-top));
+      padding: 4px 8px;
+      gap: 10px;
+    }
+    body.touch-controls-active #hud .speed {
+      font-size: 22px;
+    }
+    body.touch-controls-active #hud .hp-val {
+      font-size: 18px;
+    }
+    body.touch-controls-active #hud #weaponHud {
+      top: calc(58px + env(safe-area-inset-top));
+      padding: 4px 8px;
+    }
+    body.touch-controls-active #hud .ammo-cur {
+      font-size: 20px;
+    }
+    body.touch-controls-active #hud #hudScorestreak {
+      top: calc(92px + env(safe-area-inset-top));
+      width: 146px;
+    }
+    body.touch-controls-active #hud #killFeed {
+      display: none;
+    }
+  }
+
+  /* Phone Portrait (narrow width, e.g. 390x844) */
+  @media (max-width: 520px) {
+    #mobileControls {
+      --mt-auto-scale: 0.82;
+    }
+    .mt-move-zone {
+      width: 44vw;
+      height: 44vh;
+      padding-left: calc(12px + env(safe-area-inset-left));
+      padding-bottom: calc(70px + env(safe-area-inset-bottom));
+    }
+    #mobileControls .mt-left-fire {
+      left: calc(14px + env(safe-area-inset-left));
+      bottom: calc(202px + env(safe-area-inset-bottom));
+    }
+    .mt-right-cluster {
+      right: calc(8px + env(safe-area-inset-right));
+      bottom: calc(64px + env(safe-area-inset-bottom));
+    }
+    .mt-slot-dock {
+      bottom: calc(10px + env(safe-area-inset-bottom));
+      gap: 5px;
+    }
+    #mobileControls .mt-slot-btn {
+      min-width: 74px;
+      min-height: 44px;
+      padding: 6px 8px;
+    }
+    body.touch-controls-active #hud .topline .version {
+      display: none;
+    }
+    body.touch-controls-active #hud #arenaTopBar {
+      top: calc(60px + env(safe-area-inset-top));
+      max-width: calc(100vw - 24px);
+      width: calc(100vw - 24px);
+    }
+    body.touch-controls-active #hud .arena-top-pill {
+      font-size: 9px;
+      letter-spacing: .1em;
+      padding: 5px 10px;
+    }
+    body.touch-controls-active #hud .stats {
+      top: calc(94px + env(safe-area-inset-top));
+      gap: 10px;
+      padding: 5px 8px;
+    }
+    body.touch-controls-active #hud .stats > div:last-child {
+      display: none;
+    }
+    body.touch-controls-active #hud #weaponHud {
+      top: calc(94px + env(safe-area-inset-top));
+      padding: 5px 8px;
+    }
+    body.touch-controls-active #hud #hudScorestreak {
+      top: calc(150px + env(safe-area-inset-top));
+      width: 148px;
+    }
+    body.touch-controls-active #hud #hudKatana {
+      bottom: calc(268px + env(safe-area-inset-bottom));
+    }
+    body.touch-controls-active #hud #killFeed {
+      top: calc(156px + env(safe-area-inset-top));
+    }
+
+    /* Mobile Portrait Menu & Settings Overflow Protection */
+    #overlay {
+      padding: calc(10px + env(safe-area-inset-top)) 10px calc(14px + env(safe-area-inset-bottom));
+      align-items: start;
+    }
+    .card,
+    .card.wide {
+      width: calc(100vw - 20px);
+      max-width: 100%;
+      padding: 16px 14px;
+    }
+    .hub-head {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .hub-actions {
+      flex-wrap: wrap;
+    }
+    .set-tabs {
+      flex-wrap: wrap;
+    }
+    .set-grid {
+      grid-template-columns: 1fr;
+    }
+    .seg-group {
+      flex-wrap: wrap;
+    }
+  }
+
 
 

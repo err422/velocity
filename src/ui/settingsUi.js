@@ -197,6 +197,19 @@ function renderSettingsPanel(){
   chPreviewHex.textContent=s.crosshair.style==='none'?'HIDDEN':s.crosshair.color.toUpperCase();
 
   renderKeybindGrid();
+
+  if(window.MobileControls&&typeof window.MobileControls.getPrefs==='function'){
+    const tp=window.MobileControls.getPrefs();
+    document.querySelectorAll('[data-touch-mode]').forEach(btn=>{
+      btn.classList.toggle('active',btn.dataset.touchMode===tp.mode);
+    });
+    const tsRange=$('setTouchSensRange'),tsVal=$('setTouchSensVal');
+    if(tsRange&&tsVal){tsRange.value=String(tp.sensitivity);tsVal.textContent=tp.sensitivity.toFixed(2)+'×';}
+    const tScRange=$('setTouchScaleRange'),tScVal=$('setTouchScaleVal');
+    if(tScRange&&tScVal){tScRange.value=String(tp.scale);tScVal.textContent=Math.round(tp.scale*100)+'%';}
+    const lfOn=$('setTouchLeftFireOn'),lfOff=$('setTouchLeftFireOff');
+    if(lfOn&&lfOff){lfOn.classList.toggle('active',!!tp.leftFire);lfOff.classList.toggle('active',!tp.leftFire);}
+  }
 }
 
 function setSettingsTab(tab){

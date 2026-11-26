@@ -265,11 +265,16 @@ function step(dt){
   const adsWalkScale=1+(mob.adsMoveMult-1)*(mob.adsProgress||0);
   const effGroundSpeed=C.groundSpeed*mob.mobilityMult*adsWalkScale;
 
-  // Wish direction
+  // Wish direction (keyboard + analog mobile thumbstick)
   const sy=Math.sin(p.yaw),cy=Math.cos(p.yaw);wish.set(0,0,0);
   if(isActionDown('forward')){wish.x-=sy;wish.z-=cy;}if(isActionDown('back')){wish.x+=sy;wish.z+=cy;}
   if(isActionDown('right')){wish.x+=cy;wish.z-=sy;}if(isActionDown('left')){wish.x-=cy;wish.z+=sy;}
-  const hasWish=wish.lengthSq()>0;if(hasWish)wish.normalize();
+  const mAxis=(window.MobileControls&&typeof window.MobileControls.getMoveAxis==='function')?window.MobileControls.getMoveAxis():null;
+  if(mAxis&&mAxis.mag>0.01){
+    wish.x+=(-sy*mAxis.y)+(cy*mAxis.x);
+    wish.z+=(-cy*mAxis.y)+(-sy*mAxis.x);
+  }
+  const hasWish=wish.lengthSq()>0.0001;if(hasWish)wish.normalize();
 
   // Stance (can't stand up under a low ceiling) and slide entry boost
   const wasLow=p.low,wantLow=isActionDown('slide');

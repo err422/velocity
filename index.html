@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>VELOCITY — Arena PvP Shooter</title>
 <meta name="description" content="High-speed movement arena PvP shooter with 1v1 duels, 4-player FFA, custom gunsmith loadouts, and movement courses.">
 <meta property="og:title" content="VELOCITY — Arena PvP Shooter">
@@ -363,6 +363,41 @@
                 <span class="set-val" id="setFovVal">85°</span>
               </div>
               <input id="setFovRange" class="set-range" type="range" min="70" max="115" step="1" value="85">
+            </div>
+
+            <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+              <div class="section-label">Mobile &amp; Touch Controls</div>
+              <div class="set-field">
+                <div class="set-row-head"><span class="set-label">On-Screen Controls</span></div>
+                <div class="seg-group" role="group" aria-label="Touch controls visibility">
+                  <button type="button" class="seg-btn active" data-touch-mode="auto">AUTO</button>
+                  <button type="button" class="seg-btn" data-touch-mode="on">ALWAYS ON</button>
+                  <button type="button" class="seg-btn" data-touch-mode="off">OFF</button>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px">
+                <div>
+                  <div class="set-row-head" style="margin-bottom:4px">
+                    <label class="set-label" for="setTouchSensRange" style="font-size:10px">Touch Aim</label>
+                    <span class="set-val" id="setTouchSensVal" style="font-size:11px">1.00×</span>
+                  </div>
+                  <input id="setTouchSensRange" class="set-range" type="range" min="0.3" max="3.0" step="0.05" value="1.0">
+                </div>
+                <div>
+                  <div class="set-row-head" style="margin-bottom:4px">
+                    <label class="set-label" for="setTouchScaleRange" style="font-size:10px">Button Size</label>
+                    <span class="set-val" id="setTouchScaleVal" style="font-size:11px">100%</span>
+                  </div>
+                  <input id="setTouchScaleRange" class="set-range" type="range" min="0.75" max="1.35" step="0.05" value="1.0">
+                </div>
+              </div>
+              <div class="set-field" style="margin-top:10px;margin-bottom:0">
+                <div class="set-row-head"><span class="set-label">Left-Thumb Fire Button</span></div>
+                <div class="seg-group" role="group" aria-label="Left thumb fire button">
+                  <button type="button" class="seg-btn active" id="setTouchLeftFireOn">SHOWN</button>
+                  <button type="button" class="seg-btn" id="setTouchLeftFireOff">HIDDEN</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1038,6 +1073,83 @@
   <div id="hitmarker"></div>
   <div id="centerMessage">RUN STARTED</div>
 </div>
+<div id="mobileControls" data-testid="mobile-controls" style="display:none" aria-hidden="true">
+  <div id="mtLookZone" class="mt-look-zone" aria-label="Touch drag area to aim camera"></div>
+  <div id="mtMoveZone" class="mt-move-zone" aria-label="Virtual movement thumbstick">
+    <div id="mtJoyBase" class="mt-joy-base">
+      <span class="mt-joy-tick top" aria-hidden="true"></span>
+      <span class="mt-joy-tick right" aria-hidden="true"></span>
+      <span class="mt-joy-tick bottom" aria-hidden="true"></span>
+      <span class="mt-joy-tick left" aria-hidden="true"></span>
+      <div id="mtJoyKnob" class="mt-joy-knob"></div>
+    </div>
+  </div>
+
+  <div class="mt-top-utils" role="toolbar" aria-label="Match utility controls">
+    <button type="button" class="mt-util-btn" id="mtResetBtn" aria-label="Checkpoint retry" style="display:none">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 1 2.34 5.66" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 7v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button type="button" class="mt-util-btn" id="mtInspectBtn" aria-label="Inspect weapon">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.8" fill="currentColor"/></svg>
+    </button>
+    <button type="button" class="mt-util-btn" id="mtScoreboardBtn" aria-label="Toggle scoreboard" style="display:none">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button type="button" class="mt-util-btn mt-pause-btn" id="mtPauseBtn" aria-label="Pause game">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>
+    </button>
+  </div>
+
+  <button type="button" class="mt-btn mt-left-fire" id="mtLeftFireBtn" aria-label="Left fire button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span>FIRE</span>
+  </button>
+
+  <div class="mt-right-cluster" aria-label="Combat and movement actions">
+    <button type="button" class="mt-btn mt-streak-btn" id="mtStreakBtn" aria-label="Activate scorestreak" style="display:none">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.6 6.2 6.7.6-5.1 4.4 1.6 6.6L12 16.3 6.2 19.8l1.6-6.6-5.1-4.4 6.7-.6L12 2Z" fill="currentColor"/></svg>
+      <span id="mtStreakLabel">STREAK</span>
+    </button>
+    <button type="button" class="mt-btn mt-zoom-btn" id="mtZoomBtn" aria-label="Cycle scope zoom" style="display:none">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l5 5M8.5 11h5M11 8.5v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>ZOOM</span>
+    </button>
+    <button type="button" class="mt-btn mt-ability-btn mt-grapple-btn" id="mtGrappleBtn" aria-label="Grapple tether">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19L19 5M13 5h6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>TETHER</span>
+    </button>
+    <button type="button" class="mt-btn mt-ability-btn mt-burst-btn" id="mtBurstBtn" aria-label="Speed burst or Katana dash">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 10-12h-7l0-8Z" fill="currentColor"/></svg>
+      <span id="mtBurstLabel">BURST</span>
+    </button>
+    <button type="button" class="mt-btn mt-reload-btn" id="mtReloadBtn" aria-label="Reload weapon">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>RLD</span>
+    </button>
+    <button type="button" class="mt-btn mt-ads-btn" id="mtAdsBtn" aria-label="Aim down sights or Katana deflect">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span id="mtAdsLabel">ADS</span>
+    </button>
+    <button type="button" class="mt-btn mt-slide-btn" id="mtSlideBtn" aria-label="Slide or crouch">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16h12l4-5M7 11l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>SLIDE</span>
+    </button>
+    <button type="button" class="mt-btn mt-jump-btn" id="mtJumpBtn" aria-label="Jump or wall jump">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>JUMP</span>
+    </button>
+    <button type="button" class="mt-btn mt-fire-btn" id="mtFireBtn" aria-label="Fire weapon and drag to aim">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>FIRE</span>
+    </button>
+  </div>
+
+  <div class="mt-slot-dock" id="mtSlotDock" role="group" aria-label="Weapon slots">
+    <button type="button" class="mt-slot-btn" data-mt-slot="primary" aria-label="Equip primary weapon"><b>1</b><span>V-47</span></button>
+    <button type="button" class="mt-slot-btn" data-mt-slot="secondary" aria-label="Equip secondary weapon"><b>2</b><span>DEAGLE</span></button>
+    <button type="button" class="mt-slot-btn" data-mt-slot="melee" aria-label="Equip melee knife"><b>3</b><span>KNIFE</span></button>
+  </div>
+</div>
 <div id="nukeFlash"></div>
 <div id="damageVignette"></div>
 <div id="chronoVignette"></div>
@@ -1116,6 +1228,7 @@ const SCRIPTS = [
   "src/systems/replays/ghost.js",
   "src/systems/combat/netcode.js",
   "src/core/player.js",
+  "src/core/mobileControls.js",
   "src/core/input.js",
   "src/core/gameLoop.js",
   "src/ui/hud.js",

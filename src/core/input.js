@@ -4,7 +4,9 @@ function getSettings(){
   if(window.activeSettings)return window.activeSettings;
   return window.VelocitySettings?VelocitySettings.DEFAULT_SETTINGS:{sensitivity:1,invertY:false,baseFov:85,keybinds:{forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',slide:'ShiftLeft',grapple:'KeyE',burst:'KeyQ',restart:'KeyR',checkpoint:'KeyT',ghost:'KeyG',inspect:'KeyF',fire:'Mouse0',altFire:'Mouse2',reload:'KeyC',slotRifle:'Digit1',slotAwp:'Digit2',slotDeagle:'Digit3',slotKnife:'Digit4'}};
 }
+const mobileHeldActions={fire:false,altFire:false,jump:false,slide:false};
 function isActionDown(action){
+  if(mobileHeldActions[action])return true;
   const tok=getSettings().keybinds[action];
   return !!(tok&&keys[tok]);
 }
@@ -13,7 +15,11 @@ function isActivePlay(){
 }
 function clearHeldInputs(){
   for(const k in keys)keys[k]=false;
+  for(const k in mobileHeldActions)mobileHeldActions[k]=false;
   window.isScoreboardHeld=false;
+  if(window.MobileControls&&typeof window.MobileControls.clearAllInputs==='function'){
+    window.MobileControls.clearAllInputs();
+  }
   if(window.CombatSystem){
     window.CombatSystem.setAdsHeld(false);
     if(typeof window.CombatSystem.setChargeHeld==='function')window.CombatSystem.setChargeHeld(false);
@@ -21,6 +27,60 @@ function clearHeldInputs(){
     if(typeof window.CombatSystem.setMinigunHeld==='function')window.CombatSystem.setMinigunHeld(false);
   }
 }
+window.applyMobileLookDelta=function(dx,dy,touchSens){
+  if(!isActivePlay()||window.isRebindingInput)return;
+  if(typeof isMatchOverVoting==='function'&&isMatchOverVoting())return;
+  const s=getSettings();
+  const scopeMul=window.CombatSystem?window.CombatSystem.getScopeSensMultiplier():1;
+  const delta=window.MobileControls&&typeof window.MobileControls.computeLookDelta==='function'
+    ?window.MobileControls.computeLookDelta(dx,dy,touchSens,scopeMul,s.invertY)
+    :{dYaw:-dx*0.0046*scopeMul,dPitch:-dy*0.0046*scopeMul*(s.invertY?-1:1)};
+  player.yaw+=delta.dYaw;
+  player.pitch=clamp(player.pitch+delta.dPitch,-1.48,1.48);
+  if(window.ViewmodelSystem)window.ViewmodelSystem.addLookDelta(dx*1.15,dy*1.15);
+};
+window.setMobileActionState=function(action,isDown){
+  if(!isActivePlay())return;
+  const down=Boolean(isDown);
+  mobileHeldActions[action]=down;
+  const kb=getSettings().keybinds;
+  if(action==='jump'){
+    if(down)jumpBuffer=CFG.jumpBuffer;
+    return;
+  }
+  if(action==='fire'){
+    if(down){
+      triggerBoundToken(kb.fire,false);
+    }else if(window.CombatSystem){
+      if(typeof window.CombatSystem.setChargeHeld==='function')window.CombatSystem.setChargeHeld(false);
+      if(typeof window.CombatSystem.setMinigunHeld==='function')window.CombatSystem.setMinigunHeld(false);
+    }
+    return;
+  }
+  if(action==='altFire'){
+    if(down){
+      triggerBoundToken(kb.altFire,false);
+    }else if(window.CombatSystem){
+      window.CombatSystem.setAdsHeld(false);
+      if(typeof window.CombatSystem.setKatanaDeflectHeld==='function')window.CombatSystem.setKatanaDeflectHeld(false);
+    }
+  }
+};
+window.triggerMobileAction=function(action){
+  if(!isActivePlay())return;
+  const kb=getSettings().keybinds;
+  if(action==='pause'){document.exitPointerLock?.();onUnlock(true);return;}
+  if(action==='reload'){triggerBoundToken(kb.reload,false);return;}
+  if(action==='grapple'){triggerBoundToken(kb.grapple,false);return;}
+  if(action==='burst'){triggerBoundToken(kb.burst,false);return;}
+  if(action==='inspect'){triggerBoundToken(kb.inspect,false);return;}
+  if(action==='checkpoint'){triggerBoundToken(kb.checkpoint,false);return;}
+  if(action==='scorestreak'){tryActivateScorestreakInput();return;}
+  if(action==='scopeZoom'&&window.CombatSystem){window.CombatSystem.cycleScopeZoom();return;}
+  if(action==='slot_primary'&&window.CombatSystem){window.CombatSystem.switchSlot('primary');return;}
+  if(action==='slot_secondary'&&window.CombatSystem){window.CombatSystem.switchSlot('secondary');return;}
+  if(action==='slot_melee'&&window.CombatSystem){window.CombatSystem.switchSlot('melee');return;}
+};
 function isArenaBlocked(){
   if(!window.NetcodeSystem)return false;
   const ns=window.NetcodeSystem.getState();
@@ -200,15 +260,18 @@ document.addEventListener('keyup',e=>{
 // buttons are held together (e.g. RMB aim + LMB fire).
 document.addEventListener('mousedown',e=>{
   if(window.isRebindingInput||!isActivePlay())return;
-  if(e.target&&e.target.closest&&e.target.closest('#arenaScoreboard'))return;
+  if(window.MobileControls&&typeof window.MobileControls.wasRecentTouch==='function'&&window.MobileControls.wasRecentTouch(500))return;
+  if(e.target&&e.target.closest&&e.target.closest('#arenaScoreboard,#mobileControls,#hudSlotStrip,#hudScorestreak'))return;
   const voting=typeof isMatchOverVoting==='function'&&isMatchOverVoting();
   if(voting)return;
-  if(!locked&&e.target===renderer.domElement&&typeof inLevel!=='undefined'&&inLevel&&overlay.style.display==='none'){
+  const touchMode=window.MobileControls&&typeof window.MobileControls.isTouchModeEnabled==='function'&&window.MobileControls.isTouchModeEnabled();
+  if(!locked&&!touchMode&&e.target===renderer.domElement&&typeof inLevel!=='undefined'&&inLevel&&overlay.style.display==='none'){
     try{
       const res=renderer.domElement.requestPointerLock?.();
       if(res&&typeof res.catch==='function')res.catch(()=>{});
     }catch(_){}
   }
+  if(touchMode)return;
   const tok=window.VelocitySettings?VelocitySettings.mouseButtonToToken(e.button):('Mouse'+e.button);
   if(!tok)return;
   keys[tok]=true;
