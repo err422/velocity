@@ -1024,7 +1024,10 @@ async function updatePeerOfferCandidates(lobbyId, offerCandidates) {
       state: 'offering',
       updatedAt: serverTimestamp()
     });
-  } catch (_) {}
+  } catch (error) {
+    console.warn('updatePeerOfferCandidates failed:', error);
+    throw error;
+  }
 }
 
 async function writePeerAnswer(lobbyId, peerUid, answerSdp, answerCandidates) {
@@ -1039,7 +1042,8 @@ async function writePeerAnswer(lobbyId, peerUid, answerSdp, answerCandidates) {
       updatedAt: serverTimestamp()
     });
   } catch (error) {
-    console.warn('writePeerAnswer failed:', error);
+    console.error('writePeerAnswer failed:', error);
+    throw error;
   }
 }
 
