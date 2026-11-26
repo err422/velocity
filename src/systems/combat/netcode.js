@@ -1478,7 +1478,8 @@
         answerCandidates: [],
         answerStarted: false,
         answerWriteChain: Promise.resolve(),
-        remoteDescriptionSet: false
+        remoteDescriptionSet: false,
+        disconnectTimer: null
       };
       hostPeers.set(peerUid, entry);
 
@@ -1555,7 +1556,25 @@
       };
 
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+        // "disconnected" is often a temporary ICE state while browsers gather
+        // candidates or switch network routes. Don't destroy a viable join yet.
+        if (pc.connectionState === 'connected' || pc.connectionState === 'completed') {
+          if (entry.disconnectTimer) {
+            clearTimeout(entry.disconnectTimer);
+            entry.disconnectTimer = null;
+          }
+          return;
+        }
+        if (pc.connectionState === 'disconnected') {
+          if (!entry.disconnectTimer) {
+            entry.disconnectTimer = setTimeout(() => {
+              entry.disconnectTimer = null;
+              if (pc.connectionState === 'disconnected') hostRemovePeer(peerUid);
+            }, 12000);
+          }
+          return;
+        }
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
           hostRemovePeer(peerUid);
         }
       };
@@ -1636,12 +1655,16 @@
 
   function hostRemovePeer(peerUid) {
     const entry = hostPeers.get(peerUid);
-    if (entry) {
-      try { entry.poseCh && entry.poseCh.close(); } catch (_) {}
-      try { entry.gameCh && entry.gameCh.close(); } catch (_) {}
-      try { entry.pc && entry.pc.close(); } catch (_) {}
-      hostPeers.delete(peerUid);
+    // Multiple close/state-change events can fire for the same peer.
+    if (!entry) return;
+    if (entry.disconnectTimer) {
+      clearTimeout(entry.disconnectTimer);
+      entry.disconnectTimer = null;
     }
+    try { entry.poseCh && entry.poseCh.close(); } catch (_) {}
+    try { entry.gameCh && entry.gameCh.close(); } catch (_) {}
+    try { entry.pc && entry.pc.close(); } catch (_) {}
+    hostPeers.delete(peerUid);
     state.players.delete(peerUid);
     if (root.CombatSystem) root.CombatSystem.removeRemoteAvatar(peerUid);
     if (state.lobby && root.DailyBackend) {
