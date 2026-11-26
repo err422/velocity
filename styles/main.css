@@ -6681,3 +6681,50 @@
 
 
 
+
+
+/* Compact fullscreen control in the main menu */
+#overlay .menu-fullscreen-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: auto;
+  min-height: 34px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(126, 190, 218, .24);
+  border-radius: 5px;
+  background: rgba(101, 231, 255, .055);
+  color: #a9c4d2;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  white-space: nowrap;
+  transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+#overlay .menu-fullscreen-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#overlay .menu-fullscreen-btn:hover,
+#overlay .menu-fullscreen-btn.active {
+  border-color: rgba(101, 231, 255, .55);
+  background: rgba(101, 231, 255, .12);
+  color: #7eefff;
+  transform: none;
+  filter: none;
+}
+@media (max-width: 600px) {
+  #overlay .menu-fullscreen-btn {
+    min-height: 32px;
+    padding: 7px 8px;
+    font-size: 8px;
+  }
+}
