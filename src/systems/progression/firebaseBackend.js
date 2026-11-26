@@ -1,9 +1,17 @@
-// Firebase Firestore & Google Auth integration for VELOCITY Daily Courses & Shared Leaderboards.
+// Firebase Firestore & Multi-Provider Auth (Email/Password, Private Guest, Google) for VELOCITY.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
 import {
   getAuth,
   GoogleAuthProvider,
+  EmailAuthProvider,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInAnonymously,
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  updateProfile,
+  linkWithCredential,
   signOut,
   onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
@@ -69,10 +77,28 @@ function handleFirestoreError(error, operationType, path) {
   throw new Error(JSON.stringify(errInfo));
 }
 
+function isCloudAuthenticated(user = currentUser) {
+  return Boolean(user && typeof user.uid === 'string' && user.uid.length > 0);
+}
+
+function notifyAuthListeners() {
+  authListeners.forEach((cb) => {
+    try {
+      cb(currentUser);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+}
+
 function sanitizeDisplayName(user) {
   if (window.VelocitySettings && typeof window.VelocitySettings.resolveEffectiveDisplayName === 'function') {
     const resolved = window.VelocitySettings.resolveEffectiveDisplayName(window.activeSettings, user);
     return String(resolved).trim().slice(0, 40) || 'Runner';
+  }
+  if (user && user.isAnonymous && !user.displayName && !user.email) {
+    const tail = String(user.uid || '').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
+    return tail.length === 4 ? `Guest-${tail}` : 'Guest';
   }
   const raw = (user && (user.displayName || (user.email ? user.email.split('@')[0] : ''))) || 'Runner';
   const cleaned = String(raw).trim().slice(0, 40);
@@ -159,7 +185,7 @@ async function ensureDailyCourseRegistered(dateKey) {
 
   if (!db) return preview;
   const user = auth ? auth.currentUser : null;
-  if (!user || !user.emailVerified) {
+  if (!isCloudAuthenticated(user)) {
     return preview;
   }
 
@@ -177,8 +203,8 @@ async function ensureDailyCourseRegistered(dateKey) {
     return Gen.previewSeedCourse(data.seed || canonicalSeed, dateKey);
   }
 
-  // Only verified authenticated users may register a new daily course doc in Firestore
-  if (currentUser && currentUser.emailVerified) {
+  // Authenticated players (Email, Private Guest, or Google) may register a new daily course doc
+  if (isCloudAuthenticated(currentUser)) {
     const payload = {
       dateKey,
       seed: preview.seed,
@@ -282,8 +308,7 @@ async function submitDailyRun(dateKey, runTime, splits) {
   const Gen = window.DailyCourseGen;
   if (!Gen.isValidDateKey(dateKey)) return { submitted: false, reason: 'invalid-date' };
   if (!db || !auth) return { submitted: false, reason: 'offline' };
-  if (!currentUser) return { submitted: false, reason: 'signed-out' };
-  if (!currentUser.emailVerified) return { submitted: false, reason: 'unverified' };
+  if (!isCloudAuthenticated(currentUser)) return { submitted: false, reason: 'signed-out' };
 
   const cleanTime = Math.round(Number(runTime) * 1000) / 1000;
   if (!Number.isFinite(cleanTime) || cleanTime <= 1.0 || cleanTime > 3600.0) {
@@ -348,7 +373,7 @@ async function submitDailyRun(dateKey, runTime, splits) {
 
 async function loadUserSettings() {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) {
+  if (!db || !isCloudAuthenticated(currentUser)) {
     return { settings: null, exists: false, cloudSynced: false };
   }
   const uid = currentUser.uid;
@@ -369,7 +394,7 @@ async function loadUserSettings() {
 
 async function saveUserSettings(settings) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) {
+  if (!db || !isCloudAuthenticated(currentUser)) {
     return { saved: false, reason: !currentUser ? 'signed-out' : 'offline' };
   }
   if (!window.VelocitySettings) {
@@ -420,7 +445,7 @@ async function syncDisplayNameToRun(dateKey, customDisplayName) {
   await ready;
   const Gen = window.DailyCourseGen;
   if (!Gen || !Gen.isValidDateKey(dateKey)) return { updated: false };
-  if (!db || !currentUser || !currentUser.emailVerified) return { updated: false };
+  if (!db || !isCloudAuthenticated(currentUser)) return { updated: false };
 
   const uid = currentUser.uid;
   const runPath = `dailyCourses/${dateKey}/runs/${uid}`;
@@ -453,7 +478,7 @@ async function syncDisplayNameToRun(dateKey, customDisplayName) {
 
 async function loadUserInventory() {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return {
       inventory: null,
       exists: false,
@@ -562,7 +587,7 @@ async function loadUserInventory() {
 
 async function writeUserInventorySummaryLocked(inventory) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return { saved: false, reason: !currentUser ? 'signed-out' : 'offline' };
   }
   const uid = currentUser.uid;
@@ -625,7 +650,7 @@ function saveUserInventorySummary(inventory) {
 
 async function ensureParentInventoryDoc(fullInventory) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return false;
   }
   if (knownParentInventoryUid === currentUser.uid) {
@@ -637,7 +662,7 @@ async function ensureParentInventoryDoc(fullInventory) {
 
 async function saveCloudSubcollectionItem(subcollection, itemPayload, fullInventory) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return { saved: false };
   }
   const parentReady = await ensureParentInventoryDoc(fullInventory);
@@ -667,7 +692,7 @@ async function saveCloudSubcollectionItem(subcollection, itemPayload, fullInvent
 
 async function deleteCloudSubcollectionItem(subcollection, itemId) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) return { deleted: false };
+  if (!db || !isCloudAuthenticated(currentUser)) return { deleted: false };
   const uid = currentUser.uid;
   const itemPath = `userInventory/${uid}/${subcollection}/${itemId}`;
   const itemRef = doc(db, 'userInventory', uid, subcollection, itemId);
@@ -687,7 +712,7 @@ async function deleteCloudSubcollectionItem(subcollection, itemId) {
 
 async function saveCloudKnife(knifeItem, fullInventory) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return { saved: false };
   }
   const payload = window.KnivesSystem.toCloudKnifePayload(knifeItem, currentUser.uid);
@@ -700,7 +725,7 @@ async function deleteCloudKnife(knifeId) {
 
 async function saveCloudGlove(gloveItem, fullInventory) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return { saved: false };
   }
   const payload = window.KnivesSystem.toCloudGlovePayload(gloveItem, currentUser.uid);
@@ -713,7 +738,7 @@ async function deleteCloudGlove(gloveId) {
 
 async function saveCloudWeapon(weaponItem, fullInventory) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !window.KnivesSystem) {
+  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return { saved: false };
   }
   const payload = window.KnivesSystem.toCloudWeaponPayload(weaponItem, currentUser.uid);
@@ -766,7 +791,7 @@ function normalizeLobbyDoc(docSnap) {
 }
 
 function subscribePublicLobbies(onUpdate, onError) {
-  if (!db || !currentUser || !currentUser.emailVerified) {
+  if (!db || !isCloudAuthenticated(currentUser)) {
     if (typeof onUpdate === 'function') onUpdate([]);
     return () => {};
   }
@@ -809,8 +834,8 @@ const VALID_ARENA_IDS = new Set([
 
 async function createLobby(opts) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) {
-    throw new Error('Sign in with a verified Google account to host a server.');
+  if (!db || !isCloudAuthenticated(currentUser)) {
+    throw new Error('Sign in with Email, Google, or Private Guest to host a server.');
   }
   const mode = opts && opts.mode === 'ffa_4p' ? 'ffa_4p' : 'duel_1v1';
   const rawMapId = opts && typeof opts.mapId === 'string' ? opts.mapId : 'arena_surf';
@@ -878,7 +903,7 @@ async function createLobby(opts) {
 
 async function updateLobby(lobbyId, patch) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId) return;
+  if (!db || !isCloudAuthenticated(currentUser) || !lobbyId) return;
   const ref = doc(db, 'lobbies', lobbyId);
   const body = { heartbeatAt: serverTimestamp() };
   if (patch && typeof patch.playerCount === 'number') body.playerCount = Math.max(1, Math.min(4, Math.floor(patch.playerCount)));
@@ -897,7 +922,7 @@ async function updateLobby(lobbyId, patch) {
 
 async function closeLobby(lobbyId) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId) return;
+  if (!db || !isCloudAuthenticated(currentUser) || !lobbyId) return;
   try {
     // Clean up peer docs owned by this lobby first
     const peersQ = query(collection(db, 'lobbies', lobbyId, 'peers'), where('hostUid', '==', currentUser.uid), limit(20));
@@ -913,7 +938,7 @@ async function closeLobby(lobbyId) {
 
 async function getLobbyById(lobbyId) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId) return null;
+  if (!db || !isCloudAuthenticated(currentUser) || !lobbyId) return null;
   try {
     const snap = await getDoc(doc(db, 'lobbies', lobbyId));
     if (!snap.exists()) return null;
@@ -932,7 +957,7 @@ async function findLobbyByCode(rawCode) {
 }
 
 function subscribeLobbyPeers(lobbyId, onPeers) {
-  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId) return () => {};
+  if (!db || !isCloudAuthenticated(currentUser) || !lobbyId) return () => {};
   const q = query(
     collection(db, 'lobbies', lobbyId, 'peers'),
     where('hostUid', '==', currentUser.uid),
@@ -950,7 +975,7 @@ function subscribeLobbyPeers(lobbyId, onPeers) {
 }
 
 function subscribePeerDoc(lobbyId, peerUid, onPeer) {
-  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId || !peerUid) return () => {};
+  if (!db || !isCloudAuthenticated(currentUser) || !lobbyId || !peerUid) return () => {};
   const ref = doc(db, 'lobbies', lobbyId, 'peers', peerUid);
   return onSnapshot(
     ref,
@@ -963,8 +988,8 @@ function subscribePeerDoc(lobbyId, peerUid, onPeer) {
 
 async function writePeerOffer(lobbyId, hostUid, offerSdp, offerCandidates) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) {
-    throw new Error('Sign in with a verified Google account to join a server.');
+  if (!db || !isCloudAuthenticated(currentUser)) {
+    throw new Error('Sign in with Email, Google, or Private Guest to join a server.');
   }
   const peerUid = currentUser.uid;
   const displayName = sanitizeDisplayName(currentUser).slice(0, 32) || 'Runner';
@@ -990,7 +1015,7 @@ async function writePeerOffer(lobbyId, hostUid, offerSdp, offerCandidates) {
 
 async function updatePeerOfferCandidates(lobbyId, offerCandidates) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) return;
+  if (!db || !isCloudAuthenticated(currentUser)) return;
   const peerUid = currentUser.uid;
   const ref = doc(db, 'lobbies', lobbyId, 'peers', peerUid);
   try {
@@ -1004,7 +1029,7 @@ async function updatePeerOfferCandidates(lobbyId, offerCandidates) {
 
 async function writePeerAnswer(lobbyId, peerUid, answerSdp, answerCandidates) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) return;
+  if (!db || !isCloudAuthenticated(currentUser)) return;
   const ref = doc(db, 'lobbies', lobbyId, 'peers', peerUid);
   try {
     await updateDoc(ref, {
@@ -1020,7 +1045,7 @@ async function writePeerAnswer(lobbyId, peerUid, answerSdp, answerCandidates) {
 
 async function deletePeerDoc(lobbyId, peerUid) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !lobbyId || !peerUid) return;
+  if (!db || !isCloudAuthenticated(currentUser) || !lobbyId || !peerUid) return;
   try {
     await deleteDoc(doc(db, 'lobbies', lobbyId, 'peers', peerUid));
   } catch (_) {}
@@ -1028,7 +1053,7 @@ async function deletePeerDoc(lobbyId, peerUid) {
 
 async function loadUserLoadouts() {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified) return null;
+  if (!db || !isCloudAuthenticated(currentUser)) return null;
   const uid = currentUser.uid;
   const ref = doc(db, 'userLoadouts', uid);
   try {
@@ -1050,7 +1075,7 @@ async function loadUserLoadouts() {
 
 async function writeUserLoadoutsLocked(loadoutState) {
   await ready;
-  if (!db || !currentUser || !currentUser.emailVerified || !window.LoadoutsSystem) return false;
+  if (!db || !isCloudAuthenticated(currentUser) || !window.LoadoutsSystem) return false;
   const uid = currentUser.uid;
   const loadoutsPath = `userLoadouts/${uid}`;
   const payload = window.LoadoutsSystem.toCloudLoadoutsPayload(loadoutState, uid);
@@ -1119,13 +1144,123 @@ function saveUserLoadouts(loadoutState) {
   return run;
 }
 
+function makeValidationError(message) {
+  const err = new Error(message);
+  err.isValidationError = true;
+  return err;
+}
+
+function validateEmailAndPasswordInput(email, password, isSignUp) {
+  const helpers = window.VelocityAuthHelpers;
+  if (helpers) {
+    const emailRes = helpers.validateEmail(email);
+    if (!emailRes.valid) throw makeValidationError(emailRes.error);
+    const pwRes = helpers.validatePassword(password, { isSignUp });
+    if (!pwRes.valid) throw makeValidationError(pwRes.error);
+    return { email: emailRes.email, password: String(password) };
+  }
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) {
+    throw makeValidationError('Please enter a valid email address.');
+  }
+  if (typeof password !== 'string' || password.length === 0) {
+    throw makeValidationError('Please enter a password.');
+  }
+  if (isSignUp && password.length < 8) {
+    throw makeValidationError('Password must be at least 8 characters.');
+  }
+  return { email: cleanEmail, password };
+}
+
 async function signInWithGoogle() {
   await ready;
   if (!auth) throw new Error('Firebase Auth is not initialized.');
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
   currentUser = result.user;
+  notifyAuthListeners();
   return currentUser;
+}
+
+async function signUpWithEmail({ email, password, displayName } = {}) {
+  await ready;
+  if (!auth) throw new Error('Firebase Auth is not initialized.');
+  const creds = validateEmailAndPasswordInput(email, password, true);
+  const result = await createUserWithEmailAndPassword(auth, creds.email, creds.password);
+  const cleanCallsign = window.VelocityAuthHelpers
+    ? window.VelocityAuthHelpers.sanitizeCallsign(displayName || '')
+    : String(displayName || '').trim().slice(0, 32);
+  if (cleanCallsign) {
+    try {
+      await updateProfile(result.user, { displayName: cleanCallsign });
+    } catch (_) {}
+  }
+  // Send a non-blocking verification email so users can confirm their address without blocking play
+  sendEmailVerification(result.user).catch(() => {});
+  currentUser = auth.currentUser || result.user;
+  notifyAuthListeners();
+  return currentUser;
+}
+
+async function signInWithEmail({ email, password } = {}) {
+  await ready;
+  if (!auth) throw new Error('Firebase Auth is not initialized.');
+  const creds = validateEmailAndPasswordInput(email, password, false);
+  const result = await signInWithEmailAndPassword(auth, creds.email, creds.password);
+  currentUser = auth.currentUser || result.user;
+  notifyAuthListeners();
+  return currentUser;
+}
+
+async function signInAsGuest(displayName = '') {
+  await ready;
+  if (!auth) throw new Error('Firebase Auth is not initialized.');
+  const result = await signInAnonymously(auth);
+  const guestName = window.VelocityAuthHelpers
+    ? window.VelocityAuthHelpers.buildGuestCallsign(displayName, result.user.uid)
+    : (String(displayName || '').trim().slice(0, 32) || 'Guest');
+  if (guestName) {
+    try {
+      await updateProfile(result.user, { displayName: guestName });
+    } catch (_) {}
+  }
+  currentUser = auth.currentUser || result.user;
+  notifyAuthListeners();
+  return currentUser;
+}
+
+async function upgradeGuestWithEmail({ email, password, displayName } = {}) {
+  await ready;
+  if (!auth || !auth.currentUser || !auth.currentUser.isAnonymous) {
+    throw makeValidationError('Only Private Guest sessions can be upgraded to an email account.');
+  }
+  const creds = validateEmailAndPasswordInput(email, password, true);
+  const credential = EmailAuthProvider.credential(creds.email, creds.password);
+  const result = await linkWithCredential(auth.currentUser, credential);
+  const cleanCallsign = window.VelocityAuthHelpers
+    ? window.VelocityAuthHelpers.sanitizeCallsign(displayName || '')
+    : String(displayName || '').trim().slice(0, 32);
+  if (cleanCallsign) {
+    try {
+      await updateProfile(result.user, { displayName: cleanCallsign });
+    } catch (_) {}
+  }
+  sendEmailVerification(result.user).catch(() => {});
+  currentUser = auth.currentUser || result.user;
+  notifyAuthListeners();
+  return currentUser;
+}
+
+async function sendPasswordReset(email) {
+  await ready;
+  if (!auth) throw new Error('Firebase Auth is not initialized.');
+  const helpers = window.VelocityAuthHelpers;
+  const emailRes = helpers
+    ? helpers.validateEmail(email)
+    : { valid: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || '').trim()), email: String(email || '').trim().toLowerCase(), error: 'Please enter a valid email address.' };
+  if (!emailRes.valid) throw makeValidationError(emailRes.error);
+  await sendPasswordResetEmail(auth, emailRes.email);
+  return { sent: true };
 }
 
 async function signOutUser() {
@@ -1133,17 +1268,24 @@ async function signOutUser() {
   if (!auth) return;
   await signOut(auth);
   currentUser = null;
+  notifyAuthListeners();
 }
 
 window.DailyBackend = {
   ready,
   getState: () => ({ online: isOnline, configured: !!db, user: currentUser, error: initError }),
+  isSignedIn: () => isCloudAuthenticated(currentUser),
   onAuthChange: (cb) => {
     authListeners.add(cb);
     cb(currentUser);
     return () => authListeners.delete(cb);
   },
   signInWithGoogle,
+  signUpWithEmail,
+  signInWithEmail,
+  signInAsGuest,
+  upgradeGuestWithEmail,
+  sendPasswordReset,
   signOutUser,
   ensureDailyCourseRegistered,
   fetchDailyArchive,

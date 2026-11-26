@@ -259,6 +259,13 @@ function render(dt){
   const targetFov=(baseFov+speedFov)*scopeMul;
   const fovRate=5+13*(combatFrameState?combatFrameState.adsProgress:0);
   camera.fov+=(targetFov-camera.fov)*Math.min(1,dt*fovRate);camera.updateProjectionMatrix();
+  if(inLevel&&!pauseWorldViewActive&&combatFrameState&&combatFrameState.nuke&&combatFrameState.nuke.shake>0.01){
+    const sh=combatFrameState.nuke.shake;
+    const amp=sh*sh*0.18;
+    camera.position.x+=(Math.random()-0.5)*amp*2;
+    camera.position.y+=(Math.random()-0.5)*amp*2;
+    camera.rotation.z+=(Math.random()-0.5)*sh*0.032;
+  }
   speedEl.textContent=Math.round(sp);
   if(p.runStarted)timerEl.textContent=fmt(p.runTime);
   const chronoOn=Boolean(inLevel&&combatFrameState&&combatFrameState.chronoActive);
@@ -413,6 +420,7 @@ function clearWorldGroup(){
   if(typeof boosters!=='undefined')boosters=[];
   if(typeof teleporters!=='undefined')teleporters=[];
   if(typeof failZones!=='undefined')failZones=[];
+  if(typeof CombatSystem!=='undefined'&&typeof CombatSystem.clearCombatFx==='function')CombatSystem.clearCombatFx();
 }
 
 function activateLoadedLevel(built,displayName,opts){

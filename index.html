@@ -126,7 +126,7 @@
             <div><b>Q</b> Speed burst</div><div><b>F</b> Inspect weapon</div>
           </div>
         </details>
-        <p class="menu-footnote">Host public or 4-letter private PvP rooms over peer-to-peer WebRTC. Sign in with Google to join lobbies and sync loadouts.</p>
+        <p class="menu-footnote">Host public or 4-letter private PvP rooms over peer-to-peer WebRTC. Sign in with Email, Google, or Private Guest (no email) to join lobbies and sync loadouts.</p>
       </footer>
     </div>
     <div id="courseBrowserPanel" style="display:none">
@@ -296,7 +296,7 @@
                 <span class="set-val" id="setDisplayNameCount">0 / 32</span>
               </div>
               <input id="setDisplayName" class="set-input" type="text" maxlength="32" placeholder="Custom leaderboard name (optional)" autocomplete="off">
-              <div class="set-help" id="setDisplayNameNote">Shown on daily leaderboards when signed in. Leave blank to use your Google account name.</div>
+              <div class="set-help" id="setDisplayNameNote">Shown on daily leaderboards and PvP lobbies when signed in. Leave blank to use your account or guest callsign.</div>
             </div>
 
             <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
@@ -892,13 +892,41 @@
             <div id="gsStatsBox"></div>
           </section>
 
-          <!-- APPEARANCE Bottom Tray (Owned Skins) -->
-          <section class="gs-bottom-tray" id="gsAppearanceTray" style="display:none" aria-label="Weapon finishes">
-            <div class="gs-tray-head">
-              <div class="section-label" style="margin:0" id="gsAppearanceHeading">OWNED WEAPON FINISHES</div>
-              <button type="button" class="btn-inline" id="gsOpenCasesBtn">OPEN CASE SHOP ↗</button>
+          <!-- APPEARANCE Studio (MW4-Inspired Left Swatch Rail + Unobstructed 3D Stage + Bottom Inspector) -->
+          <section class="gs-camo-studio" id="gsAppearanceTray" style="display:none" aria-label="Camo and weapon finishes">
+            <aside class="gs-camo-rail" aria-label="Camo and finish categories">
+              <div class="gs-camo-subtabs" id="gsCamoSubtabs" role="tablist" aria-label="Finish filter">
+                <button type="button" class="gs-camo-subtab active" data-camo-filter="all" role="tab" aria-selected="true">ALL</button>
+                <button type="button" class="gs-camo-subtab" data-camo-filter="challenges" role="tab" aria-selected="false">CHALLENGES</button>
+                <button type="button" class="gs-camo-subtab" data-camo-filter="armory" role="tab" aria-selected="false">ARMORY</button>
+              </div>
+              <div class="gs-camo-scroll" id="gsCamoScroll">
+                <div class="gs-camo-groups" id="gsCamoGroups"></div>
+                <div class="gs-armory-group" id="gsSkinsGrid"></div>
+              </div>
+            </aside>
+
+            <div class="gs-camo-inspector" id="gsCamoInspector" aria-live="polite">
+              <div class="gs-camo-insp-main">
+                <div class="gs-camo-insp-code" id="gsCamoInspCode">CAMO SELECT</div>
+                <div class="gs-camo-insp-title-row">
+                  <span class="gs-camo-insp-icon" id="gsCamoInspIcon" aria-hidden="true"></span>
+                  <h3 class="gs-camo-insp-title" id="gsCamoInspTitle">FACTORY SLATE</h3>
+                  <span class="gs-camo-insp-state" id="gsCamoInspState">EQUIPPED</span>
+                </div>
+                <div class="gs-camo-insp-tier" id="gsCamoInspTier">STANDARD ISSUE</div>
+                <div class="gs-camo-insp-desc" id="gsCamoInspDesc">Hover any swatch to preview live on the 3D weapon model. Drag anywhere on the open stage to rotate.</div>
+                <div class="gs-camo-insp-prog-row" id="gsCamoInspProgRow" style="display:none">
+                  <div class="gs-camo-insp-bar"><div class="gs-camo-insp-fill" id="gsCamoInspFill"></div></div>
+                  <span class="gs-camo-insp-count" id="gsCamoInspCount">0 / 0</span>
+                </div>
+                <div class="gs-camo-insp-sub" id="gsCamoInspSub"></div>
+              </div>
+              <div class="gs-camo-insp-actions">
+                <button type="button" class="btn-inline gs-camo-action-btn" id="gsCamoEquipBtn" style="display:none">EQUIP</button>
+                <button type="button" class="btn-inline" id="gsOpenCasesBtn">CASE SHOP ↗</button>
+              </div>
             </div>
-            <div class="gs-skins-strip" id="gsSkinsGrid"></div>
           </section>
 
           <!-- PROGRESSION Bottom Track (Lv. 1-12 Mastery Unlocks) -->
@@ -1001,6 +1029,115 @@
       </div>
     </div>
   </div>
+  <div id="authModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <div class="auth-modal-card">
+      <div class="auth-modal-head">
+        <div>
+          <div class="eyebrow" id="authModalKicker">ACCOUNT ACCESS</div>
+          <h3 class="auth-modal-title" id="authModalTitle">Sign In to VELOCITY</h3>
+        </div>
+        <button type="button" class="auth-close-btn" id="authModalCloseBtn" aria-label="Close sign in dialog">&times;</button>
+      </div>
+      <p class="auth-modal-sub" id="authModalSub">Use any email address, continue privately without an email, or sign in with Google.</p>
+
+      <div id="authModalStatus" class="auth-status" role="alert" aria-live="polite" style="display:none"></div>
+
+      <div id="authSignedOutView">
+        <div class="auth-tabs" role="tablist" aria-label="Account mode">
+          <button type="button" class="auth-tab active" id="authTabSignIn" data-auth-tab="signin" role="tab" aria-selected="true">SIGN IN</button>
+          <button type="button" class="auth-tab" id="authTabSignUp" data-auth-tab="signup" role="tab" aria-selected="false">CREATE ACCOUNT</button>
+        </div>
+
+        <form id="authSignInForm" class="auth-form" novalidate>
+          <div class="auth-field">
+            <label for="authSignInEmail">Email Address</label>
+            <input id="authSignInEmail" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com — any email works" required>
+          </div>
+          <div class="auth-field">
+            <div class="auth-field-row">
+              <label for="authSignInPassword">Password</label>
+              <button type="button" class="auth-link-btn" id="authForgotBtn">Forgot password?</button>
+            </div>
+            <input id="authSignInPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter your password" required>
+          </div>
+          <button type="submit" class="auth-primary-btn" id="authSignInSubmit">SIGN IN WITH EMAIL</button>
+        </form>
+
+        <form id="authSignUpForm" class="auth-form" style="display:none" novalidate>
+          <div class="auth-field">
+            <label for="authSignUpCallsign">Callsign <span class="auth-opt">(optional)</span></label>
+            <input id="authSignUpCallsign" type="text" maxlength="32" autocomplete="nickname" placeholder="e.g. Ghost, ApexRunner">
+          </div>
+          <div class="auth-field">
+            <label for="authSignUpEmail">Email Address</label>
+            <input id="authSignUpEmail" type="email" maxlength="254" autocomplete="email" placeholder="Outlook, Proton, iCloud, Yahoo, Gmail..." required>
+          </div>
+          <div class="auth-field">
+            <label for="authSignUpPassword">Password</label>
+            <input id="authSignUpPassword" type="password" maxlength="128" autocomplete="new-password" placeholder="Minimum 8 characters" required>
+          </div>
+          <button type="submit" class="auth-primary-btn" id="authSignUpSubmit">CREATE ACCOUNT</button>
+        </form>
+
+        <form id="authResetForm" class="auth-form" style="display:none" novalidate>
+          <div class="auth-field">
+            <label for="authResetEmail">Account Email</label>
+            <input id="authResetEmail" type="email" maxlength="254" autocomplete="email" placeholder="Enter your account email" required>
+          </div>
+          <button type="submit" class="auth-primary-btn" id="authResetSubmit">SEND RESET LINK</button>
+          <button type="button" class="auth-link-btn auth-back-link" id="authResetBackBtn">&larr; Back to Sign In</button>
+        </form>
+
+        <div class="auth-divider"><span>OR PLAY WITHOUT SHARING PERSONAL INFO</span></div>
+
+        <div class="auth-guest-box">
+          <div class="auth-guest-head">
+            <strong>Private Guest Mode</strong>
+            <span>No email or account required</span>
+          </div>
+          <p class="auth-guest-desc">Host or join PvP lobbies and post daily runs anonymously. Progress stays on this browser, and you can link an email later.</p>
+          <div class="auth-guest-row">
+            <input id="authGuestCallsign" type="text" maxlength="32" autocomplete="off" placeholder="Pick a callsign (optional)" aria-label="Optional guest callsign">
+            <button type="button" class="auth-guest-btn" id="authGuestBtn">PLAY PRIVATELY</button>
+          </div>
+        </div>
+
+        <button type="button" class="auth-google-btn" id="authGoogleBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.3-1.5 3.8-5.4 3.8-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.7 3.3 14.6 2.4 12 2.4 6.7 2.4 2.4 6.7 2.4 12S6.7 21.6 12 21.6c6.9 0 9.1-4.9 9.1-7.4 0-.5-.1-.9-.1-1.3H12z"/>
+          </svg>
+          <span>CONTINUE WITH GOOGLE</span>
+        </button>
+      </div>
+
+      <div id="authSignedInView" style="display:none">
+        <div class="auth-account-card">
+          <span class="auth-account-badge" id="authAccountBadge">EMAIL ACCOUNT</span>
+          <div class="auth-account-name" id="authAccountName">Runner</div>
+          <div class="auth-account-detail" id="authAccountDetail">Signed in</div>
+        </div>
+
+        <div id="authUpgradeBox" class="auth-upgrade-box" style="display:none">
+          <div class="auth-upgrade-title">Save Progress Across Devices <span class="auth-opt">(optional)</span></div>
+          <p class="auth-upgrade-desc">Link any email and password to keep your skins, loadouts, and XP if you switch browsers or devices.</p>
+          <form id="authUpgradeForm" class="auth-form" novalidate>
+            <div class="auth-field">
+              <label for="authUpgradeEmail">Email Address</label>
+              <input id="authUpgradeEmail" type="email" maxlength="254" autocomplete="email" placeholder="Any email provider works" required>
+            </div>
+            <div class="auth-field">
+              <label for="authUpgradePassword">Password</label>
+              <input id="authUpgradePassword" type="password" maxlength="128" autocomplete="new-password" placeholder="Minimum 8 characters" required>
+            </div>
+            <button type="submit" class="auth-primary-btn" id="authUpgradeSubmit">LINK EMAIL ACCOUNT</button>
+          </form>
+        </div>
+
+        <p class="auth-signout-hint" id="authSignOutHint">You can sign back in on any device at any time.</p>
+        <button type="button" class="auth-signout-btn" id="authSignOutBtn">SIGN OUT</button>
+      </div>
+    </div>
+  </div>
 </div>
 <div id="hud">
   <div class="topline"><div class="logo">VELOCITY</div><div class="version" id="levelName">SANDBOX</div></div>
@@ -1046,15 +1183,17 @@
     <div class="hs-bar"><div class="hs-fill" id="hudStreakFill"></div></div>
   </div>
   <div id="hudKatana" style="display:none" aria-label="Katana combat meters">
-    <div class="hk-row">
-      <span class="hk-key">Q</span>
-      <span class="hk-lbl">SLASH-DASH</span>
-      <span class="hk-val" id="hudKatanaDash">READY</span>
-    </div>
-    <div class="hk-row">
-      <span class="hk-key">RMB</span>
-      <span class="hk-lbl">DEFLECT</span>
-      <span class="hk-val" id="hudKatanaDeflectState">100%</span>
+    <div class="hk-top">
+      <div class="hk-row">
+        <span class="hk-key">Q</span>
+        <span class="hk-lbl">DASH</span>
+        <span class="hk-val" id="hudKatanaDash">READY</span>
+      </div>
+      <div class="hk-row">
+        <span class="hk-key">RMB</span>
+        <span class="hk-lbl">DEFLECT</span>
+        <span class="hk-val" id="hudKatanaDeflectState">100%</span>
+      </div>
     </div>
     <div class="hk-bar">
       <div class="hk-threshold"></div>
@@ -1260,6 +1399,7 @@ import(new URL("src/systems/progression/firebaseBackend.js", document.baseURI).h
 const SCRIPTS = [
   "src/utils/registry.js",
   "src/core/game.js",
+  "src/systems/progression/authHelpers.js",
   "src/systems/progression/settings.js",
   "src/weapons/melee/knivesData.js",
   "src/weapons/firearms/specs.js",
@@ -1299,6 +1439,7 @@ const SCRIPTS = [
   "src/ui/armoryUi.js",
   "src/ui/serversUi.js",
   "src/ui/dailyUi.js",
+  "src/ui/authUi.js",
   "src/ui/courseBrowserUi.js",
   "src/ui/gunsmithUi.js",
   "src/ui/bootstrap.js"

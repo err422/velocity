@@ -278,6 +278,10 @@
         const prefix = sanitizeDisplayName(authUser.email.split('@')[0]);
         if (prefix.length > 0) return prefix;
       }
+      if (authUser.isAnonymous) {
+        const rawUid = typeof authUser.uid === 'string' ? authUser.uid.replace(/[^a-zA-Z0-9]/g, '') : '';
+        return rawUid.length >= 4 ? `Guest-${rawUid.slice(-4).toUpperCase()}` : 'Guest';
+      }
     }
     return 'Runner';
   }

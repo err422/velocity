@@ -22,7 +22,7 @@ function renderAuthHeaderName(user){
 }
 
 async function hydrateCloudSettingsForUser(user){
-  if(!user||!user.emailVerified||!window.DailyBackend)return;
+  if(!user||!user.uid||!window.DailyBackend)return;
   if(lastSyncedUid===user.uid)return;
   lastSyncedUid=user.uid;
   try{
@@ -46,7 +46,7 @@ async function hydrateCloudInventoryForUser(user){
     updateArmorySyncLabel('TEST MODE · LOCAL ONLY');
     return;
   }
-  if(!user||!user.emailVerified||!window.DailyBackend)return;
+  if(!user||!user.uid||!window.DailyBackend)return;
   if(lastInvSyncedUid===user.uid)return;
   lastInvSyncedUid=user.uid;
   try{
@@ -169,7 +169,7 @@ function updateLoadoutsSyncLabel(override){
   if(!loadoutsSyncNoteEl)return;
   if(override){loadoutsSyncNoteEl.textContent=override;return;}
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
-  loadoutsSyncNoteEl.textContent=(st.user&&st.user.emailVerified)?'CLOUD SYNCED':'LOCAL ONLY';
+  loadoutsSyncNoteEl.textContent=(st.user&&st.user.uid)?(st.user.isAnonymous?'PRIVATE GUEST · SYNCED':'CLOUD SYNCED'):'LOCAL ONLY';
 }
 
 function scheduleCloudLoadoutsSave(){
@@ -178,7 +178,7 @@ function scheduleCloudLoadoutsSave(){
     return;
   }
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
-  if(!st.user||!st.user.emailVerified||!window.DailyBackend||!window.DailyBackend.saveUserLoadouts){
+  if(!st.user||!st.user.uid||!window.DailyBackend||!window.DailyBackend.saveUserLoadouts){
     updateLoadoutsSyncLabel('LOCAL ONLY');
     return;
   }
@@ -200,7 +200,7 @@ async function hydrateCloudLoadoutsForUser(user){
     updateLoadoutsSyncLabel('DEV SANDBOX · LOCAL ONLY');
     return;
   }
-  if(!user||!user.emailVerified||!window.DailyBackend||!window.DailyBackend.loadUserLoadouts)return;
+  if(!user||!user.uid||!window.DailyBackend||!window.DailyBackend.loadUserLoadouts)return;
   if(lastLoadoutsSyncedUid===user.uid)return;
   lastLoadoutsSyncedUid=user.uid;
   try{
@@ -229,10 +229,11 @@ async function hydrateCloudLoadoutsForUser(user){
 
 function renderAuthUI(user){
   renderAuthHeaderName(user);
-  if(user){
-    menuAuthBtn.textContent='SIGN OUT';
-    hubAuthBtn.textContent='SIGN OUT';
-    if(serversAuthBtn)serversAuthBtn.textContent='SIGN OUT';
+  if(user&&user.uid){
+    const btnLabel=user.isAnonymous?'GUEST':'ACCOUNT';
+    menuAuthBtn.textContent=btnLabel;
+    hubAuthBtn.textContent=btnLabel;
+    if(serversAuthBtn)serversAuthBtn.textContent=btnLabel;
     hydrateCloudSettingsForUser(user);
     hydrateCloudInventoryForUser(user);
     hydrateCloudLoadoutsForUser(user);
@@ -243,6 +244,9 @@ function renderAuthUI(user){
     menuAuthBtn.textContent='SIGN IN';
     hubAuthBtn.textContent='SIGN IN';
     if(serversAuthBtn)serversAuthBtn.textContent='SIGN IN';
+  }
+  if(window.VelocityAuthUI&&typeof window.VelocityAuthUI.isAuthModalOpen==='function'&&window.VelocityAuthUI.isAuthModalOpen()){
+    window.VelocityAuthUI.renderAuthModalContent();
   }
   updateSettingsSyncLabel();
   updateArmorySyncLabel();
@@ -255,6 +259,10 @@ function renderAuthUI(user){
 }
 
 async function handleAuthClick(){
+  if(typeof window.openAuthModal==='function'){
+    window.openAuthModal('signin');
+    return;
+  }
   if(!window.DailyBackend){
     showToast('CLOUD BACKEND LOADING — TRY AGAIN');
     return;
@@ -267,29 +275,22 @@ async function handleAuthClick(){
     }else{
       await window.DailyBackend.signInWithGoogle();
       showToast('SIGNED IN WITH GOOGLE');
-      if(selectedDateKey&&dailyHubEl.style.display!=='none'){
-        loadLeaderboardFor(selectedDateKey);
-      }
     }
   }catch(err){
-    const code=err&&err.code?String(err.code):'';
-    const msg=err&&err.message?String(err.message):'Sign-in canceled';
-    if(code.includes('unauthorized-domain')||msg.includes('unauthorized-domain')){
-      showToast(`ADD ${location.hostname.toUpperCase()} IN FIREBASE AUTH DOMAINS`);
-    }else if(!code.includes('popup-closed-by-user')&&!msg.includes('popup-closed-by-user')){
-      showToast('SIGN-IN UNAVAILABLE');
-    }
+    const msg=window.VelocityAuthHelpers?window.VelocityAuthHelpers.formatAuthError(err):'SIGN-IN UNAVAILABLE';
+    if(msg)showToast(msg.toUpperCase());
   }
 }
 
 function updateLeaderboardAuthNote(){
   if(!lbAuthNoteEl)return;
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null,online:false};
-  if(st.user){
+  if(st.user&&st.user.uid){
     const label=getEffectiveUserName(st.user);
-    lbAuthNoteEl.textContent=`Signed in as ${label} · Daily PBs auto-submit on finish.`;
+    const suffix=st.user.isAnonymous?' (Private Guest)':'';
+    lbAuthNoteEl.textContent=`Signed in as ${label}${suffix} · Daily PBs auto-submit on finish.`;
   }else{
-    lbAuthNoteEl.textContent='Playing as guest · Sign in with Google to publish daily times.';
+    lbAuthNoteEl.textContent='Playing offline · Sign in with Email, Google, or Private Guest to publish daily times.';
   }
 }
 

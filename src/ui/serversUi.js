@@ -94,20 +94,20 @@ function renderArenaMapPicker(){
 function renderServersBoard(){
   if(!serversBoardList)return;
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
-  const signedIn=!!(st.user&&st.user.emailVerified);
+  const signedIn=!!(st.user&&st.user.uid);
   if(serversSyncNote)serversSyncNote.textContent=signedIn?'LIVE FIRESTORE BOARD':'SIGN IN FOR P2P';
   if(hostDeployBtn)hostDeployBtn.disabled=!signedIn;
   if(hostDeployNote){
     hostDeployNote.textContent=signedIn
       ?'Zero server setup: your room appears instantly on the public board via Firestore and connects players peer-to-peer over WebRTC.'
-      :'Sign in with Google to host or join live P2P servers. Solo Arena Warmup works immediately without signing in.';
+      :'Sign in with Email, Google, or Private Guest (no email) to host or join live P2P servers. Solo Arena Warmup works immediately.';
   }
 
   serversBoardList.textContent='';
   if(!signedIn){
     const empty=document.createElement('div');
     empty.className='srv-empty';
-    empty.textContent='Sign in with Google to browse and join live public servers, or pick any of the 6 arenas for Solo Bot Warmup.';
+    empty.textContent='Sign in with Email, Google, or Private Guest (no email) to browse and join live public servers, or pick any of the 6 arenas for Solo Bot Warmup.';
     serversBoardList.appendChild(empty);
     return;
   }
@@ -153,7 +153,7 @@ function renderServersBoard(){
 function startServersSubscription(){
   stopServersSubscription();
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
-  if(!st.user||!st.user.emailVerified){
+  if(!st.user||!st.user.uid){
     livePublicLobbies=[];
     renderServersBoard();
     return;

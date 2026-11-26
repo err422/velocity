@@ -11,7 +11,7 @@ function refreshMenuLiveArenaStat(){
   if(!el)return;
   stopMenuLobbySubscription();
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
-  if(!st.user||!st.user.emailVerified||!window.DailyBackend||typeof window.DailyBackend.subscribePublicLobbies!=='function'){
+  if(!st.user||!st.user.uid||!window.DailyBackend||typeof window.DailyBackend.subscribePublicLobbies!=='function'){
     el.textContent='Host or Join Match';
     return;
   }
@@ -534,8 +534,9 @@ async function handleMenuQuickCodeJoin(){
     return;
   }
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
-  if(!st.user||!st.user.emailVerified){
-    showToast('SIGN IN WITH GOOGLE TO JOIN PVP ROOMS');
+  if(!st.user||!st.user.uid){
+    showToast('SIGN IN OR PLAY PRIVATELY TO JOIN PVP ROOMS');
+    if(typeof window.openAuthModal==='function')window.openAuthModal('signin');
     return;
   }
   try{
@@ -804,9 +805,11 @@ setDisplayNameInput.addEventListener('input',()=>{
   renderAuthHeaderName(user);
   updateLeaderboardAuthNote();
   const effName=getEffectiveUserName(user);
-  setDisplayNameNote.textContent=user
-    ?`Leaderboard name: "${effName}" · Synced to your Google account.`
-    :`Active local name: "${effName}" · Sign in with Google to sync across devices.`;
+  setDisplayNameNote.textContent=(user&&user.uid)
+    ?(user.isAnonymous
+      ?`Callsign: "${effName}" · Saved for your Private Guest session on this browser.`
+      :`Leaderboard name: "${effName}" · Synced across devices to your account.`)
+    :`Active local name: "${effName}" · Sign in with Email, Google, or Private Guest to sync.`;
   scheduleCloudSettingsSave(true);
 });
 setSensRange.addEventListener('input',()=>{

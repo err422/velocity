@@ -1676,10 +1676,51 @@
     return mat;
   }
 
+  const weaponSwatchCache = new Map();
+
+  function getWeaponSkinSwatchDataUrl(skinId, patternSeed = 42, floatValue = 0.02) {
+    const cleanSkin = KS.WEAPON_SKINS[skinId] ? skinId : 'factory_slate';
+    const seed = Math.max(0, Math.min(999, Math.floor(Number(patternSeed) || 0)));
+    const flt = Math.max(0, Math.min(1, Number.isFinite(Number(floatValue)) ? Number(floatValue) : 0.02));
+    const wearBucket = Math.round(flt * 20);
+    const key = `${cleanSkin}|${seed}|${wearBucket}`;
+    if (weaponSwatchCache.has(key)) return weaponSwatchCache.get(key);
+    if (typeof document === 'undefined') return '';
+    try {
+      const { albedoCanvas } = paintWeaponToCanvases({
+        skinId: cleanSkin,
+        patternSeed: seed,
+        floatValue: flt
+      });
+      const size = 96;
+      const out = document.createElement('canvas');
+      out.width = size;
+      out.height = size;
+      const ctx = out.getContext('2d');
+      // Center-crop a balanced square patch from the procedural albedo canvas so fine camo details stay crisp
+      const sw = albedoCanvas.width;
+      const sh = albedoCanvas.height;
+      const crop = Math.min(sw, sh) * 0.78;
+      const sx = (sw - crop) * 0.5;
+      const sy = (sh - crop) * 0.5;
+      ctx.drawImage(albedoCanvas, sx, sy, crop, crop, 0, 0, size, size);
+      const url = out.toDataURL('image/png');
+      if (weaponSwatchCache.size > 160) {
+        const firstKey = weaponSwatchCache.keys().next().value;
+        weaponSwatchCache.delete(firstKey);
+      }
+      weaponSwatchCache.set(key, url);
+      return url;
+    } catch (_) {
+      return '';
+    }
+  }
+
   Object.assign(VI, {
     skinCanvasCache,
     gloveCanvasCache,
     weaponCanvasCache,
+    weaponSwatchCache,
     thumbCache,
     skinCacheKey,
     paintSkinToCanvases,
@@ -1690,6 +1731,7 @@
     weaponCacheKey,
     paintWeaponToCanvases,
     createWeaponMaterial,
+    getWeaponSkinSwatchDataUrl,
     updateDynamicSkinMaterials
   });
 })(typeof self !== "undefined" ? self : globalThis);

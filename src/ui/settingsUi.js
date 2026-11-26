@@ -13,8 +13,8 @@ function updateSettingsSyncLabel(override){
   if(!settingsSyncNote)return;
   if(override){settingsSyncNote.textContent=override;return;}
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null,online:false};
-  if(st.user&&st.user.emailVerified){
-    settingsSyncNote.textContent='CLOUD SYNCED';
+  if(st.user&&st.user.uid){
+    settingsSyncNote.textContent=st.user.isAnonymous?'PRIVATE GUEST · SYNCED':'CLOUD SYNCED';
   }else{
     settingsSyncNote.textContent='LOCAL ONLY';
   }
@@ -22,7 +22,7 @@ function updateSettingsSyncLabel(override){
 
 function scheduleCloudSettingsSave(syncNameChange){
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
-  if(!st.user||!st.user.emailVerified){
+  if(!st.user||!st.user.uid){
     updateSettingsSyncLabel('LOCAL ONLY');
     return;
   }
@@ -167,9 +167,11 @@ function renderSettingsPanel(){
   setDisplayNameCount.textContent=`${s.displayName.length} / 32`;
   const user=window.DailyBackend?window.DailyBackend.getState().user:null;
   const effName=getEffectiveUserName(user);
-  setDisplayNameNote.textContent=user
-    ?`Leaderboard name: "${effName}" · Synced to your Google account.`
-    :`Active local name: "${effName}" · Sign in with Google to sync across devices.`;
+  setDisplayNameNote.textContent=(user&&user.uid)
+    ?(user.isAnonymous
+      ?`Callsign: "${effName}" · Saved for your Private Guest session on this browser.`
+      :`Leaderboard name: "${effName}" · Synced across devices to your account.`)
+    :`Active local name: "${effName}" · Sign in with Email, Google, or Private Guest to sync.`;
 
   setSensRange.value=String(s.sensitivity);
   setSensVal.textContent=s.sensitivity.toFixed(2)+'×';

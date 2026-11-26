@@ -389,7 +389,9 @@ function renderLoadoutsOverview(){
     const filteredRoster=isPrimary&&primaryClassFilter!=='all'
       ?roster.filter(wid=>{
         const ws=LoadoutsSystem.getWeaponSpec(wid);
-        return ws&&ws.weaponClass===primaryClassFilter;
+        if(!ws)return false;
+        const cid=ws.classId==='katana'?'melee':(ws.classId||ws.weaponClass);
+        return cid===primaryClassFilter;
       })
       :roster;
     for(const wid of filteredRoster){
@@ -537,7 +539,7 @@ function renderLoadoutsOverview(){
       sTop.append(sNm,sCost);
       const sDesc=document.createElement('div');
       sDesc.className='cod-streak-desc';
-      sDesc.textContent=sDef.desc||'';
+      sDesc.textContent=sDef.desc||sDef.description||'';
       btn.append(sTop,sDesc);
       btn.onclick=(ev)=>{
         ev.stopPropagation();
@@ -575,6 +577,11 @@ function renderLoadoutsOverview(){
   }
 }
 
+let gunsmithCamoFilter='all';
+let gunsmithLastTab='';
+let gunsmithLastWeaponId='';
+let gunsmithPinnedFinishKey='';
+
 function openGunsmith(slotCategory){
   gunsmithMode=true;
   gunsmithSlotCategory=slotCategory==='secondary'?'secondary':'primary';
@@ -584,6 +591,9 @@ function openGunsmith(slotCategory){
   gunsmithDrawerSlot=null;
   gunsmithAttCategory='optic';
   gunsmithHoverAttId=null;
+  gunsmithLastTab='';
+  gunsmithLastWeaponId='';
+  gunsmithPinnedFinishKey='';
   renderGunsmith();
 }
 
@@ -595,14 +605,15 @@ function getGunsmithEntry(){
 function updateGunsmith3DPreview(previewAttachments,focusSlotOverride,opts){
   if(!gunsmithCanvasEl||!gunsmithMode)return;
   const entry=getGunsmithEntry();
-  const skinItem=getWeaponSkinForLoadoutEntry(entry.weaponId,entry.skinItemId);
+  const options=opts||{};
+  const skinItem=options.previewSkinItem||getWeaponSkinForLoadoutEntry(entry.weaponId,entry.skinItemId);
   const atts=previewAttachments||entry.attachments;
   const focus=focusSlotOverride!==undefined
     ?focusSlotOverride
-    :(gunsmithTab==='gunsmith'?(gunsmithDrawerSlot||'none'):'none');
+    :(gunsmithTab==='appearance'?'appearance':(gunsmithTab==='gunsmith'?(gunsmithDrawerSlot||'none'):'none'));
   ArmoryPreview.showGunsmithWeapon(gunsmithCanvasEl,skinItem,atts,{
     focusSlot:focus,
-    resetCamera:opts&&opts.resetCamera===false?false:true
+    resetCamera:options.resetCamera===false?false:true
   });
 }
 
@@ -920,18 +931,22 @@ function renderGunsmith(){
   if(gsAppearanceTrayEl)gsAppearanceTrayEl.style.display=isAppTab?'':'none';
   if(gsProgressionTrayEl)gsProgressionTrayEl.style.display=isProgTab?'':'none';
 
+  const tabChanged=gunsmithLastTab!==gunsmithTab||gunsmithLastWeaponId!==entry.weaponId;
+  gunsmithLastTab=gunsmithTab;
+  gunsmithLastWeaponId=entry.weaponId;
+
   if(isAppTab){
     if(gsAttDrawerEl)gsAttDrawerEl.style.display='none';
-    if(gsAppearanceHeadingEl)gsAppearanceHeadingEl.textContent=`${spec.shortName.toUpperCase()} FINISHES (OWNED IN ARMORY)`;
+    if(gsAppearanceHeadingEl)gsAppearanceHeadingEl.textContent=`${spec.shortName.toUpperCase()} FINISHES`;
     renderGunsmithSkins(entry);
-    updateGunsmith3DPreview(entry.attachments,'none');
+    updateGunsmith3DPreview(entry.attachments,'appearance',{resetCamera:tabChanged});
     return;
   }
 
   if(isProgTab){
     if(gsAttDrawerEl)gsAttDrawerEl.style.display='none';
     renderGunsmithProgression(entry,spec,lvlInfo);
-    updateGunsmith3DPreview(entry.attachments,'none');
+    updateGunsmith3DPreview(entry.attachments,'none',{resetCamera:tabChanged});
     return;
   }
 
@@ -1014,176 +1029,428 @@ function renderGunsmith(){
   updateGunsmith3DPreview(entry.attachments,gunsmithDrawerSlot||'none');
 }
 
+function formatCamoProgressNum(val){
+  const n=Number(val)||0;
+  return Math.abs(n-Math.round(n))<0.01?String(Math.round(n)):n.toFixed(1);
+}
+
+function getSwatchFallbackBg(skinId,accent){
+  const c=accent||'#65e7ff';
+  if(skinId==='camo_gold')return 'linear-gradient(135deg,#8c6112 0%,#ffd84d 52%,#6e480a 100%)';
+  if(skinId==='camo_diamond')return 'linear-gradient(135deg,#9fb4c8 0%,#f5fbff 48%,#e6b84c 100%)';
+  if(skinId==='camo_dark_matter')return 'linear-gradient(135deg,#19092b 0%,#9e42ff 52%,#2a0b4a 100%)';
+  return `linear-gradient(135deg,rgba(14,24,36,.95) 0%,${c} 100%)`;
+}
+
+function createCamoStateSvg(kind){
+  if(kind==='locked'){
+    return '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="7.2" width="9.6" height="6.8" rx="1.2"/><path d="M5.4 7.2V5.1a2.6 2.6 0 0 1 5.2 0v2.1"/></svg>';
+  }
+  if(kind==='equipped'){
+    return '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.1 3.1 6.5-6.8"/></svg>';
+  }
+  return '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.4l1.6 3.5 3.8.5-2.8 2.6.7 3.8L8 11l-3.3 1.8.7-3.8-2.8-2.6 3.8-.5z"/></svg>';
+}
+
 function renderGunsmithSkins(entry){
   if(!gsSkinsGridEl)return;
+  const groupsEl=document.getElementById('gsCamoGroups');
+  const subtabsEl=document.getElementById('gsCamoSubtabs');
+  const railEl=gsAppearanceTrayEl?gsAppearanceTrayEl.querySelector('.gs-camo-rail'):null;
+  const inspCodeEl=document.getElementById('gsCamoInspCode');
+  const inspIconEl=document.getElementById('gsCamoInspIcon');
+  const inspTitleEl=document.getElementById('gsCamoInspTitle');
+  const inspStateEl=document.getElementById('gsCamoInspState');
+  const inspTierEl=document.getElementById('gsCamoInspTier');
+  const inspDescEl=document.getElementById('gsCamoInspDesc');
+  const inspProgRowEl=document.getElementById('gsCamoInspProgRow');
+  const inspFillEl=document.getElementById('gsCamoInspFill');
+  const inspCountEl=document.getElementById('gsCamoInspCount');
+  const inspSubEl=document.getElementById('gsCamoInspSub');
+  const inspEquipBtn=document.getElementById('gsCamoEquipBtn');
+
   const owned=(window.activeInventory.weapons||[]).filter(w=>w.weaponType===entry.weaponId);
-  const activeSkin=getWeaponSkinForLoadoutEntry(entry.weaponId,entry.skinItemId);
-  const equippedCamoId=window.activeLoadouts&&window.activeLoadouts.equippedWeaponCamos?window.activeLoadouts.equippedWeaponCamos[entry.weaponId]:'';
-  const parentTray=gsSkinsGridEl.parentElement;
-
-  // Render CoD Camo Challenges & Mastery section above Owned Armory Finishes
-  let camoSection=parentTray?parentTray.querySelector('.gs-camo-section'):null;
-  if(parentTray&&!camoSection){
-    camoSection=document.createElement('div');
-    camoSection.className='gs-camo-section';
-    parentTray.insertBefore(camoSection,gsSkinsGridEl);
-  }
-  if(camoSection&&typeof LoadoutsSystem.getWeaponCamoStatus==='function'){
-    const status=LoadoutsSystem.getWeaponCamoStatus(window.activeLoadouts,entry.weaponId);
-    camoSection.textContent='';
-
-    const head=document.createElement('div');
-    head.className='gs-camo-subhead';
-    head.innerHTML=`<span>CAMO CHALLENGES &amp; MASTERY · <strong>${status.unlockedBaseCount}/${status.baseCamos.length} BASE</strong></span><span>PVP 1.0× · BOTS 0.35× · DIAMOND (${status.classGoldCount}/${status.classTotalCount} CLASS GOLD) · DARK MATTER (${status.totalGoldCount}/${status.totalWeaponsCount} GOLD)</span>`;
-    camoSection.appendChild(head);
-
-    const masteryRow=document.createElement('div');
-    masteryRow.className='gs-mastery-row';
-    const masteryColors={
-      camo_gold:'#ffd257',
-      camo_diamond:'#a8f3ff',
-      camo_dark_matter:'#c77dff'
-    };
-    for(const mc of status.masteryCamos){
-      const isEq=equippedCamoId===mc.id;
-      const card=document.createElement('button');
-      card.type='button';
-      card.className='gs-camo-card'+(mc.unlocked?' unlocked':' locked')+(isEq?' equipped':'');
-      card.style.setProperty('--camo-col',masteryColors[mc.id]||'#ffd257');
-      const top=document.createElement('div');
-      top.className='gs-camo-top';
-      const nm=document.createElement('span');
-      nm.className='gs-camo-name';
-      nm.textContent=mc.name;
-      const st=document.createElement('span');
-      st.className='gs-camo-state';
-      st.textContent=isEq?'EQUIPPED':(mc.unlocked?'UNLOCKED':`${mc.current}/${mc.target}`);
-      top.append(nm,st);
-      const req=document.createElement('div');
-      req.className='gs-camo-req';
-      req.textContent=mc.requirement;
-      const bar=document.createElement('div');
-      bar.className='gs-camo-bar';
-      const fill=document.createElement('div');
-      fill.className='gs-camo-fill';
-      fill.style.width=`${Math.round(mc.progress*100)}%`;
-      bar.appendChild(fill);
-      card.append(top,req,bar);
-      card.onclick=()=>{
-        if(!mc.unlocked){
-          showToast(`LOCKED: ${mc.requirement.toUpperCase()} (${mc.current}/${mc.target})`);
-          return;
-        }
-        const nextCamo=isEq?'':mc.id;
-        const res=LoadoutsSystem.equipWeaponCamo(window.activeLoadouts,entry.weaponId,nextCamo);
-        if(!res.ok)return;
-        commitLoadoutsState(res.state,{silentToast:true});
-        showToast(nextCamo?`EQUIPPED ${mc.name.toUpperCase()} MASTERY CAMO`:'CAMO REMOVED · USING ARMORY SKIN');
-        renderGunsmith();
-      };
-      masteryRow.appendChild(card);
+  const baseEquippedItem=(()=>{
+    if(entry.skinItemId){
+      const bySlot=owned.find(w=>w.id===entry.skinItemId);
+      if(bySlot)return bySlot;
     }
-    camoSection.appendChild(masteryRow);
-
-    const baseGrid=document.createElement('div');
-    baseGrid.className='gs-camo-grid';
-    const baseColors={
-      tactical_carbon:'#8fa6b5',
-      cyber_wireframe:'#4bf0ff',
-      holo_prism:'#d58cff',
-      damascus:'#8fb7ff',
-      molten_magma:'#ff6a3d',
-      ronin_sakura:'#ff7aa8'
-    };
-    for(const bc of status.baseCamos){
-      const isEq=equippedCamoId===bc.id;
-      const card=document.createElement('button');
-      card.type='button';
-      card.className='gs-camo-card'+(bc.unlocked?' unlocked':' locked')+(isEq?' equipped':'');
-      card.style.setProperty('--camo-col',baseColors[bc.id]||'#65e7ff');
-      const top=document.createElement('div');
-      top.className='gs-camo-top';
-      const nm=document.createElement('span');
-      nm.className='gs-camo-name';
-      nm.textContent=bc.name;
-      const st=document.createElement('span');
-      st.className='gs-camo-state';
-      st.textContent=isEq?'EQUIPPED':(bc.unlocked?'UNLOCKED':`${Math.floor(bc.current)}/${bc.target}`);
-      top.append(nm,st);
-      const req=document.createElement('div');
-      req.className='gs-camo-req';
-      req.textContent=bc.label;
-      const bar=document.createElement('div');
-      bar.className='gs-camo-bar';
-      const fill=document.createElement('div');
-      fill.className='gs-camo-fill';
-      fill.style.width=`${Math.round(bc.progress*100)}%`;
-      bar.appendChild(fill);
-      card.append(top,req,bar);
-      card.onclick=()=>{
-        if(!bc.unlocked){
-          showToast(`LOCKED: ${bc.label.toUpperCase()} (${Math.floor(bc.current)}/${bc.target})`);
-          return;
-        }
-        const nextCamo=isEq?'':bc.id;
-        const res=LoadoutsSystem.equipWeaponCamo(window.activeLoadouts,entry.weaponId,nextCamo);
-        if(!res.ok)return;
-        commitLoadoutsState(res.state,{silentToast:true});
-        showToast(nextCamo?`EQUIPPED ${bc.name.toUpperCase()} CAMO`:'CAMO REMOVED · USING ARMORY SKIN');
-        renderGunsmith();
-      };
-      baseGrid.appendChild(card);
+    const mapId=window.activeLoadouts&&window.activeLoadouts.equippedWeaponSkins?window.activeLoadouts.equippedWeaponSkins[entry.weaponId]:'';
+    if(mapId){
+      const byMap=owned.find(w=>w.id===mapId);
+      if(byMap)return byMap;
     }
-    camoSection.appendChild(baseGrid);
+    return KnivesSystem.getEquippedWeapon(window.activeInventory,entry.weaponId);
+  })();
+  const equippedCamoId=window.activeLoadouts&&window.activeLoadouts.equippedWeaponCamos?(window.activeLoadouts.equippedWeaponCamos[entry.weaponId]||''):'';
+  const status=typeof LoadoutsSystem.getWeaponCamoStatus==='function'
+    ?LoadoutsSystem.getWeaponCamoStatus(window.activeLoadouts,entry.weaponId)
+    :null;
+
+  if(subtabsEl){
+    subtabsEl.querySelectorAll('[data-camo-filter]').forEach(btn=>{
+      const on=btn.dataset.camoFilter===gunsmithCamoFilter;
+      btn.classList.toggle('active',on);
+      btn.setAttribute('aria-selected',on?'true':'false');
+      btn.onclick=()=>{
+        gunsmithCamoFilter=btn.dataset.camoFilter||'all';
+        renderGunsmithSkins(entry);
+      };
+    });
   }
 
+  const descriptors=[];
+  const byKey=new Map();
+
+  const makeCamoPreviewItem=(skinId)=>({
+    ...baseEquippedItem,
+    id:`preview_camo_${entry.weaponId}_${skinId}`,
+    skinId,
+    floatValue:0.01,
+    patternSeed:42,
+    wearGrade:'FN',
+    isCamoOverride:true
+  });
+
+  const equipCamoSkin=(skinId,camoName,isCurrentlyEquipped)=>{
+    const nextCamo=isCurrentlyEquipped?'':skinId;
+    const res=LoadoutsSystem.equipWeaponCamo(window.activeLoadouts,entry.weaponId,nextCamo);
+    if(!res.ok){
+      showToast('CHALLENGE CAMO LOCKED · COMPLETE CHALLENGE TO EQUIP');
+      return;
+    }
+    gunsmithPinnedFinishKey='';
+    commitLoadoutsState(res.state,{silentToast:true});
+    showToast(nextCamo?`EQUIPPED ${camoName.toUpperCase()} CAMO`:'CAMO REMOVED · USING ARMORY FINISH');
+    renderGunsmith();
+  };
+
+  const equipArmoryItem=(item)=>{
+    const next=LoadoutsSystem.sanitizeLoadoutState(window.activeLoadouts);
+    next.loadouts[selectedLoadoutIdx][gunsmithSlotCategory].skinItemId=item.id;
+    next.equippedWeaponSkins[entry.weaponId]=item.id;
+    if(next.equippedWeaponCamos)next.equippedWeaponCamos[entry.weaponId]='';
+    if(!window.activeInventory.equippedWeaponIds)window.activeInventory.equippedWeaponIds={};
+    window.activeInventory.equippedWeaponIds[entry.weaponId]=item.id;
+    const legacyField=weaponEquipField(entry.weaponId);
+    if(legacyField)window.activeInventory[legacyField]=item.id;
+    persistInventorySummary(true);
+    ViewmodelSystem.equipWeaponSkin(item);
+    gunsmithPinnedFinishKey='';
+    commitLoadoutsState(next,{silentToast:true});
+    showToast(`EQUIPPED ${KnivesSystem.formatWeaponFullName(item).toUpperCase()}`);
+    renderGunsmith();
+  };
+
+  const renderInspector=(desc)=>{
+    if(!desc||!inspTitleEl)return;
+    const accent=desc.accent||'#65e7ff';
+    if(inspCodeEl)inspCodeEl.textContent=desc.code||'CAMO SELECT';
+    if(inspIconEl){
+      inspIconEl.className='gs-camo-insp-icon '+(desc.equipped?'equipped':(desc.unlocked?'unlocked':'locked'));
+      inspIconEl.innerHTML=createCamoStateSvg(desc.equipped?'equipped':(desc.unlocked?'unlocked':'locked'));
+    }
+    inspTitleEl.textContent=(desc.name||'FACTORY SLATE').toUpperCase();
+    if(inspStateEl){
+      inspStateEl.className='gs-camo-insp-state '+(desc.equipped?'equipped':(desc.unlocked?'unlocked':'locked'));
+      inspStateEl.textContent=desc.equipped?'EQUIPPED':(desc.unlocked?'UNLOCKED · CLICK TO EQUIP':'LOCKED');
+    }
+    if(inspTierEl){
+      inspTierEl.textContent=desc.tier||'';
+      inspTierEl.style.color=accent;
+    }
+    if(inspDescEl)inspDescEl.textContent=desc.desc||'';
+    if(inspProgRowEl){
+      if(desc.hasProgress){
+        inspProgRowEl.style.display='';
+        if(inspFillEl){
+          inspFillEl.style.width=`${Math.max(0,Math.min(100,desc.pct||0))}%`;
+          inspFillEl.style.background=accent;
+        }
+        if(inspCountEl)inspCountEl.textContent=`${formatCamoProgressNum(desc.current)} / ${desc.target}`;
+      }else{
+        inspProgRowEl.style.display='none';
+      }
+    }
+    if(inspSubEl){
+      inspSubEl.textContent=desc.sub||'';
+      inspSubEl.style.display=desc.sub?'':'none';
+    }
+    if(inspEquipBtn){
+      if(desc.unlocked&&typeof desc.onEquip==='function'){
+        inspEquipBtn.style.display='';
+        if(desc.kind==='camo'){
+          inspEquipBtn.textContent=desc.equipped?'REMOVE CAMO':'EQUIP CAMO';
+          inspEquipBtn.disabled=false;
+          inspEquipBtn.onclick=()=>desc.onEquip();
+        }else{
+          inspEquipBtn.textContent=desc.equipped?'EQUIPPED':'EQUIP FINISH';
+          inspEquipBtn.disabled=!!desc.equipped;
+          inspEquipBtn.onclick=()=>{if(!desc.equipped)desc.onEquip();};
+        }
+      }else{
+        inspEquipBtn.style.display='none';
+        inspEquipBtn.onclick=null;
+      }
+    }
+  };
+
+  const applySwatchHighlight=(activeKey)=>{
+    if(!gsAppearanceTrayEl)return;
+    gsAppearanceTrayEl.querySelectorAll('.gs-swatch-tile').forEach(el=>{
+      el.classList.toggle('focused',el.dataset.finishKey===activeKey);
+    });
+  };
+
+  const buildSwatchTile=(desc)=>{
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.dataset.finishKey=desc.key;
+    btn.dataset.skinId=desc.skinId;
+    btn.dataset.finishKind=desc.kind;
+    btn.className='gs-swatch-tile'+(desc.unlocked?' unlocked':' locked')+(desc.equipped?' equipped':'');
+    btn.style.setProperty('--swatch-col',desc.accent||'#65e7ff');
+    btn.title=`${desc.name}${desc.equipped?' (Equipped)':desc.unlocked?'':' (Locked)'}`;
+
+    const swatchUrl=typeof ArmoryPreview.getWeaponSkinSwatchDataUrl==='function'
+      ?ArmoryPreview.getWeaponSkinSwatchDataUrl(desc.skinId,desc.patternSeed,desc.floatValue)
+      :'';
+    if(swatchUrl){
+      const img=document.createElement('img');
+      img.className='gs-swatch-img';
+      img.alt=desc.name;
+      img.src=swatchUrl;
+      btn.appendChild(img);
+    }else{
+      const fallback=document.createElement('div');
+      fallback.className='gs-swatch-fallback';
+      fallback.style.background=getSwatchFallbackBg(desc.skinId,desc.accent);
+      btn.appendChild(fallback);
+    }
+
+    if(desc.equipped){
+      const badge=document.createElement('span');
+      badge.className='gs-swatch-badge equipped';
+      badge.setAttribute('aria-label','Equipped');
+      badge.innerHTML=createCamoStateSvg('equipped');
+      btn.appendChild(badge);
+    }else if(!desc.unlocked){
+      const badge=document.createElement('span');
+      badge.className='gs-swatch-badge locked';
+      badge.setAttribute('aria-label','Locked');
+      badge.innerHTML=createCamoStateSvg('locked');
+      btn.appendChild(badge);
+    }
+
+    if(desc.wearTag){
+      const wt=document.createElement('span');
+      wt.className='gs-swatch-wear';
+      wt.textContent=desc.wearTag;
+      btn.appendChild(wt);
+    }
+
+    const bar=document.createElement('span');
+    bar.className='gs-swatch-bar';
+    if(desc.hasProgress&&!desc.unlocked){
+      const prog=document.createElement('span');
+      prog.className='gs-swatch-bar-fill';
+      prog.style.width=`${Math.max(0,Math.min(100,desc.pct||0))}%`;
+      bar.appendChild(prog);
+    }
+    btn.appendChild(bar);
+
+    const previewNow=()=>{
+      applySwatchHighlight(desc.key);
+      renderInspector(desc);
+      updateGunsmith3DPreview(entry.attachments,'appearance',{
+        resetCamera:false,
+        previewSkinItem:desc.previewItem
+      });
+    };
+
+    btn.onmouseenter=previewNow;
+    btn.onfocus=previewNow;
+    btn.onclick=()=>{
+      if(!desc.unlocked){
+        gunsmithPinnedFinishKey=desc.key;
+        previewNow();
+        showToast(`LOCKED: ${desc.name.toUpperCase()} (${formatCamoProgressNum(desc.current)}/${desc.target})`);
+        return;
+      }
+      desc.onEquip();
+    };
+    return btn;
+  };
+
+  if(groupsEl)groupsEl.textContent='';
   gsSkinsGridEl.textContent='';
-  if(owned.length===0){
-    const empty=document.createElement('div');
-    empty.className='inv-empty';
-    empty.textContent='No Armory skins unlocked for this weapon yet. Open cases in the Armory to unbox finishes.';
-    gsSkinsGridEl.appendChild(empty);
-    return;
+
+  const showChallenges=gunsmithCamoFilter==='all'||gunsmithCamoFilter==='challenges';
+  const showArmory=gunsmithCamoFilter==='all'||gunsmithCamoFilter==='armory';
+
+  let defaultDescriptor=null;
+
+  if(status){
+    // Base Challenges (6)
+    const baseDescs=status.baseCamos.map((bc,idx)=>{
+      const isEq=equippedCamoId===bc.skinId;
+      const desc={
+        key:`base:${bc.skinId}`,
+        kind:'camo',
+        skinId:bc.skinId,
+        patternSeed:42,
+        floatValue:0.01,
+        name:bc.name,
+        code:`BASE 0${idx+1} · ${bc.label.toUpperCase()}`,
+        tier:'BASE CHALLENGE',
+        desc:bc.desc,
+        sub:`PvP 1.0× · Bots 0.35× · Base Progress ${status.baseUnlockedCount}/${status.baseCamos.length} for Gold`,
+        accent:bc.accent||'#65e7ff',
+        unlocked:!!bc.unlocked,
+        equipped:isEq,
+        hasProgress:true,
+        current:bc.current,
+        target:bc.target,
+        pct:bc.pct,
+        previewItem:makeCamoPreviewItem(bc.skinId),
+        onEquip:()=>equipCamoSkin(bc.skinId,bc.name,isEq)
+      };
+      descriptors.push(desc);
+      byKey.set(desc.key,desc);
+      if(isEq)defaultDescriptor=desc;
+      return desc;
+    });
+
+    // Mastery Camos (Gold, Diamond, Dark Matter)
+    const masteryDescs=status.masteryCamos.map((mc,idx)=>{
+      const skinId=mc.skinId||mc.id;
+      const isEq=equippedCamoId===skinId;
+      const desc={
+        key:`mastery:${skinId}`,
+        kind:'camo',
+        skinId,
+        patternSeed:42,
+        floatValue:0.01,
+        name:mc.name,
+        code:`MASTERY 0${idx+1} · COMPLETIONIST`,
+        tier:mc.tier||'COMPLETIONIST',
+        desc:mc.desc,
+        sub:mc.animated?'Animated shader · Unlocks across all weapons':'Completionist reward · Click swatch to toggle',
+        accent:mc.accent||'#ffd84d',
+        unlocked:!!mc.unlocked,
+        equipped:isEq,
+        hasProgress:true,
+        current:mc.current,
+        target:mc.target,
+        pct:mc.pct,
+        previewItem:makeCamoPreviewItem(skinId),
+        onEquip:()=>equipCamoSkin(skinId,mc.name,isEq)
+      };
+      descriptors.push(desc);
+      byKey.set(desc.key,desc);
+      if(isEq)defaultDescriptor=desc;
+      return desc;
+    });
+
+    if(groupsEl&&showChallenges){
+      const baseSec=document.createElement('div');
+      baseSec.className='gs-swatch-section';
+      const baseHead=document.createElement('div');
+      baseHead.className='gs-swatch-sec-head';
+      baseHead.innerHTML=`<span>BASE CHALLENGES</span><strong>${status.baseUnlockedCount}/${status.baseCamos.length}</strong>`;
+      const baseGrid=document.createElement('div');
+      baseGrid.className='gs-swatch-grid';
+      for(const d of baseDescs)baseGrid.appendChild(buildSwatchTile(d));
+      baseSec.append(baseHead,baseGrid);
+      groupsEl.appendChild(baseSec);
+
+      const mastUnlocked=masteryDescs.filter(m=>m.unlocked).length;
+      const mastSec=document.createElement('div');
+      mastSec.className='gs-swatch-section';
+      const mastHead=document.createElement('div');
+      mastHead.className='gs-swatch-sec-head';
+      mastHead.innerHTML=`<span>COMPLETIONIST</span><strong>${mastUnlocked}/${masteryDescs.length}</strong>`;
+      const mastGrid=document.createElement('div');
+      mastGrid.className='gs-swatch-grid';
+      for(const d of masteryDescs)mastGrid.appendChild(buildSwatchTile(d));
+      mastSec.append(mastHead,mastGrid);
+      groupsEl.appendChild(mastSec);
+    }
   }
-  for(const item of owned){
+
+  // Armory Finishes (Owned case skins + Factory Default)
+  const armoryDescs=[];
+  const hasFactoryOwned=owned.some(w=>w.skinId==='factory_slate');
+  const armoryItems=hasFactoryOwned?owned:[KnivesSystem.createStarterWeapon(entry.weaponId),...owned];
+
+  for(const item of armoryItems){
     const rar=KnivesSystem.RARITIES[item.rarity]||KnivesSystem.RARITIES.milspec;
     const sk=KnivesSystem.WEAPON_SKINS[item.skinId]||KnivesSystem.WEAPON_SKINS.factory_slate;
-    const isEq=!equippedCamoId&&activeSkin&&activeSkin.id===item.id;
-    const card=document.createElement('button');
-    card.type='button';
-    card.className='gs-skin-card'+(isEq?' equipped':'');
-    card.style.setProperty('--rar-col',rar.color);
-    const img=document.createElement('img');
-    img.className='gs-skin-thumb';
-    img.alt=sk.name;
-    img.src=getThumbForItem(item);
-    const top=document.createElement('div');
-    top.className='gs-att-top';
-    const nm=document.createElement('span');
-    nm.className='gs-att-name';
-    nm.style.fontSize='11.5px';
-    nm.textContent=sk.name;
-    const tag=document.createElement('span');
-    tag.className='gs-att-tag';
-    tag.textContent=isEq?'EQUIPPED':item.wearGrade;
-    top.append(nm,tag);
-    card.append(img,top);
-    card.onclick=()=>{
-      const next=LoadoutsSystem.sanitizeLoadoutState(window.activeLoadouts);
-      next.loadouts[selectedLoadoutIdx][gunsmithSlotCategory].skinItemId=item.id;
-      next.equippedWeaponSkins[entry.weaponId]=item.id;
-      if(next.equippedWeaponCamos)delete next.equippedWeaponCamos[entry.weaponId];
-      if(!window.activeInventory.equippedWeaponIds)window.activeInventory.equippedWeaponIds={};
-      window.activeInventory.equippedWeaponIds[entry.weaponId]=item.id;
-      const legacyField=weaponEquipField(entry.weaponId);
-      if(legacyField)window.activeInventory[legacyField]=item.id;
-      persistInventorySummary(true);
-      ViewmodelSystem.equipWeaponSkin(item);
-      commitLoadoutsState(next,{silentToast:true});
-      showToast(`EQUIPPED ${KnivesSystem.formatWeaponFullName(item).toUpperCase()}`);
-      renderGunsmith();
+    const isEq=!equippedCamoId&&baseEquippedItem&&(baseEquippedItem.id===item.id||(!hasFactoryOwned&&item.skinId==='factory_slate'&&baseEquippedItem.skinId==='factory_slate'));
+    const special=item.specialTag?` · ${item.specialTag}`:'';
+    const flt=Number.isFinite(Number(item.floatValue))?Number(item.floatValue).toFixed(4):'0.0400';
+    const desc={
+      key:`armory:${item.id}`,
+      kind:'armory',
+      skinId:item.skinId,
+      patternSeed:item.patternSeed||0,
+      floatValue:item.floatValue,
+      wearTag:item.wearGrade||'FN',
+      name:sk.name,
+      code:`ARMORY FINISH · ${rar.label.toUpperCase()} · ${item.wearGrade||'FN'} ${flt}`,
+      tier:`PATTERN #${item.patternSeed||0}${special}`,
+      desc:sk.description||'Armory weapon finish.',
+      sub:equippedCamoId?'Equipping an Armory finish clears the active Challenge Camo':'Owned in Armory Inventory',
+      accent:rar.color||sk.accent||'#65e7ff',
+      unlocked:true,
+      equipped:isEq,
+      hasProgress:false,
+      previewItem:item,
+      onEquip:()=>equipArmoryItem(item)
     };
-    gsSkinsGridEl.appendChild(card);
+    descriptors.push(desc);
+    byKey.set(desc.key,desc);
+    armoryDescs.push(desc);
+    if(isEq&&!defaultDescriptor)defaultDescriptor=desc;
+  }
+
+  if(showArmory){
+    const armSec=document.createElement('div');
+    armSec.className='gs-swatch-section';
+    const armHead=document.createElement('div');
+    armHead.className='gs-swatch-sec-head';
+    armHead.innerHTML=`<span>ARMORY FINISHES</span><strong>${armoryDescs.length}</strong>`;
+    const armGrid=document.createElement('div');
+    armGrid.className='gs-swatch-grid';
+    for(const d of armoryDescs)armGrid.appendChild(buildSwatchTile(d));
+    armSec.append(armHead,armGrid);
+    if(owned.length===0){
+      const hint=document.createElement('div');
+      hint.className='gs-swatch-empty-note';
+      hint.textContent='Unbox cases in the Armory to unlock custom finishes for this weapon.';
+      armSec.appendChild(hint);
+    }
+    gsSkinsGridEl.appendChild(armSec);
+  }
+
+  const initialDesc=(gunsmithPinnedFinishKey&&byKey.get(gunsmithPinnedFinishKey))
+    ||defaultDescriptor
+    ||descriptors[0];
+
+  if(initialDesc){
+    applySwatchHighlight(initialDesc.key);
+    renderInspector(initialDesc);
+  }
+
+  if(railEl){
+    railEl.onmouseleave=()=>{
+      const restore=(gunsmithPinnedFinishKey&&byKey.get(gunsmithPinnedFinishKey))||defaultDescriptor||descriptors[0];
+      if(restore){
+        applySwatchHighlight(restore.key);
+        renderInspector(restore);
+      }
+      updateGunsmith3DPreview(entry.attachments,'appearance',{resetCamera:false});
+    };
   }
 }
 

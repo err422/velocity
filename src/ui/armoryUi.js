@@ -41,7 +41,7 @@ function updateArmorySyncLabel(override){
   if(!armorySyncNote)return;
   if(override){armorySyncNote.textContent=override;return;}
   const st=window.DailyBackend?window.DailyBackend.getState():{user:null};
-  armorySyncNote.textContent=(st.user&&st.user.emailVerified)?'CLOUD SYNCED':'LOCAL ONLY';
+  armorySyncNote.textContent=(st.user&&st.user.uid)?(st.user.isAnonymous?'PRIVATE GUEST · SYNCED':'CLOUD SYNCED'):'LOCAL ONLY';
 }
 
 function persistInventorySummary(syncCloud=true,options){
@@ -54,7 +54,7 @@ function persistInventorySummary(syncCloud=true,options){
   }
   if(syncCloud&&window.DailyBackend){
     const st=window.DailyBackend.getState();
-    if(st.user&&st.user.emailVerified){
+    if(st.user&&st.user.uid){
       updateArmorySyncLabel('SAVING...');
       return window.DailyBackend.saveUserInventorySummary(window.activeInventory)
         .then(r=>{
@@ -497,7 +497,7 @@ function saveBulkOpenedItemsToCloud(items){
       return {saved:false};
     }
     const st=window.DailyBackend.getState();
-    if(!st.user||!st.user.emailVerified)return {saved:false};
+    if(!st.user||!st.user.uid)return {saved:false};
 
     const outcomes=[];
     for(let i=0;i<items.length;i+=10){
@@ -696,7 +696,7 @@ function startCaseUnboxing(caseId){
     updateArmorySyncLabel('TEST MODE · LOCAL ONLY');
   }else if(window.DailyBackend){
     const st=window.DailyBackend.getState();
-    if(st.user&&st.user.emailVerified){
+    if(st.user&&st.user.uid){
       const invSnapshot=window.activeInventory;
       const wonItem=roll.winner;
       updateArmorySyncLabel('SAVING...');

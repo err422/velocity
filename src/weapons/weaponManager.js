@@ -625,7 +625,7 @@
       if (weaponAnim.drawT < 1) weaponAnim.drawT = Math.min(1, weaponAnim.drawT + dt / weaponAnim.drawDuration);
       if (weaponAnim.reloadT < 1) weaponAnim.reloadT = Math.min(1, weaponAnim.reloadT + dt / weaponAnim.reloadDuration);
       if (weaponAnim.inspectT < 1) weaponAnim.inspectT = Math.min(1, weaponAnim.inspectT + dt / weaponAnim.inspectDuration);
-      if (weaponAnim.boltT < 1) weaponAnim.boltT = Math.min(1, weaponAnim.boltT + dt / (wt === 'shotgun' || wt === 'leverslug' ? 0.45 : 0.78));
+      if (weaponAnim.boltT < 1) weaponAnim.boltT = Math.min(1, weaponAnim.boltT + dt / (wt === 'shotgun' || wt === 'leverslug' || wt === 'scout' ? 0.44 : 0.78));
       if (weaponAnim.fanT < 1) weaponAnim.fanT = Math.min(1, weaponAnim.fanT + dt / 0.20);
 
       if (adsScopedOptic) {
@@ -647,12 +647,7 @@
       evaluateWeaponReloadAndAction(wt, weaponAnim, _weaponOut, true);
 
       // Attach live Katana / Akimbo / Scorestreak FX fields to _weaponOut
-      _weaponOut.katanaTrailOpacity = wt === 'katana'
-        ? Math.max(
-            weaponAnim.katanaSlashT < 1 ? Math.sin(weaponAnim.katanaSlashT * Math.PI) * 0.85 : 0,
-            weaponAnim.katanaDashT < 1 ? Math.sin(weaponAnim.katanaDashT * Math.PI) * 0.95 : 0
-          )
-        : 0;
+      _weaponOut.katanaTrailOpacity = 0;
       _weaponOut.katanaDeflectAura = wt === 'katana' ? weaponAnim.katanaDeflectProgress * (0.45 + 0.45 * weaponAnim.katanaDeflectEnergy) : 0;
       _weaponOut.akimboLeftKick = weaponAnim.akimboLeftKick;
       _weaponOut.akimboRightKick = weaponAnim.akimboRightKick;
@@ -671,9 +666,9 @@
 
       const isPistol = wt === 'deagle' || wt === 'pistol' || wt === 'revolver' || wt === 'g18' || wt === 'usps';
       const isLong = wt === 'awp' || wt === 'dmr' || wt === 'scout' || wt === 'railcannon' || wt === 'rpg';
-      const hipRx = wt === 'akimbo' ? 0.135 : wt === 'katana' ? 0.165 : wt === 'revolver' ? 0.132 : isPistol ? 0.138 : isLong ? 0.168 : (wt === 'smg' || wt === 'mp7') ? 0.148 : 0.162;
-      const hipRy = wt === 'akimbo' ? -0.145 : wt === 'katana' ? -0.160 : wt === 'revolver' ? -0.148 : isPistol ? -0.152 : isLong ? -0.172 : (wt === 'smg' || wt === 'mp7') ? -0.158 : -0.166;
-      const hipRz = wt === 'akimbo' ? -0.320 : wt === 'katana' ? -0.240 : wt === 'revolver' ? -0.305 : isPistol ? -0.320 : isLong ? -0.252 : (wt === 'smg' || wt === 'mp7') ? -0.285 : -0.268;
+      const hipRx = wt === 'minigun' ? 0.175 : wt === 'akimbo' ? 0.135 : wt === 'katana' ? 0.165 : wt === 'revolver' ? 0.132 : isPistol ? 0.138 : isLong ? 0.168 : (wt === 'smg' || wt === 'mp7') ? 0.148 : 0.162;
+      const hipRy = wt === 'minigun' ? -0.225 : wt === 'akimbo' ? -0.145 : wt === 'katana' ? -0.170 : wt === 'revolver' ? -0.148 : isPistol ? -0.152 : isLong ? -0.172 : (wt === 'smg' || wt === 'mp7') ? -0.158 : -0.166;
+      const hipRz = wt === 'minigun' ? -0.220 : wt === 'akimbo' ? -0.320 : wt === 'katana' ? -0.245 : wt === 'revolver' ? -0.305 : isPistol ? -0.320 : isLong ? -0.252 : (wt === 'smg' || wt === 'mp7') ? -0.285 : -0.268;
 
       const adsRz = isPistol ? -0.245 : (wt === 'smg' || wt === 'mp7') ? -0.205 : -0.190;
       applyWeaponSocketTransform(mesh, wt, _weaponOut);
@@ -894,6 +889,8 @@
     let targetCamZ = 0.56;
     let targetLookX = 0;
     let targetLookY = 0;
+    let curLookX = 0;
+    let curLookY = 0;
     let camLerpActive = false;
     let dragging = false;
     let lastX = 0, lastY = 0;
@@ -1026,6 +1023,7 @@
         canvas,
         antialias: !(typeof isSoftwareGl !== 'undefined' && isSoftwareGl),
         alpha: true,
+        preserveDrawingBuffer: true,
         powerPreference: 'high-performance'
       });
       pRenderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1034,6 +1032,8 @@
 
       pScene = new THREE.Scene();
       pCamera = new THREE.PerspectiveCamera(42, 1.6, 0.02, 24);
+      curLookX = 0;
+      curLookY = 0;
       pCamera.position.set(0, 0.02, 0.56);
       pCamera.lookAt(0, 0, 0);
 
@@ -1104,13 +1104,50 @@
         canvas.addEventListener('pointerup', stopDrag);
         canvas.addEventListener('pointercancel', stopDrag);
       }
+      if (typeof ResizeObserver !== 'undefined') {
+        if (canvas.__velResizeObs) {
+          try { canvas.__velResizeObs.disconnect(); } catch (_) {}
+        }
+        const ro = new ResizeObserver(() => {
+          resize();
+          if (active) renderOnce();
+        });
+        ro.observe(canvas.parentElement || canvas);
+        canvas.__velResizeObs = ro;
+      }
+    }
+
+    let lastCanvasW = 0;
+    let lastCanvasH = 0;
+
+    function syncSizeIfChanged() {
+      if (!pRenderer || !canvasEl || !pCamera) return false;
+      const rect = canvasEl.getBoundingClientRect();
+      const w = Math.floor(rect.width);
+      const h = Math.floor(rect.height);
+      if (w < 40 || h < 40) return false;
+      if (w !== lastCanvasW || h !== lastCanvasH) {
+        lastCanvasW = w;
+        lastCanvasH = h;
+        const dpr = (typeof isSoftwareGl !== 'undefined' && isSoftwareGl) ? 1 : Math.min(devicePixelRatio, 2);
+        pRenderer.setPixelRatio(dpr);
+        pRenderer.setSize(w, h, false);
+        pCamera.aspect = w / h;
+        pCamera.updateProjectionMatrix();
+        return true;
+      }
+      return false;
     }
 
     function resize() {
       if (!pRenderer || !canvasEl || !pCamera) return;
       const rect = canvasEl.getBoundingClientRect();
-      const w = Math.max(240, Math.floor(rect.width));
-      const h = Math.max(160, Math.floor(rect.height));
+      const rawW = Math.floor(rect.width);
+      const rawH = Math.floor(rect.height);
+      const w = rawW >= 40 ? rawW : Math.max(240, rawW);
+      const h = rawH >= 40 ? rawH : Math.max(160, rawH);
+      lastCanvasW = rawW >= 40 ? w : 0;
+      lastCanvasH = rawH >= 40 ? h : 0;
       const dpr = (typeof isSoftwareGl !== 'undefined' && isSoftwareGl) ? 1 : Math.min(devicePixelRatio, 2);
       pRenderer.setPixelRatio(dpr);
       pRenderer.setSize(w, h, false);
@@ -1214,14 +1251,18 @@
         pCamera.lookAt(targetLookX, targetLookY, 0);
       } else {
         pCamera.fov = gunsmithMode ? 34 : 36;
-        targetCamX = 0;
-        targetCamY = gunsmithMode ? 0.01 : 0.015;
-        targetCamZ = gunsmithMode ? 0.86 : 0.50;
-        targetLookX = 0;
-        targetLookY = gunsmithMode ? -0.015 : 0;
-        if (!camLerpActive) {
-          pCamera.position.set(targetCamX, targetCamY, targetCamZ);
-          pCamera.lookAt(targetLookX, targetLookY, 0);
+        if (!gunsmithMode) {
+          targetCamX = 0;
+          targetCamY = 0.015;
+          targetCamZ = 0.50;
+          targetLookX = 0;
+          targetLookY = 0;
+          curLookX = 0;
+          curLookY = 0;
+          if (!camLerpActive) {
+            pCamera.position.set(targetCamX, targetCamY, targetCamZ);
+            pCamera.lookAt(curLookX, curLookY, 0);
+          }
         }
       }
       pCamera.updateProjectionMatrix();
@@ -1307,9 +1348,11 @@
       }
       active = true;
       startLoop();
+      requestAnimationFrame(() => { resize(); renderOnce(); });
     }
 
     function showGunsmithWeapon(canvas, weaponItem, attachments, opts) {
+      const freshCanvas = !(pRenderer && canvasEl === canvas);
       ensureInit(canvas);
       resize();
       const options = opts || {};
@@ -1321,28 +1364,33 @@
       rebuildModels();
       if (options.resetCamera !== false) {
         const focusMap = {
-          none:        { y: 0.06,  p: 0.06, z: 0.86, lx: 0.00, ly: -0.015 },
-          optic:       { y: -0.14, p: 0.14, z: 0.72, lx: -0.02, ly: 0.03 },
-          muzzle:      { y: 0.28,  p: 0.05, z: 0.74, lx: 0.14,  ly: 0.00 },
-          barrel:      { y: 0.22,  p: 0.07, z: 0.76, lx: 0.10,  ly: 0.01 },
-          underbarrel: { y: 0.18,  p: -0.06,z: 0.74, lx: 0.06,  ly: -0.03 },
-          magazine:    { y: -0.10, p: -0.08,z: 0.74, lx: -0.02, ly: -0.05 },
-          ammo:        { y: -0.14, p: -0.06,z: 0.75, lx: -0.03, ly: -0.04 },
-          rearGrip:    { y: -0.30, p: 0.04, z: 0.74, lx: -0.10, ly: -0.03 },
-          stock:       { y: -0.38, p: 0.06, z: 0.76, lx: -0.15, ly: 0.00 },
-          apex:        { y: -0.26, p: 0.10, z: 0.72, lx: -0.04, ly: 0.02 }
+          none:        { y: 0.06,  p: 0.06, cx: 0.00,   cy: 0.01,   z: 0.86, lx: 0.00,   ly: -0.015 },
+          appearance:  { y: 0.14,  p: 0.05, cx: -0.145, cy: -0.020, z: 0.88, lx: -0.145, ly: -0.042 },
+          optic:       { y: -0.14, p: 0.14, cx: 0.00,   cy: 0.01,   z: 0.72, lx: -0.02,  ly: 0.03 },
+          muzzle:      { y: 0.28,  p: 0.05, cx: 0.00,   cy: 0.01,   z: 0.74, lx: 0.14,   ly: 0.00 },
+          barrel:      { y: 0.22,  p: 0.07, cx: 0.00,   cy: 0.01,   z: 0.76, lx: 0.10,   ly: 0.01 },
+          underbarrel: { y: 0.18,  p: -0.06,cx: 0.00,   cy: 0.01,   z: 0.74, lx: 0.06,   ly: -0.03 },
+          magazine:    { y: -0.10, p: -0.08,cx: 0.00,   cy: 0.01,   z: 0.74, lx: -0.02,  ly: -0.05 },
+          ammo:        { y: -0.14, p: -0.06,cx: 0.00,   cy: 0.01,   z: 0.75, lx: -0.03,  ly: -0.04 },
+          rearGrip:    { y: -0.30, p: 0.04, cx: 0.00,   cy: 0.01,   z: 0.74, lx: -0.10,  ly: -0.03 },
+          stock:       { y: -0.38, p: 0.06, cx: 0.00,   cy: 0.01,   z: 0.76, lx: -0.15,  ly: 0.00 },
+          apex:        { y: -0.26, p: 0.10, cx: 0.00,   cy: 0.01,   z: 0.72, lx: -0.04,  ly: 0.02 }
         };
         const f = focusMap[options.focusSlot] || focusMap.none;
         targetYaw = f.y;
         targetPitch = f.p;
+        targetCamX = f.cx;
+        targetCamY = f.cy;
         targetCamZ = f.z;
         targetLookX = f.lx;
         targetLookY = f.ly;
-        if (options.instantCamera) {
+        if (options.instantCamera || freshCanvas) {
           yaw = targetYaw;
           pitch = targetPitch;
-          pCamera.position.set(0, 0.01, targetCamZ);
-          pCamera.lookAt(targetLookX, targetLookY, 0);
+          curLookX = targetLookX;
+          curLookY = targetLookY;
+          pCamera.position.set(targetCamX, targetCamY, targetCamZ);
+          pCamera.lookAt(curLookX, curLookY, 0);
           camLerpActive = false;
         } else {
           camLerpActive = true;
@@ -1351,6 +1399,7 @@
       soloTrickT = 1;
       active = true;
       startLoop();
+      requestAnimationFrame(() => { resize(); renderOnce(); });
     }
 
     function showKnife(canvas, knifeItem, gloveItem) {
@@ -1470,6 +1519,7 @@
 
     function renderOnce() {
       if (!pRenderer || !pScene || !pCamera || contextLost) return;
+      syncSizeIfChanged();
       if (previewMode === 'runner') {
         if (runnerPivot) runnerPivot.rotation.set(pitch * 0.35, yaw, 0);
       } else if (previewMode === 'combo') {
@@ -1484,6 +1534,7 @@
     let lastTick = performance.now();
     function tick(now) {
       if (!active) return;
+      syncSizeIfChanged();
       const dt = Math.min(0.05, (now - lastTick) / 1000);
       lastTick = now;
       if (typeof VI.updateDynamicSkinMaterials === 'function') {
@@ -1525,12 +1576,22 @@
         }
       } else {
         if (gunsmithMode && camLerpActive && !dragging) {
-          const k = 1 - Math.exp(-7.5 * dt);
+          const k = 1 - Math.exp(-8.0 * dt);
           yaw += (targetYaw - yaw) * k;
           pitch += (targetPitch - pitch) * k;
+          pCamera.position.x += (targetCamX - pCamera.position.x) * k;
+          pCamera.position.y += (targetCamY - pCamera.position.y) * k;
           pCamera.position.z += (targetCamZ - pCamera.position.z) * k;
-          pCamera.lookAt(targetLookX, targetLookY, 0);
-          if (Math.abs(targetYaw - yaw) < 0.003 && Math.abs(targetPitch - pitch) < 0.003 && Math.abs(targetCamZ - pCamera.position.z) < 0.003) {
+          curLookX += (targetLookX - curLookX) * k;
+          curLookY += (targetLookY - curLookY) * k;
+          pCamera.lookAt(curLookX, curLookY, 0);
+          if (
+            Math.abs(targetYaw - yaw) < 0.003 &&
+            Math.abs(targetPitch - pitch) < 0.003 &&
+            Math.abs(targetCamX - pCamera.position.x) < 0.003 &&
+            Math.abs(targetCamY - pCamera.position.y) < 0.003 &&
+            Math.abs(targetCamZ - pCamera.position.z) < 0.003
+          ) {
             camLerpActive = false;
           }
         } else if (!dragging && !gunsmithMode) {
@@ -1637,6 +1698,10 @@
       showGunsmithWeapon,
       showRunnerShowcase,
       showKnife,
+      getWeaponSkinSwatchDataUrl: (skinId, patternSeed, floatValue) =>
+        typeof VI.getWeaponSkinSwatchDataUrl === 'function'
+          ? VI.getWeaponSkinSwatchDataUrl(skinId, patternSeed, floatValue)
+          : '',
       setMode,
       getMode: () => previewMode,
       playTrick,

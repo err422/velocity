@@ -56,6 +56,47 @@
     }
     return firstValid;
   }
+
+  function pointToSegmentDistanceSq(px, py, pz, ax, ay, az, bx, by, bz) {
+    const abx = bx - ax;
+    const aby = by - ay;
+    const abz = bz - az;
+    const apx = px - ax;
+    const apy = py - ay;
+    const apz = pz - az;
+    const abLenSq = abx * abx + aby * aby + abz * abz;
+    let t = abLenSq > 1e-8 ? (apx * abx + apy * aby + apz * abz) / abLenSq : 0;
+    if (t < 0) t = 0;
+    else if (t > 1) t = 1;
+    const cx = ax + abx * t - px;
+    const cy = ay + aby * t - py;
+    const cz = az + abz * t - pz;
+    return cx * cx + cy * cy + cz * cz;
+  }
+
+  function filterNukeTargets(targetsList, ownerUid, ownerTeam) {
+    if (!Array.isArray(targetsList)) return [];
+    const cleanOwner = ownerUid != null ? String(ownerUid) : '';
+    const cleanTeam = ownerTeam ? String(ownerTeam) : '';
+    return targetsList.filter((t) => {
+      if (!t || t.alive === false) return false;
+      if (cleanOwner && String(t.uid) === cleanOwner) return false;
+      if (cleanTeam && t.team && String(t.team) === cleanTeam) return false;
+      return true;
+    });
+  }
+
+  function shouldUnscopeOnFire(weaponId, build) {
+    if (build && build.stayScopedOnFire) return false;
+    if (weaponId === 'scout') return false;
+    return weaponId === 'awp';
+  }
+
+  function canFireWithCooldown(fireCooldown, isBurstFollowup) {
+    if (isBurstFollowup) return true;
+    return !(Number(fireCooldown) > 0);
+  }
+
   function advanceAdsProgress(progress, adsTarget, dt, duration) {
     const current = Math.max(0, Math.min(1, Number(progress) || 0));
     const deltaTime = Math.max(0, Number(dt) || 0);
@@ -268,6 +309,10 @@
       SLOTS,
       AVATAR_HITBOX,
       pickBestDynamicHit,
+      pointToSegmentDistanceSq,
+      filterNukeTargets,
+      shouldUnscopeOnFire,
+      canFireWithCooldown,
       advanceAdsProgress,
       advanceChronoState,
       advanceTriggerCharge,
@@ -424,11 +469,15 @@
     currentLifeKillStreak: 0,
     nukeState: {
       active: false,
+      phase: 'idle',
       timer: 0,
-      maxTimer: 5.0,
+      maxTimer: 4.4,
       ownerName: '',
+      ownerUid: '',
+      ownerTeam: '',
       isLocal: false,
-      flashAlpha: 0
+      flashAlpha: 0,
+      shake: 0
     },
     lastPlayerPos: new THREE.Vector3(),
     lastPlayerDir: new THREE.Vector3(0, 0, -1),
@@ -439,6 +488,9 @@
   let onCombatKillCb = null;
   let onNukeEventCb = null;
   const projectiles = [];
+  const activeBeams = [];
+  const activeShockwaves = [];
+  let nukeFx = null;
 
   // Reusable scratch vectors (zero per-frame allocations)
   const _rayOrigin = new THREE.Vector3();
@@ -736,6 +788,9 @@
     }
     state.lastSlot = state.activeSlot;
     state.activeSlot = valid;
+    state.burstRemaining = 0;
+    state.burstTimer = 0;
+    state.burstReady = false;
     clearReloadState();
     resetCharge();
     state.fireCooldown = Math.min(state.fireCooldown, 0.16);
@@ -821,6 +876,9 @@
     if (curAmmo >= build.magSize) return false;
     clearScope();
     resetCharge();
+    state.burstRemaining = 0;
+    state.burstTimer = 0;
+    state.burstReady = false;
     state.reloading = true;
     if (build.reloadMode === 'shell') {
       const openT = build.shellOpenTime || 0.40;
@@ -1150,8 +1208,8 @@
         });
       });
     }
-    // Spawn sleek cyan katana slash trail beam
-    spawnTracer(origin.clone().addScaledVector(dir, 0.4), origin.clone().addScaledVector(dir, reach * 0.85), 0x65e7ff);
+    // Subtle peripheral dash sparks (avoid spawning a tracer line across the player's face)
+    spawnBurst(origin.clone().addScaledVector(dir, 1.55).addScaledVector(_worldUp, -0.38), 0x65e7ff, 5, 4.2);
     return { dashed: true, killedAny, hitResults };
   }
 
@@ -1247,11 +1305,581 @@
     return true;
   }
 
+  function disposeObject3D(obj) {
+    if (!obj) return;
+    if (obj.parent) obj.parent.remove(obj);
+    obj.traverse?.((ch) => {
+      if (ch.geometry && typeof ch.geometry.dispose === 'function') ch.geometry.dispose();
+      if (ch.material) {
+        if (Array.isArray(ch.material)) ch.material.forEach((m) => m && m.dispose && m.dispose());
+        else if (typeof ch.material.dispose === 'function') ch.material.dispose();
+      }
+    });
+  }
+
   function clearProjectiles() {
     for (const p of projectiles) {
-      if (p.mesh && p.mesh.parent) p.mesh.parent.remove(p.mesh);
+      disposeObject3D(p.mesh);
     }
     projectiles.length = 0;
+  }
+
+  function clearCombatFx() {
+    clearProjectiles();
+    for (const b of activeBeams) disposeObject3D(b.group);
+    activeBeams.length = 0;
+    for (const sw of activeShockwaves) disposeObject3D(sw.group);
+    activeShockwaves.length = 0;
+    if (nukeFx) {
+      disposeObject3D(nukeFx.root);
+      nukeFx = null;
+    }
+    state.nukeState.active = false;
+    state.nukeState.phase = 'idle';
+    state.nukeState.timer = 0;
+    state.nukeState.flashAlpha = 0;
+    state.nukeState.shake = 0;
+  }
+
+  function spawnExplosionShockwave(pos, radius) {
+    if (!fxGroup) return;
+    const grp = new THREE.Group();
+    grp.position.copy(pos);
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: 0xffb347,
+      transparent: true,
+      opacity: 0.92,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const core = new THREE.Mesh(new THREE.SphereGeometry(1.0, 14, 10), coreMat);
+    grp.add(core);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xff6a24,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.75, 1.0, 24), ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.08;
+    grp.add(ring);
+    fxGroup.add(grp);
+    activeShockwaves.push({
+      group: grp,
+      core,
+      coreMat,
+      ring,
+      ringMat,
+      maxRadius: Math.max(4.5, Number(radius) || 11.5),
+      age: 0,
+      duration: 0.58
+    });
+  }
+
+  function updateShockwaves(dt) {
+    for (let i = activeShockwaves.length - 1; i >= 0; i--) {
+      const sw = activeShockwaves[i];
+      sw.age += dt;
+      const t = Math.min(1, sw.age / sw.duration);
+      const ease = 1 - Math.pow(1 - t, 3);
+      const rCore = 0.8 + ease * sw.maxRadius * 0.52;
+      const rRing = 1.0 + ease * sw.maxRadius;
+      sw.core.scale.setScalar(rCore);
+      sw.ring.scale.setScalar(rRing);
+      sw.coreMat.opacity = Math.max(0, (1 - t) * 0.90);
+      sw.ringMat.opacity = Math.max(0, (1 - t) * 0.82);
+      if (sw.age >= sw.duration) {
+        disposeObject3D(sw.group);
+        activeShockwaves.splice(i, 1);
+      }
+    }
+  }
+
+  function spawnRailBeam(startPos, endPos, build) {
+    if (!fxGroup) return;
+    const def = (build && build.scorestreakDef) || getScorestreakDef('railcannon');
+    const dir = new THREE.Vector3().subVectors(endPos, startPos);
+    const len = Math.max(0.5, dir.length());
+    const mid = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().divideScalar(len));
+
+    const grp = new THREE.Group();
+    grp.position.copy(mid);
+    grp.quaternion.copy(quat);
+
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.96,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, len, 10, 1, true), coreMat);
+    grp.add(core);
+
+    const sheathMat = new THREE.MeshBasicMaterial({
+      color: 0x3ef2ff,
+      transparent: true,
+      opacity: 0.62,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const sheath = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, len, 12, 1, true), sheathMat);
+    grp.add(sheath);
+
+    const auraMat = new THREE.MeshBasicMaterial({
+      color: 0xb96bff,
+      transparent: true,
+      opacity: 0.34,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const aura = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, len, 12, 1, true), auraMat);
+    grp.add(aura);
+
+    const rings = [];
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x8ef9ff,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const ringCount = Math.min(6, Math.max(2, Math.floor(len / 8)));
+    for (let r = 0; r < ringCount; r++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.045, 6, 16), ringMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.userData.phase = r / ringCount;
+      grp.add(ring);
+      rings.push(ring);
+    }
+
+    fxGroup.add(grp);
+    activeBeams.push({
+      group: grp,
+      core,
+      coreMat,
+      sheath,
+      sheathMat,
+      aura,
+      auraMat,
+      rings,
+      ringMat,
+      len,
+      start: startPos.clone(),
+      end: endPos.clone(),
+      radius: def.beamRadius || 0.95,
+      duration: def.beamDurationSec || 3.0,
+      age: 0,
+      tickInterval: def.beamTickInterval || 0.12,
+      tickAccum: 0,
+      tickDamage: def.beamTickDamage || 38
+    });
+  }
+
+  function updateRailBeams(dt) {
+    if (activeBeams.length === 0) return;
+    for (let i = activeBeams.length - 1; i >= 0; i--) {
+      const b = activeBeams[i];
+      b.age += dt;
+      const t = Math.min(1, b.age / b.duration);
+      const fadeOut = t > 0.78 ? (1 - (t - 0.78) / 0.22) : 1.0;
+      const pulse = 0.88 + 0.18 * Math.sin(b.age * 34);
+      b.core.scale.set(pulse, 1, pulse);
+      b.sheath.scale.set(pulse * 1.08, 1, pulse * 1.08);
+      b.aura.scale.set(0.95 + 0.22 * Math.cos(b.age * 22), 1, 0.95 + 0.22 * Math.cos(b.age * 22));
+      b.coreMat.opacity = 0.96 * fadeOut;
+      b.sheathMat.opacity = 0.60 * fadeOut;
+      b.auraMat.opacity = 0.34 * fadeOut;
+      b.ringMat.opacity = 0.84 * fadeOut;
+      for (const ring of b.rings) {
+        const u = (ring.userData.phase + b.age * 1.35) % 1.0;
+        ring.position.y = -b.len * 0.5 + u * b.len;
+      }
+
+      // Continuous beam tick damage to any enemy standing in OR moving into the beam!
+      b.tickAccum += dt;
+      if (b.tickAccum >= b.tickInterval) {
+        b.tickAccum -= b.tickInterval;
+        const rSq = b.radius * b.radius;
+        const ax = b.start.x, ay = b.start.y, az = b.start.z;
+        const bx = b.end.x, by = b.end.y, bz = b.end.z;
+
+        // Holographic targets
+        for (const tgt of targets) {
+          if (!tgt.alive) continue;
+          const p = tgt.group.position;
+          if (pointToSegmentDistanceSq(p.x, p.y, p.z, ax, ay, az, bx, by, bz) <= rSq) {
+            tgt.alive = false;
+            tgt.group.visible = false;
+            spawnBurst(p, 0x56f0ff, 12, 7.5);
+            triggerHitmarker(false, false);
+            if (root.WeaponAudio) root.WeaponAudio.targetShatter(false);
+          }
+        }
+
+        // Warmup bots
+        if (warmupEnabled) {
+          for (const bot of warmupBots) {
+            if (!bot.alive) continue;
+            const dSq = Math.min(
+              pointToSegmentDistanceSq(bot.pos.x, bot.pos.y + 1.0, bot.pos.z, ax, ay, az, bx, by, bz),
+              pointToSegmentDistanceSq(bot.pos.x, bot.pos.y + 1.65, bot.pos.z, ax, ay, az, bx, by, bz)
+            );
+            if (dSq <= rSq) {
+              bot.hp = Math.max(0, bot.hp - b.tickDamage);
+              const ratio = bot.hp / 100;
+              bot.visual.hpFill.scale.x = Math.max(0.001, ratio);
+              bot.visual.hpFill.position.x = -(1 - ratio) * 0.455;
+              bot.visual.hpFill.material.color.setHex(ratio > 0.5 ? 0x62f58a : ratio > 0.25 ? 0xffc857 : 0xff4d6d);
+              spawnBurst(_tmpA.set(bot.pos.x, bot.pos.y + 1.15, bot.pos.z), 0x56f0ff, 8, 6.5);
+              if (bot.hp <= 0) {
+                bot.alive = false;
+                bot.respawnTimer = 2.4;
+                bot.chronoTier = 0;
+                bot.grapplePoint = null;
+                bot.visual.group.visible = false;
+                updateAvatarChronoVisual(bot.visual, 0, 0);
+                updateAvatarGrappleVisual(bot.visual, null, null);
+                warmupKills += 1;
+                triggerHitmarker(false, true);
+                recordCombatKill({
+                  weaponId: 'railcannon',
+                  isBot: true,
+                  isHeadshot: false,
+                  distance: b.start.distanceTo(_tmpA),
+                  isScorestreakKill: true
+                });
+                if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'railcannon', weaponId: 'railcannon', isHeadshot: false, totalKills: warmupKills });
+              } else {
+                triggerHitmarker(false, false);
+              }
+            }
+          }
+        }
+
+        // Remote PvP players / Arena bots
+        for (const [uid, av] of remoteAvatars) {
+          if (!av.alive) continue;
+          const dSq = Math.min(
+            pointToSegmentDistanceSq(av.pos.x, av.pos.y + 1.0, av.pos.z, ax, ay, az, bx, by, bz),
+            pointToSegmentDistanceSq(av.pos.x, av.pos.y + 1.65, av.pos.z, ax, ay, az, bx, by, bz)
+          );
+          if (dSq <= rSq && root.NetcodeSystem && typeof root.NetcodeSystem.reportShot === 'function') {
+            const hitPos = _tmpA.set(av.pos.x, av.pos.y + 1.15, av.pos.z);
+            spawnBurst(hitPos, 0x56f0ff, 8, 6.5);
+            triggerHitmarker(false, false);
+            root.NetcodeSystem.reportShot({
+              fired: true,
+              slot: 'railcannon',
+              weaponId: 'railcannon',
+              origin: b.start.clone(),
+              endPoint: hitPos.clone(),
+              hitKind: 'player',
+              hitId: uid,
+              damage: b.tickDamage,
+              isHeadshot: false
+            });
+          }
+        }
+      }
+
+      if (b.age >= b.duration) {
+        disposeObject3D(b.group);
+        activeBeams.splice(i, 1);
+      }
+    }
+  }
+
+  function buildStealthBomberMesh() {
+    const grp = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x181f29, metalness: 0.72, roughness: 0.34 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x2c3645, metalness: 0.65, roughness: 0.42 });
+    const glowCyan = new THREE.MeshBasicMaterial({ color: 0x65e7ff });
+    const jetMat = new THREE.MeshBasicMaterial({ color: 0xff8c32, transparent: true, opacity: 0.88, blending: THREE.AdditiveBlending });
+    const navRed = new THREE.MeshBasicMaterial({ color: 0xff3b5c });
+    const navGrn = new THREE.MeshBasicMaterial({ color: 0x4bff9c });
+
+    // Faceted flying-wing delta bomber fuselage + swept stealth wings
+    const fuselage = new THREE.Mesh(new THREE.ConeGeometry(2.2, 13.5, 4), bodyMat);
+    fuselage.rotation.x = Math.PI / 2;
+    fuselage.scale.set(1.25, 1.0, 0.36);
+    grp.add(fuselage);
+
+    const wingL = new THREE.Mesh(new THREE.BoxGeometry(11.5, 0.42, 4.6), bodyMat);
+    wingL.position.set(-5.2, 0, 1.8);
+    wingL.rotation.y = 0.48;
+    grp.add(wingL);
+
+    const wingR = new THREE.Mesh(new THREE.BoxGeometry(11.5, 0.42, 4.6), bodyMat);
+    wingR.position.set(5.2, 0, 1.8);
+    wingR.rotation.y = -0.48;
+    grp.add(wingR);
+
+    const cockpit = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.62, 3.2), glowCyan);
+    cockpit.position.set(0, 0.45, -2.2);
+    grp.add(cockpit);
+
+    const finL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 2.2, 3.0), trimMat);
+    finL.position.set(-2.4, 0.95, 4.4);
+    finL.rotation.z = 0.45;
+    grp.add(finL);
+    const finR = new THREE.Mesh(new THREE.BoxGeometry(0.28, 2.2, 3.0), trimMat);
+    finR.position.set(2.4, 0.95, 4.4);
+    finR.rotation.z = -0.45;
+    grp.add(finR);
+
+    for (const sx of [-1.25, 1.25]) {
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.56, 1.1, 8), trimMat);
+      nozzle.rotation.x = Math.PI / 2;
+      nozzle.position.set(sx, 0, 5.4);
+      grp.add(nozzle);
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.45, 4.6, 8), jetMat);
+      flame.rotation.x = Math.PI / 2;
+      flame.position.set(sx, 0, 8.2);
+      grp.add(flame);
+    }
+
+    const tipL = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 8), navRed);
+    tipL.position.set(-10.2, 0, 4.4);
+    grp.add(tipL);
+    const tipR = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 8), navGrn);
+    tipR.position.set(10.2, 0, 4.4);
+    grp.add(tipR);
+
+    return grp;
+  }
+
+  function buildWarheadMesh() {
+    const grp = new THREE.Group();
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0x2a313c, metalness: 0.80, roughness: 0.28 });
+    const bandMat = new THREE.MeshBasicMaterial({ color: 0xffb84d });
+    const flareMat = new THREE.MeshBasicMaterial({ color: 0xff5a36, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending });
+
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.52, 2.8, 12), hullMat);
+    grp.add(body);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.52, 1.25, 12), hullMat);
+    nose.rotation.x = Math.PI;
+    nose.position.y = -2.0;
+    grp.add(nose);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.535, 0.535, 0.42, 12), bandMat);
+    band.position.y = -0.8;
+    grp.add(band);
+    for (let i = 0; i < 4; i++) {
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.95, 0.85), hullMat);
+      fin.position.y = 1.25;
+      fin.rotation.y = (i * Math.PI) / 2;
+      grp.add(fin);
+    }
+    const flare = new THREE.Mesh(new THREE.SphereGeometry(0.72, 10, 10), flareMat);
+    flare.position.y = 1.85;
+    grp.add(flare);
+    return grp;
+  }
+
+  function buildMushroomCloudGroup() {
+    const grp = new THREE.Group();
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: 0xfff4d1,
+      transparent: true,
+      opacity: 0.96,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const fireMat = new THREE.MeshBasicMaterial({
+      color: 0xff6e24,
+      transparent: true,
+      opacity: 0.88,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const smokeMat = new THREE.MeshStandardMaterial({
+      color: 0x3b2620,
+      emissive: 0xff4c1a,
+      emissiveIntensity: 0.85,
+      transparent: true,
+      opacity: 0.92,
+      roughness: 0.95,
+      depthWrite: false
+    });
+    const shockMat = new THREE.MeshBasicMaterial({
+      color: 0xffd59c,
+      transparent: true,
+      opacity: 0.90,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    // Ground fireball base
+    const baseSphere = new THREE.Mesh(new THREE.SphereGeometry(5.5, 16, 12), fireMat);
+    baseSphere.position.y = 2.5;
+    grp.add(baseSphere);
+
+    // Towering incandescent mushroom stem
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 5.2, 26, 16), smokeMat);
+    stem.position.y = 13;
+    grp.add(stem);
+
+    const innerStem = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 3.0, 26, 12), fireMat);
+    innerStem.position.y = 13;
+    grp.add(innerStem);
+
+    // Mid-stem Mach condensation ring
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(7.2, 1.35, 10, 26), shockMat);
+    collar.rotation.x = Math.PI / 2;
+    collar.position.y = 15.5;
+    grp.add(collar);
+
+    // Billowing multi-lobe mushroom cap
+    const capGroup = new THREE.Group();
+    capGroup.position.y = 26;
+    const capCore = new THREE.Mesh(new THREE.SphereGeometry(9.6, 18, 14), coreMat);
+    capCore.scale.set(1.28, 0.72, 1.28);
+    capGroup.add(capCore);
+    const capFire = new THREE.Mesh(new THREE.SphereGeometry(11.4, 18, 14), fireMat);
+    capFire.scale.set(1.36, 0.68, 1.36);
+    capGroup.add(capFire);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const lobe = new THREE.Mesh(new THREE.SphereGeometry(6.8, 12, 10), smokeMat);
+      lobe.position.set(Math.cos(a) * 8.4, -1.2 + (i % 2) * 1.4, Math.sin(a) * 8.4);
+      lobe.scale.set(1.15, 0.75, 1.15);
+      capGroup.add(lobe);
+    }
+    grp.add(capGroup);
+
+    // Expanding ground shockwave ring
+    const groundWave = new THREE.Mesh(new THREE.TorusGeometry(6.0, 1.6, 10, 32), shockMat);
+    groundWave.rotation.x = Math.PI / 2;
+    groundWave.position.y = 1.2;
+    grp.add(groundWave);
+
+    grp.userData = { coreMat, fireMat, smokeMat, shockMat, stem, innerStem, collar, capGroup, groundWave };
+    return grp;
+  }
+
+  function startNukeCutscene(durationSec) {
+    if (!fxGroup) return;
+    if (nukeFx) {
+      disposeObject3D(nukeFx.root);
+      nukeFx = null;
+    }
+    const rootGrp = new THREE.Group();
+    const dir = state.lastPlayerDir.lengthSq() > 0.01
+      ? new THREE.Vector3(state.lastPlayerDir.x, 0, state.lastPlayerDir.z).normalize()
+      : new THREE.Vector3(0, 0, -1);
+    const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
+    const base = state.lastPlayerPos.lengthSq() > 0.01 ? state.lastPlayerPos : new THREE.Vector3(0, 2, 0);
+    // Drop zone sits clearly in front of the player so the bomber & mushroom cloud fill the sky dramatically
+    const impactPos = new THREE.Vector3(
+      base.x + dir.x * 36,
+      Math.max(0, base.y - 1.6),
+      base.z + dir.z * 36
+    );
+    const flyHeight = impactPos.y + 42;
+    const bomberStart = impactPos.clone().addScaledVector(side, -135);
+    bomberStart.y = flyHeight;
+    const bomberEnd = impactPos.clone().addScaledVector(side, 165);
+    bomberEnd.y = flyHeight;
+
+    const bomber = buildStealthBomberMesh();
+    bomber.position.copy(bomberStart);
+    bomber.lookAt(bomberEnd);
+    rootGrp.add(bomber);
+
+    const warhead = buildWarheadMesh();
+    warhead.visible = false;
+    rootGrp.add(warhead);
+
+    fxGroup.add(rootGrp);
+    nukeFx = {
+      root: rootGrp,
+      bomber,
+      warhead,
+      cloud: null,
+      impactPos,
+      bomberStart,
+      bomberEnd,
+      dropStartPos: new THREE.Vector3(impactPos.x, flyHeight - 1.5, impactPos.z),
+      elapsed: 0,
+      duration: Math.max(2.5, Number(durationSec) || 4.4),
+      detonated: false,
+      cloudAge: 0,
+      cloudDuration: 6.0
+    };
+  }
+
+  function detonateNukeVisual() {
+    if (!fxGroup) return;
+    if (!nukeFx) {
+      startNukeCutscene(0.1);
+    }
+    if (!nukeFx || nukeFx.detonated) return;
+    nukeFx.detonated = true;
+    nukeFx.cloudAge = 0;
+    if (nukeFx.warhead) nukeFx.warhead.visible = false;
+    const cloud = buildMushroomCloudGroup();
+    cloud.position.copy(nukeFx.impactPos);
+    cloud.scale.setScalar(0.18);
+    nukeFx.root.add(cloud);
+    nukeFx.cloud = cloud;
+    spawnBurst(nukeFx.impactPos.clone().add(new THREE.Vector3(0, 3, 0)), 0xffaa33, 32, 22.0);
+    spawnBurst(nukeFx.impactPos.clone().add(new THREE.Vector3(0, 6, 0)), 0xfff3c4, 24, 16.0);
+  }
+
+  function updateNukeCutscene(dt) {
+    if (!nukeFx) return;
+    nukeFx.elapsed += dt;
+    const progress = Math.min(1, nukeFx.elapsed / nukeFx.duration);
+
+    if (nukeFx.bomber) {
+      // Bomber sweeps across overhead at high speed, passing directly over impactPos at progress ~ 0.36
+      const flyT = Math.min(1.4, nukeFx.elapsed / (nukeFx.duration * 0.80));
+      nukeFx.bomber.position.lerpVectors(nukeFx.bomberStart, nukeFx.bomberEnd, flyT);
+      if (flyT >= 1.38) nukeFx.bomber.visible = false;
+    }
+
+    if (!nukeFx.detonated && nukeFx.warhead) {
+      const dropStart = 0.34;
+      if (progress >= dropStart) {
+        nukeFx.warhead.visible = true;
+        const dropT = Math.min(1, (progress - dropStart) / (1 - dropStart));
+        // Accelerating gravity arc straight down into arena ground center
+        const eased = dropT * dropT;
+        nukeFx.warhead.position.lerpVectors(nukeFx.dropStartPos, nukeFx.impactPos, eased);
+        nukeFx.warhead.rotation.y += dt * 4.5;
+        if (Math.random() < 0.7) {
+          spawnBurst(nukeFx.warhead.position.clone().add(new THREE.Vector3(0, 1.5, 0)), 0xff8c32, 1, 3.0);
+        }
+      }
+    }
+
+    if (nukeFx.detonated && nukeFx.cloud) {
+      nukeFx.cloudAge += dt;
+      const ct = Math.min(1, nukeFx.cloudAge / nukeFx.cloudDuration);
+      const grow = 0.22 + (1 - Math.pow(1 - Math.min(1, ct * 2.2), 3)) * 1.65;
+      nukeFx.cloud.scale.set(grow, grow * (0.95 + ct * 0.45), grow);
+      const ud = nukeFx.cloud.userData;
+      if (ud) {
+        const waveScale = 0.5 + ct * 11.5;
+        ud.groundWave.scale.set(waveScale, waveScale, 1.0);
+        ud.collar.scale.setScalar(0.8 + ct * 1.45);
+        ud.capGroup.rotation.y += dt * 0.25;
+        const fade = ct > 0.72 ? (1 - (ct - 0.72) / 0.28) : 1.0;
+        ud.coreMat.opacity = Math.max(0, 0.96 * Math.max(0, 1 - ct * 1.35));
+        ud.fireMat.opacity = Math.max(0, 0.88 * fade);
+        ud.smokeMat.opacity = Math.max(0, 0.92 * fade);
+        ud.shockMat.opacity = Math.max(0, 0.90 * Math.max(0, 1 - ct * 1.15));
+      }
+      if (nukeFx.cloudAge >= nukeFx.cloudDuration) {
+        disposeObject3D(nukeFx.root);
+        nukeFx = null;
+        state.nukeState.phase = 'idle';
+      }
+    }
   }
 
   function spawnProjectile(kind, origin, dir, weaponId) {
@@ -1279,8 +1907,8 @@
       bounces: 0,
       maxBounces: isRpg ? 0 : (def.maxBounces || 3),
       gravity: isRpg ? 0 : (def.gravity || 22),
-      splashRadius: def.splashRadius || (isRpg ? 7.2 : 6.2),
-      maxDamage: def.maxDamage || (isRpg ? 145 : 125),
+      splashRadius: def.splashRadius || (isRpg ? 11.5 : 6.2),
+      maxDamage: def.maxDamage || (isRpg ? 235 : 125),
       rocketJumpImpulse: def.rocketJumpImpulse || 0
     });
   }
@@ -1289,8 +1917,9 @@
     if (root.WeaponAudio && typeof root.WeaponAudio.explosion === 'function') {
       root.WeaponAudio.explosion();
     }
-    spawnBurst(pos, 0xff8c32, 26, 12.0);
-    spawnBurst(pos, 0xffe49a, 14, 7.5);
+    spawnExplosionShockwave(pos, radius);
+    spawnBurst(pos, 0xff8c32, 34, 15.0);
+    spawnBurst(pos, 0xffe49a, 18, 9.5);
     // Rocket-jump physics impulse for local player!
     if (playerObj && playerObj.pos && playerObj.vel) {
       const pCenter = _tmpA.set(playerObj.pos.x, playerObj.pos.y + 1.0, playerObj.pos.z);
@@ -1428,42 +2057,60 @@
     }
   }
 
-  function triggerRemoteNuke(ownerName) {
+  function triggerRemoteNuke(ownerName, ownerMeta) {
     if (state.nukeState.active) return;
+    const dur = 4.4;
     state.nukeState = {
       active: true,
-      timer: 5.0,
-      maxTimer: 5.0,
+      phase: 'bomber',
+      timer: dur,
+      maxTimer: dur,
       ownerName: ownerName || 'ENEMY',
+      ownerUid: (ownerMeta && ownerMeta.ownerUid) || '',
+      ownerTeam: (ownerMeta && ownerMeta.ownerTeam) || '',
       isLocal: false,
-      flashAlpha: 0
+      flashAlpha: 0,
+      shake: 0
     };
+    startNukeCutscene(dur);
     if (root.WeaponAudio && typeof root.WeaponAudio.nukeSiren === 'function') {
       root.WeaponAudio.nukeSiren();
     }
   }
 
-  function activateScorestreak(ownerName) {
+  function activateScorestreak(ownerName, ownerMeta) {
     const def = getScorestreakDef(state.scorestreakId);
     if (!def) return { activated: false };
     if (state.scorestreakPoints < def.cost) {
       return { activated: false, needed: def.cost - state.scorestreakPoints };
     }
     state.scorestreakPoints = 0;
-    if (def.type === 'nuke') {
+    if (def.type === 'nuke' || def.isTacticalNuke) {
+      const dur = def.countdownSec || 4.4;
       state.nukeState = {
         active: true,
-        timer: def.countdownSec || 5.0,
-        maxTimer: def.countdownSec || 5.0,
+        phase: 'bomber',
+        timer: dur,
+        maxTimer: dur,
         ownerName: ownerName || 'RUNNER',
+        ownerUid: (ownerMeta && ownerMeta.ownerUid) || '',
+        ownerTeam: (ownerMeta && ownerMeta.ownerTeam) || '',
         isLocal: true,
-        flashAlpha: 0
+        flashAlpha: 0,
+        shake: 0
       };
+      startNukeCutscene(dur);
       if (root.WeaponAudio && typeof root.WeaponAudio.nukeSiren === 'function') {
         root.WeaponAudio.nukeSiren();
       }
       if (typeof onNukeEventCb === 'function') {
-        onNukeEventCb({ type: 'launch', ownerName: state.nukeState.ownerName, isLocal: true });
+        onNukeEventCb({
+          type: 'launch',
+          ownerName: state.nukeState.ownerName,
+          ownerUid: state.nukeState.ownerUid,
+          ownerTeam: state.nukeState.ownerTeam,
+          isLocal: true
+        });
       }
       return { activated: true, type: 'nuke', def };
     }
@@ -2096,7 +2743,7 @@
       }
       return { fired: false };
     }
-    if (state.fireCooldown > 0) return { fired: false };
+    if (!canFireWithCooldown(state.fireCooldown, Boolean(o.isBurstFollowup))) return { fired: false };
 
     // Minigun requires brief rotary spin-up before unleashing 1400 RPM
     if (isScorestreak && weaponId === 'minigun' && state.minigunSpin < 0.55) {
@@ -2447,7 +3094,7 @@
           .addScaledVector(_worldUp, state.adsProgress > 0.45 ? -0.03 : -0.10);
         spawnTracer(muzzleStart, endPoint, tracerCol);
         if (isPiercingRail) {
-          spawnTracer(muzzleStart.clone().addScaledVector(_worldUp, 0.02), endPoint, 0xd46bff);
+          spawnRailBeam(muzzleStart, endPoint, build);
         }
       }
 
@@ -2647,8 +3294,8 @@
       }
     }
 
-    // Bolt-action AWP / Scout unscopes cleanly on shot so player sees bolt cycle
-    if ((weaponId === 'awp' || weaponId === 'scout') && state.adsHeld) {
+    // Bolt-action AWP unscopes cleanly on shot; lightweight Scout stays scoped in ADS!
+    if (shouldUnscopeOnFire(weaponId, build) && state.adsHeld) {
       clearScope();
     }
 
@@ -2710,18 +3357,19 @@
       state.lastPlayerSpeed = po.vel ? Math.hypot(po.vel.x, po.vel.z) : 0;
     }
 
+    const activeBuild = getActiveBuild(state.activeSlot);
+
     // 3-round burst timer (F-33 Burst / FAMAS)
     if (state.burstRemaining > 0) {
       state.burstTimer -= dt;
       if (state.burstTimer <= 0) {
         state.burstRemaining -= 1;
-        state.burstTimer = 0.068;
+        state.burstTimer = (activeBuild && activeBuild.burstDelay) || 0.058;
         state.burstReady = true;
       }
     }
 
     // Katana time-limited bullet deflect gauge (2.0s max active / 5.5s full recharge / 30% min)
-    const activeBuild = getActiveBuild(state.activeSlot);
     const katanaActive = Boolean(activeBuild && activeBuild.weaponId === 'katana');
     const deflectStep = advanceKatanaDeflect(
       state.katanaDeflectEnergy,
@@ -2762,35 +3410,50 @@
       });
     }
 
-    // Step 3D RPG Rockets & MGL-6 Bouncing Grenades
+    // Step 3D RPG Rockets, MGL-6 Grenades, Explosion Shockwaves, Hyper-Rail Plasma Beams & Nuke Cutscene
     updateProjectiles(dt, botSolids, playerState && playerState.playerObj);
+    updateShockwaves(dt);
+    updateRailBeams(dt);
+    updateNukeCutscene(dt);
 
-    // Tactical Nuke 5s Orbital Countdown & Detonation
+    // Tactical Nuke Bomber Flyover, Impact Flash, Shake & Team-Safe Elimination
     if (state.nukeState.flashAlpha > 0) {
-      state.nukeState.flashAlpha = Math.max(0, state.nukeState.flashAlpha - dt * 0.55);
+      state.nukeState.flashAlpha = Math.max(0, state.nukeState.flashAlpha - dt * 0.48);
+    }
+    if (state.nukeState.shake > 0) {
+      state.nukeState.shake = Math.max(0, state.nukeState.shake - dt * 0.42);
     }
     if (state.nukeState.active) {
       state.nukeState.timer = Math.max(0, state.nukeState.timer - dt);
       if (state.nukeState.timer <= 0) {
         state.nukeState.active = false;
+        state.nukeState.phase = 'detonated';
         state.nukeState.flashAlpha = 1.0;
+        state.nukeState.shake = 1.0;
+        detonateNukeVisual();
         if (root.WeaponAudio && typeof root.WeaponAudio.nukeDetonate === 'function') {
           root.WeaponAudio.nukeDetonate();
         }
-        // Vaporize all warmup bots
+        // Vaporize all enemy warmup bots (never the caster/local player)
         if (warmupEnabled) {
           for (const bot of warmupBots) {
             if (!bot.alive) continue;
             bot.hp = 0;
             bot.alive = false;
-            bot.respawnTimer = 4.0;
+            bot.respawnTimer = 4.5;
             bot.visual.group.visible = false;
             warmupKills += 1;
             if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'nuke', weaponId: 'nuke', isHeadshot: false, totalKills: warmupKills });
           }
         }
         if (typeof onNukeEventCb === 'function') {
-          onNukeEventCb({ type: 'detonate', ownerName: state.nukeState.ownerName, isLocal: state.nukeState.isLocal });
+          onNukeEventCb({
+            type: 'detonate',
+            ownerName: state.nukeState.ownerName,
+            ownerUid: state.nukeState.ownerUid,
+            ownerTeam: state.nukeState.ownerTeam,
+            isLocal: state.nukeState.isLocal
+          });
         }
       }
     }
@@ -3060,6 +3723,9 @@
     advanceKatanaDeflect,
     AVATAR_HITBOX,
     pickBestDynamicHit,
+    pointToSegmentDistanceSq,
+    filterNukeTargets,
+    shouldUnscopeOnFire,
     computeGauntletSummary,
     evaluateDuelRoundResult,
     evaluateFfaScoreboard,
@@ -3094,6 +3760,14 @@
     activateScorestreak,
     awardScorestreakPoints,
     triggerRemoteNuke,
+    clearCombatFx,
+    getActiveBeamCount: () => activeBeams.length,
+    getNukeFxState: () => ({
+      hasBomber: Boolean(nukeFx && nukeFx.bomber && nukeFx.bomber.visible),
+      hasWarhead: Boolean(nukeFx && nukeFx.warhead && nukeFx.warhead.visible),
+      hasCloud: Boolean(nukeFx && nukeFx.cloud),
+      phase: state.nukeState.phase
+    }),
     resetMatchStreaks,
     resetLifeStreak,
     recordPvpKill,

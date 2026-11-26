@@ -1216,18 +1216,16 @@
     if (msg.t === 'nuke_launch') {
       const sender = state.players.get(peerUid);
       const ownerName = (sender && sender.name) || msg.ownerName || 'RUNNER';
-      broadcastGame({ t: 'nuke_launch', ownerName, ownerUid: peerUid }, peerUid);
+      const ownerTeam = (sender && sender.team) || msg.ownerTeam || '';
+      broadcastGame({ t: 'nuke_launch', ownerName, ownerUid: peerUid, ownerTeam }, peerUid);
       if (root.CombatSystem && typeof root.CombatSystem.triggerRemoteNuke === 'function') {
-        root.CombatSystem.triggerRemoteNuke(ownerName);
+        root.CombatSystem.triggerRemoteNuke(ownerName, { ownerUid: peerUid, ownerTeam });
       }
       return;
     }
 
     if (msg.t === 'nuke_detonate' && state.phase === 'live') {
-      const sender = state.players.get(peerUid);
-      const ownerName = (sender && sender.name) || msg.ownerName || 'RUNNER';
-      pushKillFeed(ownerName, 'ARENA', 'nuke', false);
-      hostBeginMapVote(peerUid, ownerName);
+      hostResolveNukeDetonate(peerUid, msg.ownerName);
       return;
     }
 
@@ -1409,7 +1407,7 @@
 
     if (msg.t === 'nuke_launch') {
       if (root.CombatSystem && typeof root.CombatSystem.triggerRemoteNuke === 'function') {
-        root.CombatSystem.triggerRemoteNuke(msg.ownerName || 'ENEMY');
+        root.CombatSystem.triggerRemoteNuke(msg.ownerName || 'ENEMY', { ownerUid: msg.ownerUid, ownerTeam: msg.ownerTeam });
       }
       return;
     }
@@ -2044,24 +2042,76 @@
     });
   }
 
+  function hostResolveNukeDetonate(ownerUid, fallbackName) {
+    const caster = state.players.get(ownerUid);
+    const ownerName = String((caster && caster.name) || fallbackName || 'RUNNER').slice(0, 24);
+    const ownerTeam = (caster && caster.team) || '';
+    const allPlayers = [];
+    for (const [uid, p] of state.players) {
+      allPlayers.push({ uid, alive: p.alive !== false, team: p.team || '', rec: p });
+    }
+    const filterFn = root.CombatSystem && typeof root.CombatSystem.filterNukeTargets === 'function'
+      ? root.CombatSystem.filterNukeTargets
+      : (list, oUid, oTeam) => list.filter((t) => t && t.alive !== false && t.uid !== oUid && !(oTeam && t.team && t.team === oTeam));
+    const victims = filterFn(allPlayers, ownerUid, ownerTeam);
+    for (const v of victims) {
+      const p = v.rec;
+      p.hp = 0;
+      p.alive = false;
+      p.deaths = (p.deaths || 0) + 1;
+      if (caster) caster.kills = (caster.kills || 0) + 1;
+      if (v.uid === state.localUid) {
+        state.localHp = 0;
+        state.localAlive = false;
+      } else if (root.CombatSystem) {
+        root.CombatSystem.upsertRemoteAvatar(v.uid, { alive: false, hp: 0 });
+      }
+      pushKillFeed(ownerName, p.name || 'RUNNER', 'nuke', false);
+      broadcastGame({
+        t: 'kill',
+        killerUid: ownerUid,
+        killerName: ownerName,
+        victimUid: v.uid,
+        victimName: p.name || 'RUNNER',
+        slot: 'nuke',
+        isHeadshot: false
+      });
+    }
+    if (victims.length === 0) {
+      pushKillFeed(ownerName, 'HOSTILES', 'nuke', false);
+    }
+    showBanner('TACTICAL NUKE DETONATED', `${ownerName.toUpperCase()} ELIMINATED ALL HOSTILES`, 3600);
+    if (state.phase === 'live') {
+      // Allow the 3D mushroom cloud to rise dramatically before starting post-match map vote
+      setTimeout(() => {
+        if (state.role === 'host' && state.phase === 'live') {
+          hostBeginMapVote(ownerUid, ownerName);
+        }
+      }, 3600);
+    }
+    emitState();
+  }
+
   function reportNukeLaunch(ownerName) {
     const cleanName = String(ownerName || state.localName || 'RUNNER').slice(0, 24);
+    const localRec = state.players.get(state.localUid);
+    const ownerTeam = (localRec && localRec.team) || '';
     if (state.role === 'host') {
-      broadcastGame({ t: 'nuke_launch', ownerName: cleanName, ownerUid: state.localUid });
+      broadcastGame({ t: 'nuke_launch', ownerName: cleanName, ownerUid: state.localUid, ownerTeam });
     } else if (state.role === 'client') {
-      sendToHostGame({ t: 'nuke_launch', ownerName: cleanName });
+      sendToHostGame({ t: 'nuke_launch', ownerName: cleanName, ownerTeam });
     }
   }
 
   function reportNukeDetonate(ownerName) {
     const cleanName = String(ownerName || state.localName || 'RUNNER').slice(0, 24);
-    pushKillFeed(cleanName, 'ARENA', 'nuke', false);
-    if (state.role === 'host' && state.phase === 'live') {
-      hostBeginMapVote(state.localUid, cleanName);
+    if (state.role === 'host') {
+      hostResolveNukeDetonate(state.localUid, cleanName);
     } else if (state.role === 'client') {
       sendToHostGame({ t: 'nuke_detonate', ownerName: cleanName });
-    } else if (state.role === 'warmup') {
-      showBanner('TACTICAL NUKE DETONATED', `${cleanName.toUpperCase()} WIPED THE ARENA`, 3200);
+    } else {
+      pushKillFeed(cleanName, 'HOSTILES', 'nuke', false);
+      showBanner('TACTICAL NUKE DETONATED', `${cleanName.toUpperCase()} ELIMINATED ALL HOSTILES`, 3600);
     }
   }
 

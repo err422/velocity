@@ -167,9 +167,9 @@
       leftPose: { index: 0.78, middle: 0.86, ring: 0.90, pinky: 0.90, thumb: 0.42, indexRingHook: 0, indexPoint: 0 }
     },
     usps: {
-      gripCenter: [0.0, -0.046, 0.028],
+      gripCenter: [0.0, -0.052, 0.048],
       rightPocket: [0.003, -0.027, -0.035],
-      supportAnchor: [-0.014, -0.046, 0.024],
+      supportAnchor: [-0.014, -0.052, 0.044],
       leftPocket: [0.0, -0.027, -0.035],
       leftRelEuler: [0.06, -0.34, 1.48],
       rightPose: { index: 0.44, middle: 0.92, ring: 0.95, pinky: 0.95, thumb: 0.64, indexRingHook: 0, indexPoint: 0 },
@@ -185,9 +185,9 @@
       leftPose: { index: 0.44, middle: 0.92, ring: 0.95, pinky: 0.95, thumb: 0.64, indexRingHook: 0, indexPoint: 0 }
     },
     katana: {
-      gripCenter: [0.0, 0.0, 0.055],
+      gripCenter: [0.0, 0.0, 0.062],
       rightPocket: [0.004, -0.026, -0.036],
-      supportAnchor: [0.0, -0.004, 0.165],
+      supportAnchor: [0.0, -0.002, 0.168],
       leftPocket: [0.002, -0.024, -0.034],
       leftRelEuler: [0.08, -0.22, 1.56],
       rightPose: { index: 0.92, middle: 0.94, ring: 0.95, pinky: 0.95, thumb: 0.76, indexRingHook: 0, indexPoint: 0 },
@@ -203,13 +203,13 @@
       leftPose: { index: 0.80, middle: 0.86, ring: 0.88, pinky: 0.88, thumb: 0.50, indexRingHook: 0, indexPoint: 0 }
     },
     minigun: {
-      gripCenter: [0.0, -0.048, 0.110],
+      gripCenter: [0.0, -0.048, 0.140],
       rightPocket: [0.003, -0.027, -0.040],
-      supportAnchor: [0.0, 0.095, -0.120],
+      supportAnchor: [-0.074, -0.024, -0.155],
       leftPocket: [0.002, -0.024, -0.032],
-      leftRelEuler: [-0.20, -0.40, 0.20],
+      leftRelEuler: [0.18, -0.42, 1.92],
       rightPose: { index: 0.60, middle: 0.92, ring: 0.94, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
-      leftPose: { index: 0.85, middle: 0.88, ring: 0.90, pinky: 0.90, thumb: 0.56, indexRingHook: 0, indexPoint: 0 }
+      leftPose: { index: 0.82, middle: 0.86, ring: 0.88, pinky: 0.88, thumb: 0.52, indexRingHook: 0, indexPoint: 0 }
     },
     railcannon: {
       gripCenter: [0.0, -0.048, 0.050],
@@ -258,12 +258,15 @@
       cylinderIndex: 0,
       slideBack: 0, hammerBack: 0,
       magDropY: 0, magTiltX: 0,
+      breechAngle: 0, breechShellMode: 'seated', breechShellEject: 0, breechShellInsert0: 1, breechShellInsert1: 1,
+      akimboTossT: 0, akimboHide: false,
       rPose: { index: 0.44, middle: 0.90, ring: 0.93, pinky: 0.94, thumb: 0.68, indexRingHook: 0, indexPoint: 0 },
       lPose: { index: 0.68, middle: 0.74, ring: 0.78, pinky: 0.76, thumb: 0.36, indexRingHook: 0, indexPoint: 0 }
     };
   }
 
   function weaponInspectDuration(wt, tier) {
+    if (wt === 'katana') return 3.05;
     if (wt === 'revolver') return tier === 'mythic' ? 3.65 : tier === 'uncommon' ? 2.65 : 2.85;
     if (wt === 'deagle') return tier === 'uncommon' ? 2.55 : 2.15;
     if (wt === 'awp') return tier === 'uncommon' ? 2.70 : 2.55;
@@ -335,69 +338,75 @@
     out.showReloadShells = false;
     out.showReloadBullet = false;
 
-    // -1) Primary Ronin Katana combat choreography: 3-hit slash combo, directional dash-lunge, and time-limited RMB bullet deflect guard!
+    // -1) Primary Ronin Katana combat choreography: crisp samurai ready guard, fluid 3-hit slash combo, directional dash-lunge, and compact RMB deflect guard!
     if (wt === 'katana') {
-      // Base samurai high-ready diagonal poise
-      out.rx += 0.045;
-      out.ry += -0.025;
-      out.rz += -0.035;
-      out.rRotX += 0.36;
-      out.rRotY += -0.44;
-      out.rRotZ += -0.38;
+      const inspectW = state.inspectT < 1 ? bell(state.inspectT, 0.0, 1.0) : 0;
+      const idleW = 1 - inspectW;
+      // Clean high-ready samurai diagonal poise (yielding smoothly during inspect)
+      out.rx += 0.032 * idleW;
+      out.ry += -0.014 * idleW;
+      out.rz += -0.028 * idleW;
+      out.rRotX += 0.28 * idleW;
+      out.rRotY += -0.34 * idleW;
+      out.rRotZ += -0.26 * idleW;
 
       const slashT = Number.isFinite(state.katanaSlashT) ? state.katanaSlashT : 1;
       const combo = Number.isFinite(state.katanaSlashCombo) ? (state.katanaSlashCombo % 3) : 0;
       if (slashT < 1) {
-        const windup = bell(slashT, 0.0, 0.24);
-        const strike = smoothstep(0.18, 0.56, slashT) * (1 - smoothstep(0.58, 1.0, slashT));
+        // Smooth cubic-eased windup -> fast arc strike -> clean follow-through settle (zero snappy jumps)
+        const wind = smoothstep(0.0, 0.22, slashT) * (1 - smoothstep(0.22, 0.44, slashT));
+        const strike = smoothstep(0.16, 0.48, slashT) * (1 - smoothstep(0.56, 1.0, slashT));
+        const follow = smoothstep(0.44, 0.72, slashT) * (1 - smoothstep(0.76, 1.0, slashT));
         if (combo === 0) {
-          // Diagonal slash: upper-right -> lower-left
-          out.rx += 0.08 * windup - 0.32 * strike;
-          out.ry += 0.09 * windup - 0.14 * strike;
-          out.rz += -0.08 * strike;
-          out.rRotX += 0.35 * windup - 1.15 * strike;
-          out.rRotY += -0.40 * windup + 1.45 * strike;
-          out.rRotZ += -0.30 * windup + 0.95 * strike;
+          // Fluid diagonal slash: upper-right -> lower-left
+          out.rx += 0.062 * wind - 0.24 * strike;
+          out.ry += 0.072 * wind - 0.10 * strike;
+          out.rz += -0.065 * strike;
+          out.rRotX += 0.26 * wind - 0.78 * strike - 0.14 * follow;
+          out.rRotY += -0.30 * wind + 1.02 * strike + 0.16 * follow;
+          out.rRotZ += -0.22 * wind + 0.74 * strike;
         } else if (combo === 1) {
-          // Reverse diagonal slash: lower-left -> upper-right
-          out.rx += -0.22 * windup + 0.16 * strike;
-          out.ry += -0.10 * windup + 0.12 * strike;
-          out.rz += -0.10 * strike;
-          out.rRotX += -0.45 * windup + 0.85 * strike;
-          out.rRotY += 0.95 * windup - 1.35 * strike;
-          out.rRotZ += 0.85 * windup - 1.10 * strike;
+          // Fluid reverse upward slash: lower-left -> upper-right
+          out.rx += -0.18 * wind + 0.13 * strike;
+          out.ry += -0.08 * wind + 0.10 * strike;
+          out.rz += -0.072 * strike;
+          out.rRotX += -0.36 * wind + 0.68 * strike;
+          out.rRotY += 0.70 * wind - 0.94 * strike;
+          out.rRotZ += 0.60 * wind - 0.76 * strike;
         } else {
           // Crisp horizontal iaido cleave
-          out.rx += 0.12 * windup - 0.36 * strike;
-          out.ry += -0.03 * strike;
-          out.rz += -0.12 * strike;
-          out.rRotX += -0.32 * strike;
-          out.rRotY += -0.55 * windup + 1.85 * strike;
-          out.rRotZ += 1.25 * strike;
+          out.rx += 0.095 * wind - 0.28 * strike;
+          out.ry += -0.022 * strike;
+          out.rz += -0.095 * strike;
+          out.rRotX += -0.22 * strike;
+          out.rRotY += -0.40 * wind + 1.32 * strike;
+          out.rRotZ += 0.90 * strike;
         }
       }
 
       const dashT = Number.isFinite(state.katanaDashT) ? state.katanaDashT : 1;
       if (dashT < 1) {
-        const thrust = bell(dashT, 0.0, 0.88);
-        out.rx += -0.14 * thrust;
-        out.ry += 0.02 * thrust;
-        out.rz += -0.22 * thrust;
-        out.rRotX += -0.34 * thrust;
-        out.rRotY += 0.56 * thrust;
-        out.rRotZ += 1.32 * thrust;
+        const thrust = smoothstep(0.0, 0.26, dashT) * (1 - smoothstep(0.54, 1.0, dashT));
+        out.rx += -0.105 * thrust;
+        out.ry += 0.016 * thrust;
+        out.rz += -0.165 * thrust;
+        out.rRotX += -0.24 * thrust;
+        out.rRotY += 0.42 * thrust;
+        out.rRotZ += 0.88 * thrust;
       }
 
       const defP = Number.isFinite(state.katanaDeflectProgress) ? state.katanaDeflectProgress : 0;
       if (defP > 0.001) {
         const dp = smoothstep(0, 1, defP);
-        // Horizontal two-handed deflect barrier centered right in front of camera
-        out.rx = THREE.MathUtils.lerp(out.rx, -0.145, dp);
-        out.ry = THREE.MathUtils.lerp(out.ry, 0.068, dp);
-        out.rz = THREE.MathUtils.lerp(out.rz, -0.125, dp);
-        out.rRotX = THREE.MathUtils.lerp(out.rRotX, -0.12, dp);
-        out.rRotY = THREE.MathUtils.lerp(out.rRotY, 1.38, dp);
-        out.rRotZ = THREE.MathUtils.lerp(out.rRotZ, 0.98, dp);
+        // Tight diagonal samurai parry stance in front of chest — keeps both arms compact & natural!
+        out.rx = THREE.MathUtils.lerp(out.rx, -0.074, dp);
+        out.ry = THREE.MathUtils.lerp(out.ry, 0.028, dp);
+        out.rz = THREE.MathUtils.lerp(out.rz, -0.068, dp);
+        out.rRotX = THREE.MathUtils.lerp(out.rRotX, 0.34, dp);
+        out.rRotY = THREE.MathUtils.lerp(out.rRotY, 0.48, dp);
+        out.rRotZ = THREE.MathUtils.lerp(out.rRotZ, 0.52, dp);
+        out.leftAnchorOffZ -= 0.028 * dp;
+        out.leftRelOffZ -= 0.18 * dp;
       }
       return;
     }
@@ -597,6 +606,151 @@
     if (state.reloadT >= 1) return;
     const t = state.reloadT;
     out.leftUseRawReload = true;
+
+    if (wt === 'sawedoff') {
+      // DB-12 SAWED-OFF BREAK-ACTION (BREACH-ACTION) RELOAD:
+      // 1) Thumb cracks top latch & barrels hinge open (0.04..0.22)
+      // 2) Spring ejectors launch spent hulls cleanly backward/downward off-screen (0.18..0.44)
+      // 3) Left hand brings 2 fresh shells up from below and seats them straight into twin chambers (0.44..0.72)
+      // 4) Left hand returns to forend & right wrist snaps breech shut (0.74..0.94)
+      const openEnv = smoothstep(0.05, 0.21, t) * (1 - smoothstep(0.76, 0.92, t));
+      const snapFlick = bell(t, 0.78, 0.96);
+      out.rx -= openEnv * 0.042;
+      out.ry += openEnv * 0.028 - snapFlick * 0.012;
+      out.rz += openEnv * 0.022;
+      out.rRotX += -openEnv * 0.14 + snapFlick * 0.26;
+      out.rRotY += openEnv * 0.16;
+      out.rRotZ += openEnv * 0.28 - snapFlick * 0.12;
+
+      out.breechAngle = -0.92 * smoothstep(0.10, 0.24, t) * (1 - smoothstep(0.76, 0.89, t));
+
+      if (t < 0.18) {
+        out.breechShellMode = 'seated';
+        out.breechShellEject = 0;
+        out.breechShellInsert0 = 1;
+        out.breechShellInsert1 = 1;
+      } else if (t < 0.44) {
+        out.breechShellMode = 'eject';
+        out.breechShellEject = smoothstep(0.18, 0.44, t);
+      } else if (t < 0.52) {
+        out.breechShellMode = 'hidden';
+        out.breechShellEject = 1;
+        out.breechShellInsert0 = 0;
+        out.breechShellInsert1 = 0;
+      } else if (t < 0.72) {
+        out.breechShellMode = 'insert';
+        out.breechShellEject = 0;
+        out.breechShellInsert0 = smoothstep(0.52, 0.64, t);
+        out.breechShellInsert1 = smoothstep(0.58, 0.70, t);
+      } else {
+        out.breechShellMode = 'seated';
+        out.breechShellEject = 0;
+        out.breechShellInsert0 = 1;
+        out.breechShellInsert1 = 1;
+      }
+
+      // Right thumb nudges top break-latch
+      out.rPose.thumb = THREE.MathUtils.lerp(spec.rightPose.thumb, 0.32, bell(t, 0.04, 0.20));
+
+      // Left hand leaves forend -> dips below frame to grab 2 fresh shells -> rises to breech mouth & pushes them flush -> returns to forend
+      const offForend = smoothstep(0.12, 0.26, t) * (1 - smoothstep(0.73, 0.85, t));
+      const reachPouch = bell(t, 0.22, 0.48);
+      const seatPush1 = bell(t, 0.48, 0.64);
+      const seatPush2 = bell(t, 0.56, 0.72);
+      const feedPeak = Math.max(seatPush1, seatPush2);
+
+      // Relative to sawedoff supportAnchor [0, -0.004, -0.165], open breech mouth sits near [0, 0.020, -0.068]
+      out.leftAnchorOffX += offForend * (-0.016 + seatPush2 * 0.018);
+      out.leftAnchorOffY += offForend * (-0.065 - reachPouch * 0.145 + feedPeak * 0.118);
+      out.leftAnchorOffZ += offForend * (0.102 - feedPeak * 0.022);
+      out.leftRelOffX += offForend * (-0.28 + feedPeak * 0.26);
+      out.leftRelOffY += offForend * 0.30;
+      out.leftRelOffZ += offForend * -0.42;
+
+      // Hand holds twin shells as it rises from pouch up to the open chambers, then hands off seamlessly to chamber insertion!
+      out.showReloadShells = t > 0.34 && t < 0.56;
+      out.lPose.index = THREE.MathUtils.lerp(spec.leftPose.index, 0.46, offForend);
+      out.lPose.middle = THREE.MathUtils.lerp(spec.leftPose.middle, 0.54, offForend);
+      out.lPose.ring = THREE.MathUtils.lerp(spec.leftPose.ring, 0.64, offForend);
+      out.lPose.pinky = THREE.MathUtils.lerp(spec.leftPose.pinky, 0.70, offForend);
+      out.lPose.thumb = THREE.MathUtils.lerp(spec.leftPose.thumb, 0.74, offForend);
+
+      if (playAudio) {
+        if (t > 0.16 && !(state.reloadCueMask & 1)) {
+          state.reloadCueMask |= 1;
+          CaseAudio.balisongClack(0.86);
+        }
+        if (t > 0.45 && !(state.reloadCueMask & 2)) {
+          state.reloadCueMask |= 2;
+          WeaponAudio.shellInsert();
+        }
+        if (t > 0.62 && !(state.reloadCueMask & 4)) {
+          state.reloadCueMask |= 4;
+          WeaponAudio.shellInsert();
+        }
+        if (t > 0.82 && !(state.reloadCueMask & 8)) {
+          state.reloadCueMask |= 8;
+          WeaponAudio.pumpRack();
+        }
+      }
+      return;
+    }
+
+    if (wt === 'akimbo') {
+      // DUAL AKIMBO REAPER-STYLE THROW-AND-DRAW RELOAD:
+      // Toss both spent pistols forward & away -> both hands dip below view -> draw 2 fresh pistols with crisp flourish!
+      const tossFlick = bell(t, 0.0, 0.32);
+      const dipEnv = smoothstep(0.24, 0.42, t) * (1 - smoothstep(0.56, 0.80, t));
+      const drawPop = bell(t, 0.68, 0.96);
+
+      out.akimboTossT = t < 0.36 ? smoothstep(0.05, 0.35, t) : 0;
+      out.akimboHide = t >= 0.34 && t < 0.56;
+
+      // Right hand tosses forward, dips below frame to grab fresh pistol, sweeps cleanly back up
+      out.rx += tossFlick * 0.035;
+      out.ry += tossFlick * 0.045 - dipEnv * 0.28 + drawPop * 0.022;
+      out.rz += -tossFlick * 0.075 + dipEnv * 0.04;
+      out.rRotX += tossFlick * 0.42 - dipEnv * 0.52 - drawPop * 0.14;
+      out.rRotY += tossFlick * 0.16;
+      out.rRotZ += tossFlick * 0.22 + drawPop * 0.18;
+
+      // Open fingers during release, re-grip fresh pistols on draw
+      const releaseOpen = smoothstep(0.08, 0.22, t) * (1 - smoothstep(0.46, 0.60, t));
+      out.rPose.index = THREE.MathUtils.lerp(spec.rightPose.index, 0.14, releaseOpen);
+      out.rPose.middle = THREE.MathUtils.lerp(spec.rightPose.middle, 0.18, releaseOpen);
+      out.rPose.ring = THREE.MathUtils.lerp(spec.rightPose.ring, 0.22, releaseOpen);
+      out.rPose.pinky = THREE.MathUtils.lerp(spec.rightPose.pinky, 0.26, releaseOpen);
+      out.lPose.index = THREE.MathUtils.lerp(spec.leftPose.index, 0.14, releaseOpen);
+      out.lPose.middle = THREE.MathUtils.lerp(spec.leftPose.middle, 0.18, releaseOpen);
+      out.lPose.ring = THREE.MathUtils.lerp(spec.leftPose.ring, 0.22, releaseOpen);
+      out.lPose.pinky = THREE.MathUtils.lerp(spec.leftPose.pinky, 0.26, releaseOpen);
+
+      // Left hand mirrors toss & dip freely, then locks cleanly back onto fresh left pistol
+      const leftFreeW = smoothstep(0.02, 0.12, t) * (1 - smoothstep(0.68, 0.90, t));
+      out.leftLock = 1 - leftFreeW;
+      out.leftFreeX = -0.145 - tossFlick * 0.035;
+      out.leftFreeY = -0.145 + tossFlick * 0.045 - dipEnv * 0.30 + drawPop * 0.022;
+      out.leftFreeZ = -0.320 - tossFlick * 0.075;
+      out.leftFreeRotX = 0.04 + tossFlick * 0.42 - dipEnv * 0.52;
+      out.leftFreeRotY = -0.05 - tossFlick * 0.16;
+      out.leftFreeRotZ = 1.42 - tossFlick * 0.22;
+
+      if (playAudio) {
+        if (t > 0.08 && !(state.reloadCueMask & 1)) {
+          state.reloadCueMask |= 1;
+          CaseAudio.spinWhoosh(1.16);
+        }
+        if (t > 0.58 && !(state.reloadCueMask & 2)) {
+          state.reloadCueMask |= 2;
+          WeaponAudio.weaponDraw();
+        }
+        if (t > 0.80 && !(state.reloadCueMask & 4)) {
+          state.reloadCueMask |= 4;
+          CaseAudio.balisongClack(1.08);
+        }
+      }
+      return;
+    }
 
     if (wt === 'shotgun') {
       // M870 FAST TWIN-SHELL BOTTOM LOADING (quad-load style) + FINAL PUMP RACK — never drops a mag!
@@ -816,6 +970,8 @@
     out.cylinderIndex = 0;
     out.slideBack = 0; out.hammerBack = 0;
     out.magDropY = 0; out.magTiltX = 0;
+    out.breechAngle = 0; out.breechShellMode = 'seated'; out.breechShellEject = 0; out.breechShellInsert0 = 1; out.breechShellInsert1 = 1;
+    out.akimboTossT = 0; out.akimboHide = false;
 
     Object.assign(out.rPose, spec.rightPose);
     Object.assign(out.lPose, spec.leftPose);
@@ -825,6 +981,39 @@
 
     const isMythic = state.inspectTier === 'mythic';
     const isRare = state.inspectTier === 'uncommon' || isMythic;
+
+    if (wt === 'katana') {
+      // SMOOTH SAMURAI BLADE INSPECT: Raise blade cleanly across chest -> admire edge & camo -> roll to back side -> crisp flourish return!
+      const env = bell(t, 0.0, 1.0);
+      const stage1 = smoothstep(0.04, 0.24, t) * (1 - smoothstep(0.42, 0.54, t));
+      const stage2 = smoothstep(0.46, 0.62, t) * (1 - smoothstep(0.76, 0.88, t));
+      const flourish = bell(t, 0.74, 0.98);
+      const sway = Math.sin(smoothstep(0.10, 0.84, t) * Math.PI * 2) * 0.06;
+
+      out.rx = -0.062 * env + sway * 0.15;
+      out.ry = 0.048 * env + flourish * 0.022;
+      out.rz = -0.025 * env;
+      out.rRotX = 0.18 * stage1 + 0.22 * stage2 - flourish * 0.18;
+      out.rRotY = 0.62 * stage1 - 0.56 * stage2 + flourish * 0.28 + sway;
+      out.rRotZ = 0.44 * stage1 - 0.52 * stage2 + flourish * 0.48;
+      out.leftAnchorOffZ = -0.018 * env;
+
+      if (playAudio) {
+        if (t > 0.10 && !(state.inspectCueMask & 1)) {
+          state.inspectCueMask |= 1;
+          CaseAudio.bladeShing();
+        }
+        if (t > 0.46 && !(state.inspectCueMask & 2)) {
+          state.inspectCueMask |= 2;
+          CaseAudio.spinWhoosh(0.96);
+        }
+        if (t > 0.76 && !(state.inspectCueMask & 4)) {
+          state.inspectCueMask |= 4;
+          CaseAudio.spinWhoosh(1.14);
+        }
+      }
+      return;
+    }
 
     if (wt === 'revolver') {
       if (isMythic) {
@@ -1345,18 +1534,80 @@
     if (mesh.userData.deflectAura && mesh.userData.deflectAura.material) {
       const defOp = wOut && Number.isFinite(wOut.katanaDeflectAura) ? wOut.katanaDeflectAura : 0;
       mesh.userData.deflectAura.material.opacity = defOp;
-      mesh.userData.deflectAura.rotation.x += 0.14 * (defOp > 0.05 ? 1 : 0);
-      const s = 0.85 + defOp * 0.45;
-      mesh.userData.deflectAura.scale.setScalar(s);
+      const radial = 0.92 + defOp * 0.42;
+      mesh.userData.deflectAura.scale.set(radial, 1.0, radial);
     }
-    // Dual Akimbo alternating recoil slide kicks
+    // DB-12 Sawed-Off break-action hinge, breech latch & ejecting twin 12-gauge shells
+    if (mesh.userData.breechPivot) {
+      mesh.userData.breechPivot.rotation.x = wOut && Number.isFinite(wOut.breechAngle) ? wOut.breechAngle : 0;
+    }
+    if (mesh.userData.breechLatch) {
+      mesh.userData.breechLatch.rotation.y = wOut && wOut.breechAngle < -0.05 ? 0.52 : 0;
+    }
+    if (Array.isArray(mesh.userData.breechShells)) {
+      const mode = (wOut && wOut.breechShellMode) || 'seated';
+      const eject = wOut && Number.isFinite(wOut.breechShellEject) ? wOut.breechShellEject : 0;
+      const ins0 = wOut && Number.isFinite(wOut.breechShellInsert0) ? wOut.breechShellInsert0 : 1;
+      const ins1 = wOut && Number.isFinite(wOut.breechShellInsert1) ? wOut.breechShellInsert1 : 1;
+      for (let i = 0; i < mesh.userData.breechShells.length; i++) {
+        const sh = mesh.userData.breechShells[i];
+        if (!Number.isFinite(sh.userData.restZ)) {
+          sh.userData.restX = sh.position.x;
+          sh.userData.restY = sh.position.y;
+          sh.userData.restZ = sh.position.z;
+        }
+        const rx0 = sh.userData.restX;
+        const ry0 = sh.userData.restY;
+        const rz0 = sh.userData.restZ;
+        if (mode === 'hidden') {
+          sh.visible = false;
+        } else if (mode === 'eject') {
+          sh.visible = eject < 0.98;
+          const splay = i === 0 ? -1 : 1;
+          // Parabolic backward & downward ballistic arc that clears the screen completely before hiding
+          sh.position.set(
+            rx0 + splay * eject * 0.075,
+            ry0 + eject * 0.065 - eject * eject * 0.68,
+            rz0 + eject * 0.52
+          );
+          sh.rotation.set(-eject * 4.2, splay * eject * 0.9, splay * eject * 1.5);
+        } else if (mode === 'insert') {
+          const ins = i === 0 ? ins0 : ins1;
+          if (ins <= 0.01) {
+            sh.visible = false;
+          } else {
+            sh.visible = true;
+            // Shell slides straight along chamber axis directly from the left hand into the breech (no floating!)
+            sh.position.set(rx0, ry0, rz0 + (1 - ins) * 0.048);
+            sh.rotation.set(0, 0, 0);
+          }
+        } else {
+          sh.visible = true;
+          sh.position.set(rx0, ry0, rz0);
+          sh.rotation.set(0, 0, 0);
+        }
+      }
+    }
+    // Dual Akimbo alternating recoil kicks & Reaper throw-and-draw reload toss
     if (mesh.userData.akimboRight && mesh.userData.akimboLeft) {
-      const rKick = wOut && Number.isFinite(wOut.akimboRightKick) ? wOut.akimboRightKick : 0;
-      const lKick = wOut && Number.isFinite(wOut.akimboLeftKick) ? wOut.akimboLeftKick : 0;
-      mesh.userData.akimboRight.position.z = rKick * 0.048;
-      mesh.userData.akimboRight.rotation.x = rKick * 0.24;
-      mesh.userData.akimboLeft.position.z = lKick * 0.048;
-      mesh.userData.akimboLeft.rotation.x = lKick * 0.24;
+      const hideAkimbo = Boolean(wOut && wOut.akimboHide);
+      const tossT = wOut && Number.isFinite(wOut.akimboTossT) ? wOut.akimboTossT : 0;
+      mesh.userData.akimboRight.visible = !hideAkimbo;
+      mesh.userData.akimboLeft.visible = !hideAkimbo;
+      if (tossT > 0.001) {
+        const arcY = tossT * 0.13 - tossT * tossT * 0.44;
+        mesh.userData.akimboRight.position.set(tossT * 0.22, arcY, -tossT * 0.54);
+        mesh.userData.akimboRight.rotation.set(-tossT * 4.4, 0, -tossT * 1.4);
+        mesh.userData.akimboLeft.position.set(-0.27 - tossT * 0.22, arcY, -tossT * 0.54);
+        mesh.userData.akimboLeft.rotation.set(-tossT * 4.4, 0, tossT * 1.4);
+      } else {
+        const rKick = wOut && Number.isFinite(wOut.akimboRightKick) ? wOut.akimboRightKick : 0;
+        const lKick = wOut && Number.isFinite(wOut.akimboLeftKick) ? wOut.akimboLeftKick : 0;
+        mesh.userData.akimboRight.position.set(0, 0, rKick * 0.048);
+        mesh.userData.akimboRight.rotation.set(rKick * 0.24, 0, 0);
+        mesh.userData.akimboLeft.position.set(-0.27, 0, lKick * 0.048);
+        mesh.userData.akimboLeft.rotation.set(lKick * 0.24, 0, 0);
+      }
     }
     // M-134 Rotary Minigun barrel spin & MGL-6 drum index
     if (mesh.userData.rotaryBarrels && wOut && Number.isFinite(wOut.minigunSpinAngle)) {

@@ -20,10 +20,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isVerifiedUser() {
-      return isSignedIn() && request.auth.token.email_verified == true;
-    }
-
     function isValidId(id) {
       return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -993,17 +989,17 @@ service cloud.firestore {
 
     // ---------- Collection Rules: Private User Settings ----------
     match /userSettings/{uid} {
-      allow get: if isVerifiedUser()
+      allow get: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid;
       allow list: if false;
 
-      allow create: if isVerifiedUser()
+      allow create: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid
         && isValidUserSettingsCreate(incoming(), uid);
 
-      allow update: if isVerifiedUser()
+      allow update: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid
         && isValidUserSettingsUpdate(incoming(), uid)
@@ -1020,7 +1016,7 @@ service cloud.firestore {
           'updatedAt'
         ]);
 
-      allow delete: if isVerifiedUser()
+      allow delete: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid
         && existing().uid == request.auth.uid;
@@ -1028,17 +1024,17 @@ service cloud.firestore {
 
     // ---------- Collection Rules: Private User Inventory & Knives ----------
     match /userInventory/{uid} {
-      allow get: if isVerifiedUser()
+      allow get: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid;
       allow list: if false;
 
-      allow create: if isVerifiedUser()
+      allow create: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid
         && isValidUserInventoryCreate(incoming(), uid);
 
-      allow update: if isVerifiedUser()
+      allow update: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid
         && isValidUserInventoryUpdate(incoming(), uid)
@@ -1058,24 +1054,24 @@ service cloud.firestore {
           'updatedAt'
         ]);
 
-      allow delete: if isVerifiedUser()
+      allow delete: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid
         && existing().uid == request.auth.uid;
 
       match /knives/{knifeId} {
-        allow get: if isVerifiedUser()
+        allow get: if isSignedIn()
           && isValidId(uid)
           && isValidId(knifeId)
           && request.auth.uid == uid
           && (resource == null || existing().uid == request.auth.uid);
 
-        allow list: if isVerifiedUser()
+        allow list: if isSignedIn()
           && isValidId(uid)
           && request.auth.uid == uid
           && existing().uid == request.auth.uid;
 
-        allow create: if isVerifiedUser()
+        allow create: if isSignedIn()
           && isValidId(uid)
           && isValidId(knifeId)
           && request.auth.uid == uid
@@ -1084,7 +1080,7 @@ service cloud.firestore {
 
         allow update: if false;
 
-        allow delete: if isVerifiedUser()
+        allow delete: if isSignedIn()
           && isValidId(uid)
           && isValidId(knifeId)
           && request.auth.uid == uid
@@ -1092,18 +1088,18 @@ service cloud.firestore {
       }
 
       match /gloves/{gloveId} {
-        allow get: if isVerifiedUser()
+        allow get: if isSignedIn()
           && isValidId(uid)
           && isValidId(gloveId)
           && request.auth.uid == uid
           && (resource == null || existing().uid == request.auth.uid);
 
-        allow list: if isVerifiedUser()
+        allow list: if isSignedIn()
           && isValidId(uid)
           && request.auth.uid == uid
           && existing().uid == request.auth.uid;
 
-        allow create: if isVerifiedUser()
+        allow create: if isSignedIn()
           && isValidId(uid)
           && isValidId(gloveId)
           && request.auth.uid == uid
@@ -1112,7 +1108,7 @@ service cloud.firestore {
 
         allow update: if false;
 
-        allow delete: if isVerifiedUser()
+        allow delete: if isSignedIn()
           && isValidId(uid)
           && isValidId(gloveId)
           && request.auth.uid == uid
@@ -1120,18 +1116,18 @@ service cloud.firestore {
       }
 
       match /weapons/{weaponId} {
-        allow get: if isVerifiedUser()
+        allow get: if isSignedIn()
           && isValidId(uid)
           && isValidId(weaponId)
           && request.auth.uid == uid
           && (resource == null || existing().uid == request.auth.uid);
 
-        allow list: if isVerifiedUser()
+        allow list: if isSignedIn()
           && isValidId(uid)
           && request.auth.uid == uid
           && existing().uid == request.auth.uid;
 
-        allow create: if isVerifiedUser()
+        allow create: if isSignedIn()
           && isValidId(uid)
           && isValidId(weaponId)
           && request.auth.uid == uid
@@ -1140,7 +1136,7 @@ service cloud.firestore {
 
         allow update: if false;
 
-        allow delete: if isVerifiedUser()
+        allow delete: if isSignedIn()
           && isValidId(uid)
           && isValidId(weaponId)
           && request.auth.uid == uid
@@ -1150,17 +1146,17 @@ service cloud.firestore {
 
     // ---------- Collection Rules: Private User Loadouts & Gunsmith ----------
     match /userLoadouts/{uid} {
-      allow get: if isVerifiedUser()
+      allow get: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid;
       allow list: if false;
 
-      allow create: if isVerifiedUser()
+      allow create: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid
         && isValidUserLoadoutsCreate(incoming(), uid);
 
-      allow update: if isVerifiedUser()
+      allow update: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid
         && isValidUserLoadoutsUpdate(incoming(), uid)
@@ -1178,7 +1174,7 @@ service cloud.firestore {
           'updatedAt'
         ]);
 
-      allow delete: if isVerifiedUser()
+      allow delete: if isSignedIn()
         && isValidId(uid)
         && request.auth.uid == uid
         && existing().uid == request.auth.uid;
@@ -1186,18 +1182,18 @@ service cloud.firestore {
 
     // ---------- Collection Rules: Serverless WebRTC Arena Lobbies ----------
     match /lobbies/{lobbyId} {
-      allow get: if isVerifiedUser()
+      allow get: if isSignedIn()
         && isValidId(lobbyId);
 
-      allow list: if isVerifiedUser()
+      allow list: if isSignedIn()
         && existing().isPrivate == false
         && existing().status in ['open', 'in_progress'];
 
-      allow create: if isVerifiedUser()
+      allow create: if isSignedIn()
         && isValidId(lobbyId)
         && isValidLobbyCreate(incoming(), lobbyId);
 
-      allow update: if isVerifiedUser()
+      allow update: if isSignedIn()
         && isValidId(lobbyId)
         && existing().hostUid == request.auth.uid
         && isValidLobbyUpdate(incoming(), lobbyId)
@@ -1216,21 +1212,21 @@ service cloud.firestore {
           'heartbeatAt'
         ]);
 
-      allow delete: if isVerifiedUser()
+      allow delete: if isSignedIn()
         && isValidId(lobbyId)
         && existing().hostUid == request.auth.uid;
 
       match /peers/{peerUid} {
-        allow get: if isVerifiedUser()
+        allow get: if isSignedIn()
           && isValidId(lobbyId)
           && isValidId(peerUid)
           && (request.auth.uid == peerUid || existing().hostUid == request.auth.uid);
 
-        allow list: if isVerifiedUser()
+        allow list: if isSignedIn()
           && isValidId(lobbyId)
           && existing().hostUid == request.auth.uid;
 
-        allow create: if isVerifiedUser()
+        allow create: if isSignedIn()
           && isValidId(lobbyId)
           && isValidId(peerUid)
           && request.auth.uid == peerUid
@@ -1244,7 +1240,7 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/lobbies/$(lobbyId)).data.status in ['open', 'in_progress']
           && incoming().hostUid == get(/databases/$(database)/documents/lobbies/$(lobbyId)).data.hostUid;
 
-        allow update: if isVerifiedUser()
+        allow update: if isSignedIn()
           && isValidId(lobbyId)
           && isValidId(peerUid)
           && isValidLobbyPeerShape(incoming(), peerUid)
@@ -1268,7 +1264,7 @@ service cloud.firestore {
             )
           );
 
-        allow delete: if isVerifiedUser()
+        allow delete: if isSignedIn()
           && isValidId(lobbyId)
           && isValidId(peerUid)
           && (request.auth.uid == peerUid || existing().hostUid == request.auth.uid);
@@ -1279,7 +1275,7 @@ service cloud.firestore {
     match /dailyCourses/{dateKey} {
       allow get: if isValidDateKey(dateKey) && existing().isPublic == true;
       allow list: if existing().isPublic == true;
-      allow create: if isVerifiedUser()
+      allow create: if isSignedIn()
         && isValidDateKey(dateKey)
         && isValidDailyCourse(incoming(), dateKey);
       allow update: if false;
@@ -1290,14 +1286,14 @@ service cloud.firestore {
         allow get: if isValidDateKey(dateKey) && isValidId(uid) && existing().isPublic == true;
         allow list: if existing().bestTime > 0;
 
-        allow create: if isVerifiedUser()
+        allow create: if isSignedIn()
           && isValidDateKey(dateKey)
           && isValidId(uid)
           && request.auth.uid == uid
           && isValidDailyRunCreate(incoming(), dateKey, uid)
           && exists(/databases/$(database)/documents/dailyCourses/$(dateKey));
 
-        allow update: if isVerifiedUser()
+        allow update: if isSignedIn()
           && isValidDateKey(dateKey)
           && isValidId(uid)
           && request.auth.uid == uid
@@ -1325,7 +1321,7 @@ service cloud.firestore {
           )
           && exists(/databases/$(database)/documents/dailyCourses/$(dateKey));
 
-        allow delete: if isVerifiedUser()
+        allow delete: if isSignedIn()
           && isValidDateKey(dateKey)
           && isValidId(uid)
           && request.auth.uid == uid

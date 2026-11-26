@@ -283,12 +283,13 @@
 
     if (!isArena) {
       if (isKatana) {
-        // Samurai ready stance: right hand holds hilt at right hip/chest, left hand braced forward
-        armR.rotation.set(-0.55, 0.15, -0.18);
-        armR.userData.elbow.rotation.set(-0.95, 0.28, 0.25);
-        armL.rotation.set(-0.62, -0.20, 0.22);
-        armL.userData.elbow.rotation.set(-1.10, -0.42, -0.20);
-        weaponSocket.position.set(-0.06, 0.17, 0.27);
+        // Heroic Ronin samurai showcase stance: right hand firmly grips wrapped tsuka in front of chest,
+        // left hand relaxed near tactical belt / scabbard line
+        armR.rotation.set(-0.56, 0.20, -0.18);
+        armR.userData.elbow.rotation.set(-1.12, 0.28, 0.10);
+        armL.rotation.set(-0.24, -0.10, 0.14);
+        armL.userData.elbow.rotation.set(-0.46, -0.14, -0.06);
+        weaponSocket.position.set(0.0, 0.18, 0.28);
       } else if (isAkimbo) {
         // Dual-wield combat ready: both arms forward holding paired pistols
         armR.rotation.set(-0.72, 0.08, -0.12);
@@ -320,24 +321,36 @@
       const cleanWep = KS.sanitizeWeaponItem(opts.weaponItem || KS.createStarterWeapon('rifle'));
       wepModel = VI.buildWeaponModel(cleanWep, opts.targetRenderer, opts.attachments || {});
       if (isKatana) {
-        wepModel.rotation.set(-0.35, -0.45, 0.55);
-      } else if (isAkimbo) {
-        wepModel.rotation.set(0.06, Math.PI, 0);
+        // Anchor directly to right gloved palm: yaw by PI so the -Z blade rises upward (+Y) and outward
+        // in world space while the +Z wrapped tsuka handle sits squarely inside the closed fist.
+        const katanaHandSocket = new THREE.Group();
+        katanaHandSocket.position.set(0.0, -0.285, 0.016);
+        katanaHandSocket.rotation.set(0.24, Math.PI - 0.28, -0.18);
+        const kScale = 1.05;
+        wepModel.scale.setScalar(kScale);
+        // Shift weapon along local Z so mid-tsuka (z ≈ +0.105) rests directly inside the gloved palm
+        wepModel.position.set(0, 0.004, -0.105 * kScale);
+        katanaHandSocket.add(wepModel);
+        armR.userData.elbow.add(katanaHandSocket);
       } else {
-        wepModel.rotation.set(0.14, Math.PI * 0.44, -0.20);
+        if (isAkimbo) {
+          wepModel.rotation.set(0.06, Math.PI, 0);
+        } else {
+          wepModel.rotation.set(0.14, Math.PI * 0.44, -0.20);
+        }
+        const wBox = new THREE.Box3().setFromObject(wepModel);
+        const wCenter = new THREE.Vector3();
+        const wSize = new THREE.Vector3();
+        wBox.getCenter(wCenter);
+        wBox.getSize(wSize);
+        const wMax = Math.max(wSize.x, wSize.y, wSize.z, 0.2);
+        const isShort = ['smg', 'mp7', 'deagle', 'pistol', 'g18', 'usps', 'revolver', 'akimbo'].includes(cleanWep.weaponType);
+        const targetLen = isShort ? 0.52 : (cleanWep.weaponType === 'awp' || cleanWep.weaponType === 'dmr' || cleanWep.weaponType === 'scout' ? 0.88 : 0.74);
+        const wScale = targetLen / wMax;
+        wepModel.scale.setScalar(wScale);
+        wepModel.position.set(-wCenter.x * wScale, -wCenter.y * wScale, -wCenter.z * wScale);
+        weaponSocket.add(wepModel);
       }
-      const wBox = new THREE.Box3().setFromObject(wepModel);
-      const wCenter = new THREE.Vector3();
-      const wSize = new THREE.Vector3();
-      wBox.getCenter(wCenter);
-      wBox.getSize(wSize);
-      const wMax = Math.max(wSize.x, wSize.y, wSize.z, 0.2);
-      const isShort = ['smg', 'mp7', 'deagle', 'pistol', 'g18', 'usps', 'revolver', 'akimbo'].includes(cleanWep.weaponType);
-      const targetLen = isKatana ? 0.96 : isShort ? 0.52 : (cleanWep.weaponType === 'awp' || cleanWep.weaponType === 'dmr' || cleanWep.weaponType === 'scout' ? 0.88 : 0.74);
-      const wScale = targetLen / wMax;
-      wepModel.scale.setScalar(wScale);
-      wepModel.position.set(-wCenter.x * wScale, -wCenter.y * wScale, -wCenter.z * wScale);
-      weaponSocket.add(wepModel);
     } else if (isArena) {
       // Crisp, readable third-person arena rifle + katana toggle group
       const arenaGun = new THREE.Group();

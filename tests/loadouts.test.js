@@ -274,3 +274,53 @@ test('firestore.rules defines hardened /userLoadouts/{uid} rules and expanded 7-
     assert.ok(rulesText.includes(`'${slotId}'`), `Expected attachment slot '${slotId}' to be allowlisted in firestore.rules`);
   }
 });
+
+test('all base challenge camos and mastery camos map to real WEAPON_SKINS and equip cleanly by skinId once unlocked', () => {
+  const KnivesSystem = require('../src/weapons/melee/knivesData.js');
+  let state = LoadoutsSystem.createDefaultLoadoutState();
+
+  // Every base challenge camo and mastery camo must have a matching WEAPON_SKINS entry
+  for (const ch of LoadoutsSystem.CAMO_CHALLENGES) {
+    assert.ok(KnivesSystem.WEAPON_SKINS[ch.skinId], `Expected WEAPON_SKINS['${ch.skinId}'] for base challenge '${ch.id}'`);
+    // Locked before progress
+    const lockedRes = LoadoutsSystem.equipWeaponCamo(state, 'rifle', ch.skinId);
+    assert.equal(lockedRes.ok, false);
+    assert.equal(lockedRes.reason, 'locked');
+  }
+  for (const mc of LoadoutsSystem.MASTERY_CAMOS) {
+    assert.ok(KnivesSystem.WEAPON_SKINS[mc.skinId], `Expected WEAPON_SKINS['${mc.skinId}'] for mastery camo '${mc.id}'`);
+  }
+
+  // Unlock every base challenge on rifle and verify each base camo skinId equips & toggles off cleanly
+  for (const ch of LoadoutsSystem.CAMO_CHALLENGES) {
+    state.camoProgress.rifle[ch.id] = ch.target;
+  }
+  const status = LoadoutsSystem.getWeaponCamoStatus(state, 'rifle');
+  assert.equal(status.baseUnlockedCount, LoadoutsSystem.CAMO_CHALLENGES.length);
+  assert.equal(status.goldUnlocked, true);
+
+  for (const bc of status.baseCamos) {
+    assert.equal(bc.unlocked, true);
+    assert.equal(bc.pct, 100);
+    // Regression guard: passing challenge key bc.id (e.g. 'kills') must fail, whereas bc.skinId (e.g. 'tactical_carbon') must succeed!
+    const badRes = LoadoutsSystem.equipWeaponCamo(state, 'rifle', bc.id);
+    assert.equal(badRes.ok, false, `Challenge key '${bc.id}' should not be accepted as a camo skinId`);
+
+    const eqRes = LoadoutsSystem.equipWeaponCamo(state, 'rifle', bc.skinId);
+    assert.equal(eqRes.ok, true, `Expected base camo '${bc.skinId}' to equip cleanly`);
+    assert.equal(eqRes.state.equippedWeaponCamos.rifle, bc.skinId);
+    state = eqRes.state;
+  }
+
+  // Clearing equipped camo returns to ''
+  const clearRes = LoadoutsSystem.equipWeaponCamo(state, 'rifle', '');
+  assert.equal(clearRes.ok, true);
+  assert.equal(clearRes.state.equippedWeaponCamos.rifle, '');
+
+  // Regression guard on gunsmithUi.js: must use bc.skinId (never bc.id) and MW4-style swatch studio
+  const gunsmithUiSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'gunsmithUi.js'), 'utf8');
+  assert.ok(gunsmithUiSrc.includes('equippedCamoId===bc.skinId'), 'gunsmithUi.js must compare equippedCamoId against bc.skinId');
+  assert.ok(gunsmithUiSrc.includes('equipCamoSkin(bc.skinId'), 'gunsmithUi.js must equip base camos using bc.skinId');
+  assert.ok(!gunsmithUiSrc.includes('equippedCamoId===bc.id'), 'gunsmithUi.js must not compare equippedCamoId against challenge key bc.id');
+});
+

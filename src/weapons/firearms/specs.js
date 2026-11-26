@@ -582,16 +582,17 @@
       falloffEnd: 390,
       minFalloffMul: 0.90,
       armorPen: 1.14,
-      rpm: 62,
+      rpm: 96,
       magSize: 8,
-      reloadTime: 1.85,
+      reloadTime: 1.72,
+      stayScopedOnFire: true,
       range: 410,
       spreadHip: 0.018,
       spreadAds: 0.00035,
       spreadMove: 0.0065,
-      recoilPitch: 0.044,
-      recoilYaw: 0.008,
-      adsTimeSec: 0.21,
+      recoilPitch: 0.036,
+      recoilYaw: 0.0065,
+      adsTimeSec: 0.20,
       baseWeightKg: 3.1,
       defaultOptic: 'sniper_4x',
       ammoClass: 'bullet',
@@ -1432,9 +1433,9 @@
     let weightKg = spec.baseWeightKg;
     let adsMoveMult = spec.id === 'awp' ? 0.52 : spec.id === 'smg' || spec.id === 'pistol' ? 0.72 : 0.62;
 
-    let opticType = spec.defaultOptic;
-    let opticId = '';
     const defaultOpticDef = (spec.defaultOptic && ATTACHMENTS.optic[spec.defaultOptic]) || null;
+    let opticType = (defaultOpticDef && defaultOpticDef.opticType) || spec.defaultOptic;
+    let opticId = defaultOpticDef ? defaultOpticDef.id : '';
     let adsZoom = defaultOpticDef ? (defaultOpticDef.adsZoom || 1.12) : 1.12;
     let adsZoomAlt = defaultOpticDef ? (defaultOpticDef.adsZoomAlt || 0) : 0;
     let adsFovMul = defaultOpticDef ? (defaultOpticDef.adsFovMul || 0.88) : 0.88;
@@ -1649,6 +1650,7 @@
       chronoRampOut,
       chronoAirSpreadMul,
       chronoLabel,
+      stayScopedOnFire: Boolean(spec.stayScopedOnFire),
       isScopedOptic: opticType === 'acog' || opticType === 'sniper_4x' || opticType === 'sniper_var',
       bars: {
         damage: damageBar,
@@ -1713,21 +1715,23 @@
   const SCORESTREAKS = Object.freeze({
     rpg: {
       id: 'rpg',
+      type: 'weapon',
       name: 'RPG-7 Rocket Launcher',
       shortName: 'RPG-7',
       hudTag: 'RPG',
       cost: 300,
       ammo: 3,
       fireInterval: 1.05,
-      splashRadius: 7.2,
-      maxDamage: 145,
-      rocketSpeed: 46,
-      rocketJumpImpulse: 22,
+      splashRadius: 11.5,
+      maxDamage: 235,
+      rocketSpeed: 48,
+      rocketJumpImpulse: 26,
       accent: '#ff8a3d',
-      description: '3 high-explosive warheads with massive splash damage and classic rocket-jump physics launches.'
+      description: '3 devastating high-explosive warheads with massive 11.5m blast radius and high-impulse rocket-jump launches.'
     },
     minigun: {
       id: 'minigun',
+      type: 'weapon',
       name: 'M-134 Rotary Minigun',
       shortName: 'M-134',
       hudTag: 'MINI',
@@ -1744,29 +1748,35 @@
     },
     railcannon: {
       id: 'railcannon',
+      type: 'weapon',
       name: 'Hyper-Rail Plasma Cannon',
       shortName: 'HYPER-RAIL',
       hudTag: 'RAIL',
       cost: 300,
       ammo: 4,
-      fireInterval: 0.72,
-      damageBody: 160,
-      damageHead: 320,
+      fireInterval: 0.95,
+      damageBody: 145,
+      damageHead: 280,
+      beamDurationSec: 3.0,
+      beamTickInterval: 0.12,
+      beamTickDamage: 38,
+      beamRadius: 0.95,
       pierceTargets: true,
       kickbackForce: 10.5,
       accent: '#a77dff',
-      description: '4 hyper-velocity piercing plasma beams that slice straight through targets with instant impact.'
+      description: '4 sustained 3-second piercing plasma beams that scorch and vaporize anyone standing in or crossing the beam.'
     },
     grenadelauncher: {
       id: 'grenadelauncher',
+      type: 'weapon',
       name: 'MGL-6 Ricochet Launcher',
       shortName: 'MGL-6',
       hudTag: 'MGL',
       cost: 300,
       ammo: 6,
       fireInterval: 0.42,
-      splashRadius: 6.2,
-      maxDamage: 125,
+      splashRadius: 6.8,
+      maxDamage: 140,
       launchSpeed: 28,
       fuseTime: 1.65,
       maxBounces: 3,
@@ -1775,15 +1785,16 @@
     },
     nuke: {
       id: 'nuke',
+      type: 'nuke',
       name: 'Tactical Nuke',
       shortName: 'NUKE',
       hudTag: 'NUKE',
       cost: 1000,
       ammo: 1,
-      countdownSec: 5.0,
+      countdownSec: 4.4,
       isTacticalNuke: true,
       accent: '#ff425e',
-      description: 'Orbital match-ender unlocked at 1,000 score. Sounds the siren, counts down, and wins the match on detonation.'
+      description: 'Stealth bomber nuclear strike unlocked at 1,000 score. Drops a tactical warhead that vaporizes all enemy players.'
     }
   });
   const SCORESTREAK_IDS = Object.freeze(Object.keys(SCORESTREAKS));
