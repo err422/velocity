@@ -94,6 +94,9 @@
   let clientPoseCh = null;
   let clientGameCh = null;
   let clientAnswerApplied = false;
+  let clientOfferWritten = false;
+  let clientConnected = false;
+  let clientJoinTimeout = null;
   const clientCandSet = new Set();
 
   let unsubPeers = null;
@@ -238,6 +241,12 @@
     clientGameCh = null;
     clientPc = null;
     clientAnswerApplied = false;
+    clientOfferWritten = false;
+    clientConnected = false;
+    if (clientJoinTimeout) {
+      clearTimeout(clientJoinTimeout);
+      clientJoinTimeout = null;
+    }
     clientCandSet.clear();
   }
 
@@ -1466,7 +1475,10 @@
         joined: false,
         offerApplied: false,
         candSet: new Set(),
-        answerCandidates: []
+        answerCandidates: [],
+        answerStarted: false,
+        answerWriteChain: Promise.resolve(),
+        remoteDescriptionSet: false
       };
       hostPeers.set(peerUid, entry);
 
@@ -1549,8 +1561,19 @@
       };
 
       pc.onicecandidate = (ev) => {
-        if (ev.candidate && entry.answerCandidates.length < 30) {
-          entry.answerCandidates.push(JSON.stringify(ev.candidate.toJSON()));
+        if (!ev.candidate || entry.answerCandidates.length >= 30) return;
+        entry.answerCandidates.push(JSON.stringify(ev.candidate.toJSON()));
+        // Keep trickling host ICE candidates after the initial answer is written.
+        // Serialize writes so an older candidate list cannot overwrite a newer one.
+        if (entry.answerStarted) {
+          entry.answerWriteChain = entry.answerWriteChain.then(() =>
+            root.DailyBackend.writePeerAnswer(
+              state.lobby.lobbyId,
+              peerUid,
+              entry.pc.localDescription ? entry.pc.localDescription.sdp : '',
+              entry.answerCandidates.slice()
+            )
+          ).catch((err) => console.warn('Host ICE candidate update failed:', err));
         }
       };
     }
@@ -1576,12 +1599,18 @@
           };
         });
 
-        await root.DailyBackend.writePeerAnswer(
-          state.lobby.lobbyId,
-          peerUid,
-          entry.pc.localDescription ? entry.pc.localDescription.sdp : answer.sdp,
-          entry.answerCandidates
+        // Queue the initial answer before any later trickle-candidate updates.
+        entry.answerStarted = true;
+        entry.answerWriteChain = entry.answerWriteChain.then(() =>
+          root.DailyBackend.writePeerAnswer(
+            state.lobby.lobbyId,
+            peerUid,
+            entry.pc.localDescription ? entry.pc.localDescription.sdp : answer.sdp,
+            entry.answerCandidates.slice()
+          )
         );
+        await entry.answerWriteChain;
+        entry.remoteDescriptionSet = true;
       } catch (err) {
         console.warn('Host WebRTC answer error:', err);
         hostRemovePeer(peerUid);
@@ -1590,13 +1619,17 @@
     }
 
     // Apply any newly received offer ICE candidates
-    if (entry.offerApplied && Array.isArray(peerDoc.offerCandidates)) {
+    if (entry.offerApplied && entry.remoteDescriptionSet && Array.isArray(peerDoc.offerCandidates)) {
       for (const rawC of peerDoc.offerCandidates) {
         if (entry.candSet.has(rawC)) continue;
         entry.candSet.add(rawC);
         try {
           await entry.pc.addIceCandidate(new RTCIceCandidate(JSON.parse(rawC)));
-        } catch (_) {}
+        } catch (err) {
+          // Permit a later snapshot to retry candidates that arrived out of order.
+          entry.candSet.delete(rawC);
+          console.warn('Host ICE candidate error:', err);
+        }
       }
     }
   }
@@ -1691,10 +1724,11 @@
       throw new Error('You are already the host of this server.');
     }
 
+    // Never let a failed P2P connection quietly turn into a solo bot match.
     leaveSession(true);
     state.role = 'client';
-    state.mapId = lobby.mapId;
-    state.mode = lobby.mode;
+    state.mapId = normalizeArenaMapId(lobby.mapId, false);
+    state.mode = lobby.mode === 'ffa_4p' ? 'ffa_4p' : 'duel_1v1';
     state.lobby = lobby;
     state.localUid = id.uid;
     state.localName = id.name;
@@ -1707,78 +1741,117 @@
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     clientPc = pc;
     const offerCandidates = [];
+    let connectionSettled = false;
+    let resolveConnection;
+    let rejectConnection;
+    const connectionPromise = new Promise((resolve, reject) => {
+      resolveConnection = resolve;
+      rejectConnection = reject;
+    });
+    const settleConnection = (err) => {
+      if (connectionSettled) return;
+      connectionSettled = true;
+      if (clientJoinTimeout) {
+        clearTimeout(clientJoinTimeout);
+        clientJoinTimeout = null;
+      }
+      if (err) rejectConnection(err);
+      else resolveConnection();
+    };
+    clientJoinTimeout = setTimeout(() => {
+      settleConnection(new Error('Could not connect to that lobby. The host may be offline or the connection was blocked.'));
+    }, 20000);
 
     clientPoseCh = pc.createDataChannel('pose', { ordered: false, maxRetransmits: 0 });
     clientGameCh = pc.createDataChannel('game', { ordered: true });
+    const gameChannel = clientGameCh;
 
     clientPoseCh.onmessage = (m) => onClientPoseMessage(m.data);
     clientGameCh.onopen = () => {
+      if (state.role !== 'client' || clientGameCh !== gameChannel) return;
+      clientConnected = true;
       state.statusText = `CONNECTED · ${lobby.roomName.toUpperCase()}`;
       sendToHostGame({ t: 'hello', uid: state.localUid, name: state.localName });
       emitState();
+      settleConnection();
     };
     clientGameCh.onmessage = (m) => onClientGameMessage(m.data);
     clientGameCh.onclose = () => {
-      if (state.role === 'client') {
-        showBanner('HOST DISCONNECTED', 'RETURNING TO WARMUP', 2400);
-        startSoloWarmup(state.mapId, state.mode);
+      if (state.role !== 'client' || clientGameCh !== gameChannel) return;
+      if (!clientConnected) {
+        settleConnection(new Error('The host closed the connection before you joined.'));
+        return;
+      }
+      showBanner('HOST DISCONNECTED', 'RETURN TO SERVERS TO REJOIN', 3000);
+      leaveSession(true);
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (state.role !== 'client' || clientPc !== pc) return;
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        settleConnection(new Error('Connection to the host failed. Please try another lobby.'));
       }
     };
 
     pc.onicecandidate = (ev) => {
-      if (ev.candidate && offerCandidates.length < 30) {
-        offerCandidates.push(JSON.stringify(ev.candidate.toJSON()));
-        if (clientAnswerApplied === false && offerCandidates.length % 3 === 0) {
-          root.DailyBackend.updatePeerOfferCandidates(lobby.lobbyId, offerCandidates).catch(() => {});
-        }
+      if (!ev.candidate || offerCandidates.length >= 30) return;
+      offerCandidates.push(JSON.stringify(ev.candidate.toJSON()));
+      // Candidates gathered after the initial offer are trickled to Firestore.
+      if (clientOfferWritten && !clientAnswerApplied) {
+        root.DailyBackend.updatePeerOfferCandidates(lobby.lobbyId, offerCandidates.slice()).catch((err) => {
+          console.warn('Client ICE candidate update failed:', err);
+        });
       }
     };
 
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    // Gather initial STUN candidates briefly before writing offer
-    await new Promise((resolve) => {
-      let done = false;
-      const finish = () => { if (!done) { done = true; resolve(); } };
-      const timer = setTimeout(finish, 1100);
-      pc.onicegatheringstatechange = () => {
-        if (pc.iceGatheringState === 'complete') {
-          clearTimeout(timer);
-          finish();
-        }
-      };
-    });
-
-    await root.DailyBackend.writePeerOffer(
-      lobby.lobbyId,
-      lobby.hostUid,
-      pc.localDescription ? pc.localDescription.sdp : offer.sdp,
-      offerCandidates
-    );
-
-    unsubMyPeer = root.DailyBackend.subscribePeerDoc(lobby.lobbyId, state.localUid, async (peerDoc) => {
-      if (!peerDoc || state.role !== 'client' || !clientPc) return;
-      if (!clientAnswerApplied && peerDoc.answerSdp) {
-        clientAnswerApplied = true;
-        try {
-          await clientPc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: peerDoc.answerSdp }));
-        } catch (err) {
-          console.warn('Client setRemoteDescription error:', err);
-        }
-      }
-      if (clientAnswerApplied && Array.isArray(peerDoc.answerCandidates)) {
-        for (const rawC of peerDoc.answerCandidates) {
-          if (clientCandSet.has(rawC)) continue;
-          clientCandSet.add(rawC);
+    try {
+      // Listen before writing the offer so the answer cannot race the subscription.
+      unsubMyPeer = root.DailyBackend.subscribePeerDoc(lobby.lobbyId, state.localUid, async (peerDoc) => {
+        if (!peerDoc || state.role !== 'client' || !clientPc) return;
+        if (!clientAnswerApplied && peerDoc.answerSdp) {
           try {
-            await clientPc.addIceCandidate(new RTCIceCandidate(JSON.parse(rawC)));
-          } catch (_) {}
+            await clientPc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: peerDoc.answerSdp }));
+            clientAnswerApplied = true;
+          } catch (err) {
+            console.warn('Client setRemoteDescription error:', err);
+            settleConnection(new Error('The host sent an invalid connection response.'));
+            return;
+          }
         }
-      }
-    });
+        if (clientAnswerApplied && Array.isArray(peerDoc.answerCandidates)) {
+          for (const rawC of peerDoc.answerCandidates) {
+            if (clientCandSet.has(rawC)) continue;
+            clientCandSet.add(rawC);
+            try {
+              await clientPc.addIceCandidate(new RTCIceCandidate(JSON.parse(rawC)));
+            } catch (err) {
+              clientCandSet.delete(rawC);
+              console.warn('Client ICE candidate error:', err);
+            }
+          }
+        }
+      });
 
-    return lobby;
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await root.DailyBackend.writePeerOffer(
+        lobby.lobbyId,
+        lobby.hostUid,
+        pc.localDescription ? pc.localDescription.sdp : offer.sdp,
+        offerCandidates.slice()
+      );
+      clientOfferWritten = true;
+      // Cover candidates gathered while the initial Firestore write was in flight.
+      await root.DailyBackend.updatePeerOfferCandidates(lobby.lobbyId, offerCandidates.slice());
+
+      await connectionPromise;
+      return lobby;
+    } catch (err) {
+      if (state.role === 'client' && state.lobby && state.lobby.lobbyId === lobby.lobbyId) {
+        leaveSession(true);
+      }
+      throw err;
+    }
   }
 
   async function joinByCode(code) {
