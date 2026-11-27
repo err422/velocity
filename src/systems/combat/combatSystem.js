@@ -2382,6 +2382,8 @@
             yaw
           })
         : { index: i, name: profile.name, profile, visual, hp: 100, alive: true, respawnTimer: 0, pos: new THREE.Vector3(sp.x, sp.y, sp.z), yaw };
+      bot.uid = bot.uid || ('warmup_bot_' + i);
+      bot.index = Number.isFinite(Number(bot.index)) ? Number(bot.index) : i;
       warmupBots.push(bot);
     }
   }
