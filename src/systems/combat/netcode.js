@@ -692,7 +692,7 @@
     emitState();
   }
 
-  function applyWarmupDamage(damage, botName, weapon, isHeadshot, botUid) {
+  function applyWarmupDamage(damage, botName, weapon, isHeadshot, botUid, botType) {
     const isWarmup = state.role === 'warmup' ||
       ((state.role === 'host' || state.role === 'client') && state.phase === 'warmup');
     if (!isWarmup || !state.localAlive || state.localHp <= 0) return false;
@@ -710,7 +710,14 @@
     state.localHp = Math.max(0, state.localHp - cleanDmg);
     const killed = state.localHp <= 0;
     if (!killed && previousHp > 35 && state.localHp <= 35 && typeof callbacks.onBotEvent === 'function') {
-      callbacks.onBotEvent({ type: 'player_low_health', botName: botName || '', playerName: state.localName || 'Runner' });
+      callbacks.onBotEvent({
+        type: 'player_low_health',
+        botUid: botUid || null,
+        botName: botName || '',
+        botType: botType == null ? null : botType,
+        playerUid: 'local',
+        playerName: state.localName || 'Runner'
+      });
     }
     if (killed) {
       state.localAlive = false;
