@@ -1489,12 +1489,14 @@
     // the authoritative player record instead of creating an untyped avatar.
     if (!rec) return;
     const ct = Number(msg.ct) || 0;
-    if (msg.slot && msg.slot !== rec.slot && !rec.isBot) {
+    if (rec.lastObservedPoseSlot != null && msg.slot &&
+        msg.slot !== rec.lastObservedPoseSlot && !rec.isBot) {
       emitRemotePlayerChatEvent('player_weapon_switch', peerUid, rec, {
         weapon: msg.slot,
         weaponName: msg.slot
       });
     }
+    if (msg.slot) rec.lastObservedPoseSlot = msg.slot;
     observeRemotePlayerActivity(peerUid, rec, msg);
     if (rec) {
       if (msg.slot) rec.slot = msg.slot;
