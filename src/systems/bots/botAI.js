@@ -1494,6 +1494,7 @@
     const targetPos = target && target.position;
     const targetAlive = Boolean(target && target.alive && targetPos);
     const abilitiesAllowed = !ctx || ctx.abilitiesAllowed !== false;
+    const aggressionBias = clamp(Number(ctx && ctx.aggressionBias) || 1, 0.82, 1.35);
     const callbacks = (ctx && ctx.callbacks) || {};
 
     // Timers (tick in world time so weapon fire rates & cooldowns match human Chrono rules!)
@@ -1629,7 +1630,7 @@
         bot.chronoHoldTimer = 0;
       }
     } else if (wantChronoTrigger && bot.chronoCooldown <= 0) {
-      if (Math.random() < skill.chronoAggression * (isAwpPeek ? 0.55 : 0.85)) {
+      if (Math.random() < skill.chronoAggression * aggressionBias * (isAwpPeek ? 0.55 : 0.85)) {
         bot.chronoHoldTimer = isAwpPeek ? (0.55 + Math.random() * 0.45) : (0.72 + Math.random() * 0.65);
         bot.chronoCooldown = (isAwpPeek ? 2.6 : 2.9) / Math.max(0.75, skill.abilityRate);
       } else {
@@ -1676,7 +1677,18 @@
 
     bot.intentTimer -= clampedDt;
     if (bot.intentTimer <= 0 && targetAlive) {
-      bot.combatIntent = chooseBotMovementIntent(dist, bot.profile.preferredRange, isReloading || lowHp, Math.random());
+      let nextIntent = chooseBotMovementIntent(dist, bot.profile.preferredRange, isReloading || lowHp, Math.random());
+      // Rivalry changes how willingly a bot commits to a fight, without overriding
+      // critical cover/reload decisions or the normal range-based intent selection.
+      if (!isReloading && !lowHp && aggressionBias >= 1.08 &&
+          (nextIntent === 'disengage' || nextIntent === 'hold') &&
+          Math.random() < Math.min(0.34, (aggressionBias - 1) * 0.85)) {
+        nextIntent = 'advance';
+      } else if (!isReloading && !lowHp && aggressionBias <= 0.92 &&
+          nextIntent === 'advance' && Math.random() < Math.min(0.26, (1 - aggressionBias) * 0.9)) {
+        nextIntent = 'strafe';
+      }
+      bot.combatIntent = nextIntent;
       bot.intentTimer = 0.65 + Math.random() * 0.85;
     }
 
@@ -1750,7 +1762,7 @@
       }
 
       // Aggressive Kinetic Burst to close distance (Flanker / Breacher)
-      if (abilitiesAllowed && bot.burstCd <= 0 && (bot.profile.id === 'flanker' || bot.profile.id === 'breacher') && dist > 13 && dist < 30 && Math.random() < 0.04 * skill.abilityRate) {
+      if (abilitiesAllowed && bot.burstCd <= 0 && (bot.profile.id === 'flanker' || bot.profile.id === 'breacher') && dist > 13 && dist < 30 && Math.random() < 0.04 * skill.abilityRate * aggressionBias) {
         const boost = ((ctx && ctx.config && ctx.config.burstBoost) || 9.5) * 0.85;
         bot.vel.x += _vToTarget.x * boost;
         bot.vel.z += _vToTarget.z * boost;
@@ -1765,7 +1777,7 @@
       // Tactical Grapple to High Ground / Flank Angle!
       const wantHighGround = (targetPos.y > bot.pos.y + 2.5) || (bot.profile.id === 'marksman' && bot.pos.y < 5.0) || (dist > 22);
       if (abilitiesAllowed && !bot.grapplePoint && bot.grappleCd <= 0 &&
-          (wantHighGround || Math.random() < 0.015 * bot.profile.grappleBias * skill.abilityRate)) {
+          (wantHighGround || Math.random() < 0.015 * bot.profile.grappleBias * skill.abilityRate * aggressionBias)) {
         const gp = findGrappleAnchor(bot, targetPos, solidMeshes, wantHighGround, false);
         if (gp) {
           bot.grapplePoint = gp;
