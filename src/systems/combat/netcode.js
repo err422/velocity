@@ -19,6 +19,8 @@
   const DUEL_POST_ROUND_SEC = 2.4;
   const MAP_VOTE_DURATION_SEC = 12;
   const VOID_ASSIST_WINDOW_MS = 5000;
+  const CHAT_MAX_LENGTH = 160;
+  const CHAT_RATE_LIMIT_MS = 650;
   const FALLBACK_ARENA_IDS = ['arena_surf', 'arena_aim', 'arena_spire', 'arena_cargo', 'arena_skyline', 'arena_canyon'];
 
   function getValidArenaIds() {
@@ -87,6 +89,8 @@
     players: new Map(), // uid -> { uid, name, hp, alive, score, kills, deaths, spawnIdx, slot, lastAttackerUid, lastAttackerName, lastAttackerSlot, lastDamagedAtMs }
     killFeed: [] // { id, killer, victim, weapon, headshot, ts }
   };
+  const chatLastSentAt = new Map();
+  let chatSeq = 1;
 
   // WebRTC handles
   const hostPeers = new Map(); // peerUid -> { pc, poseCh, gameCh, displayName, offerApplied, candSet }
@@ -119,6 +123,8 @@
     onLocalDamage: null,
     onLocalRespawn: null,
     onRemoteTracer: null,
+    onChatMessage: null,
+    onBotEvent: null,
     onLeave: null
   };
 
@@ -342,6 +348,83 @@
     }
   }
 
+  function isChatEnabled() {
+    return state.role !== 'none' && getValidArenaIds().includes(state.mapId);
+  }
+
+  function sanitizeChatText(value) {
+    return String(value == null ? '' : value)
+      .replace(/[\r\n\t]+/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+      .slice(0, CHAT_MAX_LENGTH);
+  }
+
+  function emitChatMessage(uid, name, text, isBot) {
+    const message = {
+      t: 'chat_message',
+      id: 'chat_' + (chatSeq++),
+      uid: String(uid || 'unknown'),
+      name: String(name || (isBot ? 'Player' : 'Runner')).slice(0, 24),
+      text: sanitizeChatText(text),
+      isBot: Boolean(isBot),
+      ts: Date.now()
+    };
+    if (!message.text) return false;
+    if (state.role === 'host') broadcastGame(message);
+    if (typeof callbacks.onChatMessage === 'function') callbacks.onChatMessage(message);
+    return true;
+  }
+
+  function canSendChatNow(uid) {
+    const now = Date.now();
+    const key = String(uid || state.localUid || 'local');
+    const last = chatLastSentAt.get(key) || 0;
+    if (now - last < CHAT_RATE_LIMIT_MS) return false;
+    chatLastSentAt.set(key, now);
+    return true;
+  }
+
+  function sendChatMessage(rawText) {
+    if (!isChatEnabled()) return false;
+    const text = sanitizeChatText(rawText);
+    if (!text || !canSendChatNow(state.localUid)) return false;
+    if (state.role === 'warmup' || state.role === 'host') {
+      return emitChatMessage(state.localUid, state.localName, text, false);
+    }
+    if (state.role === 'client') {
+      if (!clientGameCh || clientGameCh.readyState !== 'open') return false;
+      sendToHostGame({ t: 'chat', text });
+      return true;
+    }
+    return false;
+  }
+
+  function sendBotChatMessage(botUid, botName, rawText) {
+    if (!isChatEnabled()) return false;
+    const text = sanitizeChatText(rawText);
+    if (!text) return false;
+    if (state.role === 'warmup') {
+      return emitChatMessage(botUid || 'warmup_bot', botName, text, true);
+    }
+    if (state.role === 'host') {
+      const bot = state.players.get(botUid);
+      if (!bot || !bot.isBot || (botName && bot.name !== botName)) return false;
+      return emitChatMessage(bot.uid, bot.name, text, true);
+    }
+    return false;
+  }
+
+  function hostRelayChat(peerUid, rawText) {
+    if (state.role !== 'host' || !isChatEnabled()) return false;
+    const peer = hostPeers.get(peerUid);
+    const player = state.players.get(peerUid);
+    if (!peer || !peer.joined || !player || player.isBot || !canSendChatNow(peerUid)) return false;
+    const text = sanitizeChatText(rawText);
+    if (!text) return false;
+    return emitChatMessage(peerUid, player.name, text, false);
+  }
+
   function broadcastPose(msg, excludeUid) {
     if (state.role !== 'host') return;
     const raw = JSON.stringify(msg);
@@ -453,13 +536,17 @@
     const openSlots = Math.max(0, capacity - state.players.size);
     if (openSlots <= 0) return false;
 
-    const names = ['AI · VEX', 'AI · KIRA', 'AI · ZERO', 'AI · NOVA'];
+    const usedNames = Array.from(state.players.values()).map((player) => player.name);
     const weapons = ['rifle', 'smg', 'awp', 'shotgun'];
     const added = [];
     for (let i = 0; i < openSlots; i++) {
       const botType = i % 4;
       const uid = `ai_${state.lobby.lobbyId}_${i}`;
-      const bot = ensurePlayerRecord(uid, names[botType], i + 1);
+      const botName = root.BotAISystem && typeof root.BotAISystem.generatePlayerName === 'function'
+        ? root.BotAISystem.generatePlayerName(usedNames)
+        : 'player' + (i + 1);
+      usedNames.push(botName);
+      const bot = ensurePlayerRecord(uid, botName, i + 1);
       bot.isBot = true;
       bot.botType = botType;
       bot.hp = 100;
@@ -590,6 +677,7 @@
       players: serializePlayersList()
     });
     syncLobbyMetaNow();
+    if (typeof callbacks.onBotEvent === 'function') callbacks.onBotEvent({ type: 'round_start', round: state.round });
     emitState();
   }
 
@@ -618,6 +706,9 @@
       const attackerName = String(botName || 'AI BOT').slice(0, 24);
       if (root.BotAISystem && typeof root.BotAISystem.recordPlayerDeath === 'function') {
         root.BotAISystem.recordPlayerDeath();
+      }
+      if (typeof callbacks.onBotEvent === 'function') {
+        callbacks.onBotEvent({ type: 'bot_killed_player', botName: attackerName, playerName: state.localName || 'Runner', weapon: weapon || 'rifle' });
       }
       pushKillFeed(attackerName, state.localName || 'Runner', weapon || 'rifle', isHeadshot);
       showBanner('ELIMINATED', (isHeadshot ? 'HEADSHOT BY ' : 'OUTPLAYED BY ') + attackerName.toUpperCase() + ' · RESPAWNING', 1900);
@@ -887,6 +978,24 @@
     };
     broadcastGame(dmgPacket);
     applyDamageEventLocally(dmgPacket, true);
+    if (killed && typeof callbacks.onBotEvent === 'function') {
+      if (attacker.isBot && !victim.isBot) {
+        callbacks.onBotEvent({
+          type: 'bot_killed_player', botUid: attacker.uid, botName: attacker.name,
+          botType: attacker.botType, playerName: victim.name, weapon: slot || 'rifle'
+        });
+      } else if (!attacker.isBot && victim.isBot) {
+        callbacks.onBotEvent({
+          type: 'player_killed_bot', botUid: victim.uid, botName: victim.name,
+          botType: victim.botType, playerName: attacker.name, weapon: slot || 'rifle'
+        });
+      } else if (attacker.isBot && victim.isBot) {
+        callbacks.onBotEvent({
+          type: 'bot_killed_bot', botUid: attacker.uid, botName: attacker.name,
+          botType: attacker.botType, victimName: victim.name, killerName: attacker.name
+        });
+      }
+    }
     if (killed && victim.isBot && root.CombatSystem &&
         typeof root.CombatSystem.syncArenaBots === 'function') {
       root.CombatSystem.syncArenaBots(serializePlayersList());
@@ -1134,6 +1243,11 @@
     try { msg = JSON.parse(raw); } catch (_) { return; }
     if (!msg || !msg.t) return;
 
+    if (msg.t === 'chat') {
+      hostRelayChat(peerUid, msg.text);
+      return;
+    }
+
     if (msg.t === 'hello') {
       const peerEntry = hostPeers.get(peerUid);
       if (peerEntry && peerEntry.joined) {
@@ -1355,6 +1469,11 @@
         showBanner('JOINED THE MATCH', 'A HUMAN PLAYER REPLACED AN AI OPPONENT', 1800);
       }
       emitState();
+      return;
+    }
+
+    if (msg.t === 'chat_message') {
+      if (typeof callbacks.onChatMessage === 'function') callbacks.onChatMessage(msg);
       return;
     }
 
@@ -1887,6 +2006,7 @@
   function leaveSession(silent) {
     const prevRole = state.role;
     const prevLobby = state.lobby;
+    chatLastSentAt.clear();
     const prevUid = state.localUid;
 
     clearTimersAndSubs();
@@ -2101,6 +2221,7 @@
       role: state.role,
       isArena: state.role !== 'none',
       isOnline: state.role === 'host' || state.role === 'client',
+      chatEnabled: isChatEnabled(),
       mapId: state.mapId,
       mode: state.mode,
       lobby: state.lobby,
@@ -2231,6 +2352,8 @@
     canBotDamageTarget,
     reportBotPose,
     reportBotShot,
+    sendChatMessage,
+    sendBotChatMessage,
     update,
     devHealLocal: () => {
       if (state.role === 'host' || state.role === 'client') return false;
