@@ -1681,8 +1681,8 @@
       // Rivalry changes how willingly a bot commits to a fight, without overriding
       // critical cover/reload decisions or the normal range-based intent selection.
       if (!isReloading && !lowHp && aggressionBias >= 1.08 &&
-          (nextIntent === 'disengage' || nextIntent === 'hold') &&
-          Math.random() < Math.min(0.34, (aggressionBias - 1) * 0.85)) {
+          nextIntent !== 'advance' && nextIntent !== 'reload' &&
+          Math.random() < Math.min(0.24, (aggressionBias - 1) * 0.72)) {
         nextIntent = 'advance';
       } else if (!isReloading && !lowHp && aggressionBias <= 0.92 &&
           nextIntent === 'advance' && Math.random() < Math.min(0.26, (1 - aggressionBias) * 0.9)) {
