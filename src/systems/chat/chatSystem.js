@@ -360,7 +360,10 @@
     messages = [];
     messagesVisible = false;
     open = false;
-    if (input) input.value = '';
+    if (input) {
+      input.value = '';
+      if (root.document && root.document.activeElement === input) input.blur();
+    }
     if (messageList) messageList.textContent = '';
     refresh();
     return matchSessionId;
@@ -484,8 +487,9 @@
     const now = Date.now();
     if (now - lastBanterAt < 28000) return false;
     const roster = getBotRoster().filter(function (bot) { return bot && bot.alive !== false; });
-    if (roster.length < 2) return false;
-    const first = randomItem(roster);
+    const ready = roster.filter(canBotSpeak);
+    if (!ready.length || roster.length < 2) return false;
+    const first = randomItem(ready);
     const second = randomItem(roster.filter(function (bot) { return getBotKey(bot) !== getBotKey(first); }));
     const exchange = randomItem(BOT_BANTER);
     if (!first || !second || !exchange) return false;
@@ -493,7 +497,7 @@
     const secondLine = formatLine(exchange[1], { other: first.name || 'bro' });
     if (!sendBotLine(first, firstLine, 900 + Math.floor(Math.random() * 450), false)) return false;
     lastBanterAt = now;
-    scheduleTimer(function () { sendBotLine(second, secondLine, 450, false); }, 1800);
+    scheduleTimer(function () { sendBotLine(second, secondLine, 450, false, true); }, 1800);
     return true;
   }
 
@@ -659,10 +663,10 @@
     return Date.now() - last >= cooldown;
   }
 
-  function sendBotLine(bot, text, delayMs, allowDead) {
+  function sendBotLine(bot, text, delayMs, allowDead, ignoreCooldown) {
     if (!bot || !text || !isArenaChatAvailable()) return false;
     if (!allowDead && bot.alive === false) return false;
-    if (!canBotSpeak(bot)) return false;
+    if (!ignoreCooldown && !canBotSpeak(bot)) return false;
     const clean = sanitizeMessage(text);
     if (!clean) return false;
     const stateAtSchedule = getState();
