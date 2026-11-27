@@ -7,6 +7,7 @@ const CombatSystem = require('../src/systems/combat/combatSystem.js');
 
 global.NetcodeSystem = NetcodeSystem;
 global.CombatSystem = CombatSystem;
+global.ChatSystem = ChatSystem;
 
 test('chat messages are trimmed, flattened, and capped', () => {
   assert.equal(ChatSystem.sanitizeMessage('  hello\n   there\tfriend  '), 'hello there friend');
