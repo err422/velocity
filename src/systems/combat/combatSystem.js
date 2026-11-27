@@ -549,6 +549,21 @@
   let warmupKills = 0;
   let onWarmupKillCb = null;
 
+  function notifyWarmupBotKilled(bot, weaponId, isHeadshot, extra) {
+    if (!onWarmupKillCb || !bot) return false;
+    onWarmupKillCb(Object.assign({
+      botUid: bot.uid || ('warmup_bot_' + String(bot.index == null ? 0 : bot.index)),
+      botName: bot.name || 'AI BOT',
+      botType: bot.index == null ? null : bot.index,
+      playerUid: 'local',
+      slot: weaponId || 'rifle',
+      weaponId: weaponId || 'rifle',
+      isHeadshot: Boolean(isHeadshot),
+      totalKills: warmupKills
+    }, extra || {}));
+    return true;
+  }
+
   // Remote WebRTC Player Avatars and host-authoritative arena AI.
   const remoteAvatars = new Map();
   const arenaBotAi = new Map();
@@ -1185,7 +1200,7 @@
               isAirOrSurf: Boolean(playerObj && (!playerObj.grounded || playerObj.surfing)),
               isDashKill: true
             });
-            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'katana', weaponId: 'katana', isHeadshot: false, totalKills: warmupKills });
+            notifyWarmupBotKilled(bot, 'katana', false);
           } else {
             triggerHitmarker(false, false);
           }
@@ -1285,7 +1300,7 @@
               distance: hitDist,
               isDeflectKill: true
             });
-            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'katana', weaponId: 'katana', isHeadshot: ud.hitbox === 'head', totalKills: warmupKills });
+            notifyWarmupBotKilled(bot, 'katana', ud.hitbox === 'head');
           } else {
             triggerHitmarker(false, false);
           }
@@ -1558,7 +1573,7 @@
                   distance: b.start.distanceTo(_tmpA),
                   isScorestreakKill: true
                 });
-                if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'railcannon', weaponId: 'railcannon', isHeadshot: false, totalKills: warmupKills });
+                notifyWarmupBotKilled(bot, 'railcannon', false);
               } else {
                 triggerHitmarker(false, false);
               }
@@ -1964,7 +1979,7 @@
             warmupKills += 1;
             triggerHitmarker(false, true);
             recordCombatKill({ weaponId, isBot: true, isHeadshot: false, distance: dist, isScorestreakKill: true });
-            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: weaponId, weaponId, isHeadshot: false, totalKills: warmupKills });
+            notifyWarmupBotKilled(bot, weaponId, false);
           } else {
             triggerHitmarker(false, false);
           }
@@ -2851,7 +2866,10 @@
                 isAirOrSurf: Boolean(o.airborne || o.isSurfing),
                 isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5
               });
-              if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'katana', weaponId: 'katana', isHeadshot: isCrit, totalKills: warmupKills });
+              notifyWarmupBotKilled(bot, 'katana', isCrit, {
+                isAirOrSurf: Boolean(o.airborne || o.isSurfing),
+                isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5
+              });
             } else {
               triggerHitmarker(isCrit, false);
             }
@@ -3299,17 +3317,9 @@
           isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5,
           isScorestreakKill: isScorestreak
         });
-        if (onWarmupKillCb) onWarmupKillCb({
-          botUid: bot.uid,
-          botName: bot.name,
-          botType: bot.index,
-          playerUid: 'local',
-          slot: weaponId,
-          weaponId,
-          isHeadshot: isHead,
+        notifyWarmupBotKilled(bot, weaponId, isHead, {
           isAirOrSurf: Boolean(o.airborne || o.isSurfing),
-          isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5,
-          totalKills: warmupKills
+          isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5
         });
       } else {
         triggerHitmarker(isHead, false);
@@ -3549,7 +3559,7 @@
             bot.respawnTimer = 4.5;
             bot.visual.group.visible = false;
             warmupKills += 1;
-            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'nuke', weaponId: 'nuke', isHeadshot: false, totalKills: warmupKills });
+            notifyWarmupBotKilled(bot, 'nuke', false);
           }
         }
         if (typeof onNukeEventCb === 'function') {
