@@ -736,6 +736,7 @@
           type: 'bot_killed_player',
           botUid: botUid || null,
           botName: attackerName,
+          botType: botType == null ? null : botType,
           playerUid: 'local',
           playerName: state.localName || 'Runner',
           weapon: weapon || 'rifle'
