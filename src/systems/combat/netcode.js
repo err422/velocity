@@ -609,11 +609,19 @@
   }
 
   function hostFillLobbyWithBots() {
-    if (state.role !== 'host' || !state.lobby || state.phase !== 'warmup') return false;
-    if (countHumanPlayers() !== 1) return false;
-    // Do not fill seats while a real player is already completing a WebRTC join.
+    if (state.role !== 'host' || !state.lobby || state.mode !== 'ffa_4p') return false;
+    if (state.phase !== 'warmup' && state.phase !== 'countdown' && state.phase !== 'live') return false;
+
+    // If a human is in the middle of joining, retry shortly rather than taking
+    // the seat they are about to occupy.
     for (const peer of hostPeers.values()) {
-      if (!peer.joined) return false;
+      if (!peer.joined) {
+        botFillTimer = setTimeout(() => {
+          botFillTimer = null;
+          hostFillLobbyWithBots();
+        }, 5000);
+        return false;
+      }
     }
 
     const capacity = Math.max(2, Math.min(4, state.lobby.maxPlayers || 2));
@@ -626,29 +634,51 @@
     for (let i = 0; i < openSlots; i++) {
       const botType = i % 4;
       const uid = `ai_${state.lobby.lobbyId}_${i}`;
+      if (state.players.has(uid)) continue;
       const botName = root.BotAISystem && typeof root.BotAISystem.generatePlayerName === 'function'
         ? root.BotAISystem.generatePlayerName(usedNames)
         : 'player' + (i + 1);
       usedNames.push(botName);
-      const bot = ensurePlayerRecord(uid, botName, i + 1);
+      const spawnIdx = findAvailableSpawnIndex();
+      const bot = ensurePlayerRecord(uid, botName, spawnIdx);
       bot.isBot = true;
       bot.botType = botType;
       bot.hp = 100;
       bot.alive = true;
       bot.slot = weapons[botType];
-      bot.spawnIdx = i + 1;
+      bot.spawnIdx = spawnIdx;
       const spawn = getSpawnForIndex(bot.spawnIdx);
       bot.x = spawn.x;
       bot.y = spawn.y;
       bot.z = spawn.z;
       bot.yaw = spawn.yaw || 0;
       added.push(bot);
+      if (root.CombatSystem) {
+        root.CombatSystem.upsertRemoteAvatar(uid, {
+          name: bot.name,
+          isBot: true,
+          botType: bot.botType,
+          x: bot.x, y: bot.y, z: bot.z, yaw: bot.yaw,
+          hp: 100, alive: true, slot: bot.slot, snap: true
+        });
+      }
     }
 
     if (!added.length) return false;
-    if (root.CombatSystem) root.CombatSystem.setWarmupBotsVisible(false);
+    if (root.CombatSystem) {
+      root.CombatSystem.setWarmupBotsVisible(false);
+      root.CombatSystem.syncArenaBots(serializePlayersList());
+    }
     state.statusText = `AI OPPONENTS JOINED · ${added.length} BOT${added.length === 1 ? '' : 'S'}`;
-    hostStartRoundOrMatch(true);
+    if (state.phase === 'warmup') {
+      hostStartRoundOrMatch(true);
+    } else {
+      // The match may already be live because a second human joined before
+      // the fill timer elapsed. Add the bots to that match without resetting it.
+      broadcastFullSnapshot();
+      syncLobbyMetaNow();
+      emitState();
+    }
     showBanner('AI OPPONENTS JOINED', `${added.length} BOT${added.length === 1 ? '' : 'S'} ENTERED THE ARENA`, 2200);
     return true;
   }
@@ -1885,10 +1915,6 @@
         replacementSpawnIdx = hostRemoveBotForReplacement(peerEntry.replacingBotUid);
         peerEntry.replacingBotUid = null;
       }
-      if (botFillTimer) {
-        clearTimeout(botFillTimer);
-        botFillTimer = null;
-      }
       const rec = ensurePlayerRecord(peerUid, msg.name || 'Runner');
       if (replacementSpawnIdx != null) rec.spawnIdx = replacementSpawnIdx;
       else rec.spawnIdx = findAvailableSpawnIndex();
@@ -2389,10 +2415,6 @@
             if (entry.replacingBotUid) {
               replacementSpawnIdx = hostRemoveBotForReplacement(entry.replacingBotUid);
               entry.replacingBotUid = null;
-            }
-            if (botFillTimer) {
-              clearTimeout(botFillTimer);
-              botFillTimer = null;
             }
             const rec = ensurePlayerRecord(peerUid, entry.displayName);
             if (replacementSpawnIdx != null) rec.spawnIdx = replacementSpawnIdx;
