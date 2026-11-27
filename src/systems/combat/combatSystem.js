@@ -2331,10 +2331,15 @@
     const archetypes = getBotArchetypes();
     const playerSpawn = spawns[0];
     const n = Math.min(count, spawns.length);
+    const usedNames = [];
     for (let i = 0; i < n; i++) {
       const sp = spawns[(i + 1) % spawns.length];
       const profile = archetypes[i % archetypes.length];
-      const visual = createAvatarMesh({ name: profile.name || `AI · ${profile.role}`, accentColor: profile.color, isBot: true });
+      const botName = BAI && typeof BAI.generatePlayerName === 'function'
+        ? BAI.generatePlayerName(usedNames)
+        : 'player' + (i + 1);
+      usedNames.push(botName);
+      const visual = createAvatarMesh({ name: botName, accentColor: profile.color, isBot: true });
       visual.headMesh.userData.botIndex = i;
       visual.headMesh.userData.hitbox = 'head';
       visual.bodyMesh.userData.botIndex = i;
@@ -2348,7 +2353,7 @@
         ? BAI.createBotState({
             index: i,
             uid: `warmup_bot_${i}`,
-            name: profile.name || `AI · ${profile.role}`,
+            name: botName,
             profile,
             profileIndex: i,
             visual,
@@ -2358,6 +2363,10 @@
         : { index: i, name: profile.name, profile, visual, hp: 100, alive: true, respawnTimer: 0, pos: new THREE.Vector3(sp.x, sp.y, sp.z), yaw };
       warmupBots.push(bot);
     }
+  }
+
+  function getWarmupBots() {
+    return warmupBots.map((bot) => ({ uid: bot.uid, name: bot.name, botType: bot.index, alive: bot.alive !== false }));
   }
 
   function setWarmupBotsVisible(visible) {
@@ -3787,6 +3796,7 @@
     setupWarmupBots,
     clearWarmupBots,
     hasActiveWarmupBots,
+    getWarmupBots,
     chooseBotMovementIntent,
     setWarmupBotsVisible,
     setOnWarmupKill: (cb) => { onWarmupKillCb = cb; },
