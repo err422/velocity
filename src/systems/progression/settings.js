@@ -46,13 +46,13 @@
     burst: 'KeyQ',
     fire: 'Mouse0',
     altFire: 'Mouse2',
-    reload: 'KeyC',
+    reload: 'KeyR',
     slotRifle: 'Digit1',
     slotAwp: 'Digit2',
     slotDeagle: 'Digit3',
     slotKnife: 'Digit4',
-    restart: 'KeyR',
-    checkpoint: 'KeyT',
+    restart: 'KeyT',
+    checkpoint: 'KeyC',
     ghost: 'KeyG',
     inspect: 'KeyF'
   });
@@ -181,7 +181,11 @@
     const rawColor = typeof rawCh.color === 'string' ? rawCh.color.toLowerCase() : '';
     const color = CROSSHAIR_COLORS.includes(rawColor) ? rawColor : DEFAULT_CROSSHAIR.color;
 
-    const rawKb = src.keybinds && typeof src.keybinds === 'object' ? src.keybinds : {};
+    const rawKb = src.keybinds && typeof src.keybinds === 'object' ? { ...src.keybinds } : {};
+    // Migrate the previous built-in defaults so existing players receive the updated layout.
+    if (rawKb.reload === 'KeyC') rawKb.reload = 'KeyR';
+    if (rawKb.restart === 'KeyR') rawKb.restart = 'KeyT';
+    if (rawKb.checkpoint === 'KeyT') rawKb.checkpoint = 'KeyC';
     const keybinds = {};
     const used = new Set();
 
