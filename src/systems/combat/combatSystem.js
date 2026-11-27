@@ -3302,6 +3302,7 @@
         if (onWarmupKillCb) onWarmupKillCb({
           botUid: bot.uid,
           botName: bot.name,
+          botType: bot.index,
           playerUid: 'local',
           slot: weaponId,
           weaponId,
@@ -3777,7 +3778,7 @@
                 return;
               }
               if (root.NetcodeSystem && typeof root.NetcodeSystem.applyWarmupDamage === 'function') {
-                root.NetcodeSystem.applyWarmupDamage(damage, bot.name, weapon, Boolean(isHeadshot), bot.uid);
+                root.NetcodeSystem.applyWarmupDamage(damage, bot.name, weapon, Boolean(isHeadshot), bot.uid, bot.index);
               }
             }
           }
