@@ -241,7 +241,8 @@
       humbledUntil: 0,
       grudgeTargetUid: null,
       mood: 'neutral',
-      recentLines: []
+      recentLines: [],
+      deathsByPlayer: Object.create(null)
     };
   }
 
@@ -392,8 +393,12 @@
       memory.ego = clamp(memory.ego - 1, -5, 5);
       memory.tilt = clamp(memory.tilt + 1, 0, 5);
       const playerUid = event.playerUid || event.attackerUid || (state && state.localUid);
-      if (playerUid && (memory.deathsToPlayer >= 3 || memory.deathsToPlayer - memory.killsOnPlayer >= 3)) {
-        memory.grudgeTargetUid = String(playerUid);
+      if (playerUid) {
+        const playerKey = String(playerUid);
+        memory.deathsByPlayer[playerKey] = (memory.deathsByPlayer[playerKey] || 0) + 1;
+        if (memory.deathsByPlayer[playerKey] >= 3 || memory.deathsToPlayer - memory.killsOnPlayer >= 3) {
+          memory.grudgeTargetUid = playerKey;
+        }
       }
     } else if (event.type === 'bot_killed_bot') {
       memory.killsOnBots++;
@@ -402,7 +407,7 @@
     } else if (event.type === 'player_kill_streak') {
       memory.tilt = clamp(memory.tilt + 1, 0, 5);
       const playerUid = event.playerUid || event.attackerUid || (state && state.localUid);
-      if (playerUid && memory.deathsToPlayer - memory.killsOnPlayer >= 2) memory.grudgeTargetUid = String(playerUid);
+      if (playerUid && memory.deathsToPlayer - memory.killsOnPlayer >= 3) memory.grudgeTargetUid = String(playerUid);
     }
     updateMood(memory);
     return memory;
@@ -429,6 +434,7 @@
       totalPlayerRounds++;
     }
     if (botsWereWinning && !event.winnerIsBot) {
+      getBotRoster().forEach(function (bot) { getMemory(bot); });
       botMemory.forEach(function (memory) {
         memory.humbledUntil = Date.now() + HUMBLED_DURATION_MS;
         updateMood(memory);
@@ -478,10 +484,9 @@
     const now = Date.now();
     if (now - lastBanterAt < 28000) return false;
     const roster = getBotRoster().filter(function (bot) { return bot && bot.alive !== false; });
-    const others = roster.filter(function (bot) { return getBotKey(bot) !== getBotKey(excludeBot); });
-    if (others.length < 2) return false;
-    const first = randomItem(others);
-    const second = randomItem(others.filter(function (bot) { return getBotKey(bot) !== getBotKey(first); }));
+    if (roster.length < 2) return false;
+    const first = randomItem(roster);
+    const second = randomItem(roster.filter(function (bot) { return getBotKey(bot) !== getBotKey(first); }));
     const exchange = randomItem(BOT_BANTER);
     if (!first || !second || !exchange) return false;
     const firstLine = formatLine(exchange[0], { other: second.name || 'bro' });
@@ -582,6 +587,7 @@
     if (!canInteractWithChat() || !input) return false;
     if (fadeTimer) {
       clearTimeout(fadeTimer);
+      pendingTimers.delete(fadeTimer);
       fadeTimer = null;
     }
     open = true;
@@ -723,7 +729,11 @@
       return { text: pickFreshLine(bot, archetype.killed, vars) };
     }
     if (event.type === 'bot_killed_bot') {
-      if (memory.deathsToBots >= 3) return { text: pickFreshLine(bot, SITUATIONAL.botStruggling, vars) };
+      const victimMemory = event.victimUid ? getMemory(String(event.victimUid), false) : null;
+      if (victimMemory && victimMemory.deathsToBots >= 3) {
+        vars.bot = String(event.victimName || 'bro').slice(0, 24);
+        return { text: pickFreshLine(bot, SITUATIONAL.botStruggling, vars) };
+      }
       vars.bot = killerName;
       return { text: pickFreshLine(bot, SITUATIONAL.botCarrying, vars) };
     }
