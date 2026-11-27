@@ -90,6 +90,7 @@
     killFeed: [] // { id, killer, victim, weapon, headshot, ts }
   };
   const chatLastSentAt = new Map();
+  const remoteChatObservations = new Map();
   let chatSeq = 1;
 
   // WebRTC handles
@@ -267,6 +268,7 @@
   }
 
   function resetChatSystemsForMatch() {
+    remoteChatObservations.clear();
     if (root.ChatSystem && typeof root.ChatSystem.resetMatchMemory === 'function') {
       root.ChatSystem.resetMatchMemory(state.mapId);
     }
@@ -1425,6 +1427,59 @@
     }
   }
 
+  function emitRemotePlayerChatEvent(type, peerUid, player, extra) {
+    if (typeof callbacks.onBotEvent !== 'function' || !player || player.isBot) return false;
+    callbacks.onBotEvent(Object.assign({
+      type,
+      playerUid: peerUid,
+      playerName: player.name || 'Runner'
+    }, extra || {}));
+    return true;
+  }
+
+  function observeRemotePlayerActivity(peerUid, player, msg) {
+    if (!player || player.isBot || state.phase !== 'live') {
+      remoteChatObservations.delete(peerUid);
+      return;
+    }
+    const now = Date.now();
+    const previous = remoteChatObservations.get(peerUid);
+    let speed = 0;
+    let displacement = 0;
+    if (previous) {
+      const elapsed = Math.max(0.01, Math.min(0.5, (now - previous.at) / 1000));
+      const dx = msg.x - previous.x;
+      const dz = msg.z - previous.z;
+      displacement = Math.hypot(dx, dz);
+      speed = displacement / elapsed;
+    }
+    let campSince = previous ? previous.campSince : now;
+    let lastCampEventAt = previous ? previous.lastCampEventAt : 0;
+    let lastMovementEventAt = previous ? previous.lastMovementEventAt : 0;
+
+    if (!previous || displacement >= 0.75 || speed >= 1.2) {
+      campSince = now;
+    } else if (now - campSince >= 12000 && now - lastCampEventAt >= 30000) {
+      emitRemotePlayerChatEvent('player_camping', peerUid, player);
+      lastCampEventAt = now;
+      campSince = now;
+    }
+
+    if (speed >= 20 && now - lastMovementEventAt >= 24000) {
+      emitRemotePlayerChatEvent('impressive_movement', peerUid, player, { speed: Math.round(speed) });
+      lastMovementEventAt = now;
+    }
+
+    remoteChatObservations.set(peerUid, {
+      x: msg.x,
+      z: msg.z,
+      at: now,
+      campSince,
+      lastCampEventAt,
+      lastMovementEventAt
+    });
+  }
+
   function onHostPoseMessage(peerUid, raw) {
     let msg;
     try { msg = JSON.parse(raw); } catch (_) { return; }
@@ -1434,6 +1489,13 @@
     // the authoritative player record instead of creating an untyped avatar.
     if (!rec) return;
     const ct = Number(msg.ct) || 0;
+    if (msg.slot && msg.slot !== rec.slot && !rec.isBot) {
+      emitRemotePlayerChatEvent('player_weapon_switch', peerUid, rec, {
+        weapon: msg.slot,
+        weaponName: msg.slot
+      });
+    }
+    observeRemotePlayerActivity(peerUid, rec, msg);
     if (rec) {
       if (msg.slot) rec.slot = msg.slot;
       rec.x = msg.x;
@@ -1849,6 +1911,7 @@
     try { entry.gameCh && entry.gameCh.close(); } catch (_) {}
     try { entry.pc && entry.pc.close(); } catch (_) {}
     hostPeers.delete(peerUid);
+    remoteChatObservations.delete(peerUid);
     state.players.delete(peerUid);
     if (root.CombatSystem) root.CombatSystem.removeRemoteAvatar(peerUid);
     if (state.lobby && root.DailyBackend) {
