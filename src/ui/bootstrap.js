@@ -200,8 +200,10 @@ window.onCourseFinished=async function(info){
 
 // Wire Netcode & Warmup callbacks
 NetcodeSystem.setCallbacks({
-  onStateChange:()=>renderArenaHudStatic(),
+  onStateChange:()=>{renderArenaHudStatic();if(window.ChatSystem)window.ChatSystem.refresh();},
   onKillFeed:(entries)=>renderKillFeed(entries),
+  onChatMessage:(message)=>{if(window.ChatSystem)window.ChatSystem.onChatMessage(message);},
+  onBotEvent:(event)=>{if(window.ChatSystem)window.ChatSystem.handleGameEvent(event);},
   onBanner:(b)=>message(b.subtext?`${b.text} · ${b.subtext}`:b.text,{duration:b.durationMs||2000}),
   onLocalRespawn:(sp,refill)=>respawnAtSpawn(sp,refill),
   onRemoteTracer:(m)=>CombatSystem.spawnTracer(V3(m.sx,m.sy,m.sz),V3(m.ex,m.ey,m.ez),m.slot==='awp'?0x7ef2ff:m.slot==='revolver'?0xffd27a:0xffa065),
@@ -259,6 +261,7 @@ NetcodeSystem.setCallbacks({
 });
 CombatSystem.setOnWarmupKill((info)=>{
   NetcodeSystem.pushWarmupKill(info.botName,info.weaponId||info.slot,info.isHeadshot);
+  if(window.ChatSystem)window.ChatSystem.handleGameEvent({type:'player_killed_bot',botName:info.botName,weapon:info.weaponId||info.slot});
   renderArenaHudStatic();
 });
 CombatSystem.setOnWeaponXp((info)=>{
