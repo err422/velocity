@@ -2776,47 +2776,6 @@
         );
       }
 
-      // Fallback to the authoritative roster coordinates if an avatar has not
-      // been created yet (or has not replicated to this host's visual registry).
-      // This is especially important for FFA: every living player, including
-      // another bot, is a valid opponent.
-      for (const record of roster) {
-        if (!record || !record.uid || record.uid === bot.uid || record.alive === false) continue;
-        const isLocal = record.uid === playerState.uid;
-        const avatar = remoteAvatars.get(record.uid);
-        const otherBrain = arenaBotAi.get(record.uid);
-        const position = isLocal
-          ? playerState.position
-          : (otherBrain ? otherBrain.pos : (avatar ? avatar.pos : record));
-        if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.z)) continue;
-        consider(
-          record.uid,
-          position,
-          isLocal ? (playerState.velocity || null) : (otherBrain ? otherBrain.vel : null),
-          Number.isFinite(record.hp) ? record.hp : 100,
-          1.6,
-          true,
-          Boolean(record.isBot),
-          avatar ? (avatar.chronoTier || 0) : 0,
-          record.team || ''
-        );
-      }
-
-      // If the roster has no usable target yet, let FFA bots roam instead of
-      // remaining frozen while waiting for their first opponent snapshot.
-      if (!target && !isDemo) {
-        if (!bot.waypoint || !Number.isFinite(bot.waypoint.x) || Math.hypot(bot.waypoint.x - bot.pos.x, bot.waypoint.z - bot.pos.z) < 2.5 || bot.decisionTimer <= 0) {
-          const angle = Math.random() * Math.PI * 2;
-          const radius = 10 + Math.random() * 14;
-          bot.waypoint.set(
-            bot.pos.x + Math.cos(angle) * radius,
-            bot.pos.y,
-            bot.pos.z + Math.sin(angle) * radius
-          );
-          bot.decisionTimer = 2.0 + Math.random() * 2.0;
-        }
-      }
-
       bot.targetUid = target ? target.uid : '';
 
       // Demolition tactical objective, bomb handling, utility usage & callouts
