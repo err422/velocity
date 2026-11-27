@@ -163,6 +163,10 @@
       baseWeightKg: 3.55,
       defaultOptic: 'iron',
       ammoClass: 'shell',
+      reloadMode: 'shell',
+      shellOpenTime: 0.28,
+      shellInsertTime: 0.34,
+      shellCloseTime: 0.34,
       allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex']),
       allowedOptics: Object.freeze(['reflex_dot', 'holo_eotech'])
     },
@@ -244,6 +248,7 @@
       fanSpread: 0.042,
       fanFireInterval: 0.21,
       reloadMode: 'shell',
+      speedloaderTime: 1.48,
       shellOpenTime: 0.40,
       shellInsertTime: 0.36,
       shellCloseTime: 0.32,
@@ -527,6 +532,10 @@
       baseWeightKg: 3.3,
       defaultOptic: 'iron',
       ammoClass: 'shell',
+      reloadMode: 'shell',
+      shellOpenTime: 0.26,
+      shellInsertTime: 0.33,
+      shellCloseTime: 0.34,
       allowedSlots: Object.freeze(['optic', 'muzzle', 'barrel', 'underbarrel', 'magazine', 'ammo', 'rearGrip', 'stock', 'apex']),
       allowedOptics: Object.freeze(['reflex_dot', 'holo_eotech', 'acog_25'])
     },
@@ -1552,7 +1561,11 @@
       range = Math.max(360, range);
     }
 
-    const shellOpenTime = spec.shellOpenTime ? clamp(Number((spec.shellOpenTime * reloadMul).toFixed(3)), 0.22, 0.60) : 0;
+    const resolvedReloadMode = (spec.id === 'shotgun' && attachments.magazine === 'drum_mag')
+      ? 'mag'
+      : (spec.reloadMode || 'mag');
+    const speedloaderTime = spec.speedloaderTime ? clamp(Number((spec.speedloaderTime * reloadMul).toFixed(3)), 0.95, 2.2) : 0;
+    const shellOpenTime = spec.shellOpenTime ? clamp(Number((spec.shellOpenTime * reloadMul).toFixed(3)), 0.20, 0.60) : 0;
     const shellInsertTime = spec.shellInsertTime ? clamp(Number((spec.shellInsertTime * reloadMul).toFixed(3)), 0.18, 0.55) : 0;
     const shellCloseTime = spec.shellCloseTime ? clamp(Number((spec.shellCloseTime * reloadMul).toFixed(3)), 0.18, 0.50) : 0;
     const fanSpread = spec.fanSpread ? clamp(Number((spec.fanSpread * hipSpreadMul).toFixed(5)), 0.020, 0.075) : 0;
@@ -1639,7 +1652,8 @@
       fanMinFalloffMul: spec.fanMinFalloffMul || 0.45,
       fanSpread,
       fanFireInterval: spec.fanFireInterval || 0.21,
-      reloadMode: spec.reloadMode || 'mag',
+      reloadMode: resolvedReloadMode,
+      speedloaderTime,
       shellOpenTime,
       shellInsertTime,
       shellCloseTime,

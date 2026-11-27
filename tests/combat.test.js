@@ -205,5 +205,32 @@ test('pickBestDynamicHit prioritizes same-target head hitbox over overlapping bo
   assert.equal(pick(sameTargetHits, 8.0), null);
 });
 
+test('chooseReloadVariant selects R-88 speedloader vs shell, shell-fed tube loading, and tactical vs empty reloads', () => {
+  const choose = CombatSystem.chooseReloadVariant;
+  assert.equal(typeof choose, 'function');
 
+  // R-88 Revolver: empty cylinder uses speedloader, partial cylinder loads individual rounds
+  assert.equal(choose('revolver', 0, { reloadMode: 'shell' }), 'speedloader');
+  assert.equal(choose('revolver', 1, { reloadMode: 'shell' }), 'shell');
+  assert.equal(choose('revolver', 5, { reloadMode: 'shell' }), 'shell');
 
+  // M870 & LV-45: tube shell-by-shell by default; M870 switches to mag reload when Drum Mag is equipped
+  assert.equal(choose('shotgun', 0, { reloadMode: 'shell' }), 'shell');
+  assert.equal(choose('shotgun', 3, { reloadMode: 'shell' }), 'shell');
+  assert.equal(choose('shotgun', 0, { reloadMode: 'mag' }), 'standard');
+  assert.equal(choose('shotgun', 4, { reloadMode: 'mag' }), 'tactical');
+  assert.equal(choose('leverslug', 0, { reloadMode: 'shell' }), 'shell');
+  assert.equal(choose('leverslug', 2, { reloadMode: 'shell' }), 'shell');
+
+  // Break-action DB-12 & thrown-pair Akimbo always use their signature full sequence
+  assert.equal(choose('sawedoff', 1, { reloadMode: 'mag' }), 'standard');
+  assert.equal(choose('akimbo', 10, { reloadMode: 'mag' }), 'standard');
+
+  // Mag-fed firearms distinguish tactical (partial) vs empty (full bolt/slide rack) reloads
+  assert.equal(choose('rifle', 12, { reloadMode: 'mag' }), 'tactical');
+  assert.equal(choose('rifle', 0, { reloadMode: 'mag' }), 'standard');
+  assert.equal(choose('famas', 9, { reloadMode: 'mag' }), 'tactical');
+  assert.equal(choose('famas', 0, { reloadMode: 'mag' }), 'standard');
+  assert.equal(choose('usps', 4, { reloadMode: 'mag' }), 'tactical');
+  assert.equal(choose('usps', 0, { reloadMode: 'mag' }), 'standard');
+});

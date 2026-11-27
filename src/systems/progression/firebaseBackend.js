@@ -749,6 +749,22 @@ async function deleteCloudWeapon(weaponId) {
   return deleteCloudSubcollectionItem('weapons', weaponId);
 }
 
+async function updateCloudStatTrakKills(subcollection, itemId, kills) {
+  await ready;
+  if (!db || !isCloudAuthenticated(currentUser)) return { updated: false };
+  if ((subcollection !== 'weapons' && subcollection !== 'knives') || !itemId) return { updated: false };
+  const uid = currentUser.uid;
+  const cleanKills = Math.max(0, Math.min(999999, Math.floor(Number(kills) || 0)));
+  const itemRef = doc(db, 'userInventory', uid, subcollection, itemId);
+  try {
+    await updateDoc(itemRef, { statTrakKills: cleanKills });
+    return { updated: true };
+  } catch (error) {
+    console.warn('StatTrak cloud sync skipped:', error && error.message ? error.message : error);
+    return { updated: false };
+  }
+}
+
 // ---------- Serverless WebRTC Lobby Directory & Signaling ----------
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1308,6 +1324,7 @@ window.DailyBackend = {
   deleteCloudGlove,
   saveCloudWeapon,
   deleteCloudWeapon,
+  updateCloudStatTrakKills,
   subscribePublicLobbies,
   createLobby,
   updateLobby,

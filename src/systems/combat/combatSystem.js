@@ -269,6 +269,21 @@
     };
   }
 
+  function chooseReloadVariant(weaponId, curAmmo, build) {
+    const ammo = Math.max(0, Math.floor(Number(curAmmo) || 0));
+    const reloadMode = (build && build.reloadMode) || 'mag';
+    if (weaponId === 'revolver') {
+      return ammo <= 0 ? 'speedloader' : 'shell';
+    }
+    if (reloadMode === 'shell') {
+      return 'shell';
+    }
+    if (weaponId === 'sawedoff' || weaponId === 'akimbo') {
+      return 'standard';
+    }
+    return ammo > 0 ? 'tactical' : 'standard';
+  }
+
   function advanceKatanaDeflect(energy, active, held, dt, cfg) {
     const c = cfg || {};
     const maxSec = Math.max(0.25, Number(c.deflectMaxDurationSec) || 2.0);
@@ -317,6 +332,7 @@
       advanceChronoState,
       advanceTriggerCharge,
       stepShellReload,
+      chooseReloadVariant,
       advanceKatanaDeflect,
       computeGauntletSummary,
       evaluateDuelRoundResult,
@@ -401,10 +417,11 @@
       fanMinFalloffMul: 0.45,
       fanSpread: weaponId === 'revolver' ? 0.042 : 0,
       fanFireInterval: weaponId === 'revolver' ? 0.21 : 0.21,
-      reloadMode: weaponId === 'revolver' ? 'shell' : 'mag',
-      shellOpenTime: weaponId === 'revolver' ? 0.40 : 0,
-      shellInsertTime: weaponId === 'revolver' ? 0.36 : 0,
-      shellCloseTime: weaponId === 'revolver' ? 0.32 : 0
+      reloadMode: (weaponId === 'revolver' || weaponId === 'shotgun' || weaponId === 'leverslug') ? 'shell' : 'mag',
+      speedloaderTime: weaponId === 'revolver' ? 1.48 : 0,
+      shellOpenTime: weaponId === 'revolver' ? 0.40 : (weaponId === 'shotgun' || weaponId === 'leverslug') ? 0.27 : 0,
+      shellInsertTime: weaponId === 'revolver' ? 0.36 : (weaponId === 'shotgun' || weaponId === 'leverslug') ? 0.34 : 0,
+      shellCloseTime: weaponId === 'revolver' ? 0.32 : (weaponId === 'shotgun' || weaponId === 'leverslug') ? 0.34 : 0
     };
   }
 
@@ -421,6 +438,8 @@
     reloading: false,
     reloadTimer: 0,
     reloadDuration: 0,
+    reloadVariant: 'standard', // 'standard' | 'tactical' | 'speedloader' | 'shell'
+    reloadWasEmpty: false,
     reloadPhase: 'none', // 'none' | 'open' | 'insert' | 'close'
     reloadPhaseTimer: 0,
     reloadPhaseDuration: 0,
@@ -743,6 +762,8 @@
     state.reloading = false;
     state.reloadTimer = 0;
     state.reloadDuration = 0;
+    state.reloadVariant = 'standard';
+    state.reloadWasEmpty = false;
     state.reloadPhase = 'none';
     state.reloadPhaseTimer = 0;
     state.reloadPhaseDuration = 0;
@@ -825,8 +846,21 @@
 
   function interruptReload() {
     if (!state.reloading) return false;
-    const build = getActiveBuild(state.activeSlot);
-    if (!build || build.reloadMode !== 'shell') return false;
+    if (state.reloadVariant !== 'shell') return false;
+    const curAmmo = state.ammo[state.activeSlot] || 0;
+    if (curAmmo > 0) {
+      // Immediate shoot-to-cancel when at least 1 shell is loaded!
+      clearReloadState();
+      if (root.ViewmodelSystem) {
+        if (typeof root.ViewmodelSystem.setShellReloadState === 'function') {
+          root.ViewmodelSystem.setShellReloadState({ active: false });
+        }
+        if (typeof root.ViewmodelSystem.setRevolverState === 'function') {
+          root.ViewmodelSystem.setRevolverState({ active: false });
+        }
+      }
+      return true;
+    }
     if (state.reloadPhase === 'close') return true;
     state.reloadInterruptQueued = true;
     return true;
@@ -880,9 +914,33 @@
     state.burstTimer = 0;
     state.burstReady = false;
     state.reloading = true;
-    if (build.reloadMode === 'shell') {
-      const openT = build.shellOpenTime || 0.40;
-      const insertT = build.shellInsertTime || 0.36;
+    const variant = chooseReloadVariant(build.weaponId, curAmmo, build);
+    const wasEmpty = curAmmo <= 0;
+    state.reloadVariant = variant;
+    state.reloadWasEmpty = wasEmpty;
+
+    if (variant === 'speedloader') {
+      // R-88 Empty Cylinder -> punchy 6-round speedloader slam (single-phase full refill!)
+      const slDur = Math.max(0.95, Number(build.speedloaderTime) || 1.48);
+      state.reloadPhase = 'none';
+      state.reloadPhaseDuration = 0;
+      state.reloadPhaseTimer = 0;
+      state.reloadInterruptQueued = false;
+      state.reloadDuration = slDur;
+      state.reloadTimer = slDur;
+      if (root.WeaponAudio && typeof root.WeaponAudio.revolverCraneOpen === 'function') {
+        root.WeaponAudio.revolverCraneOpen();
+      }
+      if (root.ViewmodelSystem) {
+        root.ViewmodelSystem.triggerReload(slDur, { tactical: false, variant: 'speedloader' });
+      }
+      return true;
+    }
+
+    if (variant === 'shell') {
+      // Interruptible shell-by-shell loading (M870, LV-45, and partial R-88!)
+      const openT = build.shellOpenTime || 0.30;
+      const insertT = build.shellInsertTime || 0.34;
       const closeT = build.shellCloseTime || 0.32;
       const needed = Math.max(1, build.magSize - curAmmo);
       state.reloadPhase = 'open';
@@ -891,16 +949,25 @@
       state.reloadInterruptQueued = false;
       state.reloadDuration = openT + needed * insertT + closeT;
       state.reloadTimer = state.reloadDuration;
-      if (root.WeaponAudio && typeof root.WeaponAudio.revolverCraneOpen === 'function') {
+      if (build.weaponId === 'revolver' && root.WeaponAudio && typeof root.WeaponAudio.revolverCraneOpen === 'function') {
         root.WeaponAudio.revolverCraneOpen();
+      } else if (root.WeaponAudio) {
+        root.WeaponAudio.weaponDraw();
       }
-      if (root.ViewmodelSystem) root.ViewmodelSystem.triggerReload(state.reloadDuration);
+      if (root.ViewmodelSystem) {
+        root.ViewmodelSystem.triggerReload(state.reloadDuration, { tactical: !wasEmpty, variant: 'shell' });
+      }
       return true;
     }
+
     state.reloadPhase = 'none';
-    state.reloadDuration = build.reloadTime;
-    state.reloadTimer = build.reloadTime;
-    if (root.ViewmodelSystem) root.ViewmodelSystem.triggerReload(build.reloadTime);
+    const isTactical = variant === 'tactical';
+    const dur = isTactical ? Math.max(0.70, Number((build.reloadTime * 0.86).toFixed(2))) : build.reloadTime;
+    state.reloadDuration = dur;
+    state.reloadTimer = dur;
+    if (root.ViewmodelSystem) {
+      root.ViewmodelSystem.triggerReload(dur, { tactical: isTactical, variant });
+    }
     return true;
   }
 
@@ -2747,11 +2814,14 @@
     const isFan = Boolean(o.fanFire && build && build.altFireMode === 'fan');
 
     if (state.reloading && !isScorestreak && !isKatana) {
-      if (build && build.reloadMode === 'shell') {
+      if (state.reloadVariant === 'shell') {
+        const hadAmmo = (state.ammo[slot] || 0) > 0;
         interruptReload();
-        return { fired: false, interruptedReload: true };
+        if (!hadAmmo) return { fired: false, interruptedReload: true };
+        // At least 1 shell was already loaded -> cancelled immediately, fall through and fire!
+      } else {
+        return { fired: false };
       }
-      return { fired: false };
     }
     if (!canFireWithCooldown(state.fireCooldown, Boolean(o.isBurstFollowup))) return { fired: false };
 
@@ -3538,7 +3608,7 @@
     }
 
     if (state.reloading) {
-      if (activeBuild && activeBuild.reloadMode === 'shell') {
+      if (activeBuild && state.reloadVariant === 'shell') {
         const curAmmo = state.ammo[state.activeSlot] || 0;
         const step = stepShellReload(
           {
@@ -3556,11 +3626,19 @@
         state.reloadPhaseDuration = step.duration;
         state.ammo[state.activeSlot] = step.ammo;
         state.reloadTimer = Math.max(0, state.reloadTimer - dt);
-        if (step.shellInserted && root.WeaponAudio && typeof root.WeaponAudio.revolverShellInsert === 'function') {
-          root.WeaponAudio.revolverShellInsert();
+        if (step.shellInserted && root.WeaponAudio) {
+          if (activeBuild.weaponId === 'revolver' && typeof root.WeaponAudio.revolverShellInsert === 'function') {
+            root.WeaponAudio.revolverShellInsert();
+          } else if (typeof root.WeaponAudio.shellInsert === 'function') {
+            root.WeaponAudio.shellInsert();
+          }
         }
-        if (step.event === 'close_start' && root.WeaponAudio && typeof root.WeaponAudio.revolverCraneClose === 'function') {
-          root.WeaponAudio.revolverCraneClose();
+        if (step.event === 'close_start' && root.WeaponAudio) {
+          if (activeBuild.weaponId === 'revolver' && typeof root.WeaponAudio.revolverCraneClose === 'function') {
+            root.WeaponAudio.revolverCraneClose();
+          } else if (typeof root.WeaponAudio.pumpRack === 'function') {
+            root.WeaponAudio.pumpRack();
+          }
         }
         if (step.done) {
           clearReloadState();
@@ -3568,28 +3646,46 @@
       } else {
         state.reloadTimer -= dt;
         if (state.reloadTimer <= 0) {
+          const wasSpeedloader = state.reloadVariant === 'speedloader';
           clearReloadState();
           if (activeBuild) state.ammo[state.activeSlot] = activeBuild.magSize;
-          if (root.WeaponAudio) root.WeaponAudio.reloadFinish();
+          if (root.WeaponAudio) {
+            if (wasSpeedloader && typeof root.WeaponAudio.revolverCraneClose === 'function') {
+              root.WeaponAudio.revolverCraneClose();
+            } else {
+              root.WeaponAudio.reloadFinish();
+            }
+          }
         }
       }
     }
 
-    // Sync live Revolver mechanical state (hammer, cylinder, crane, 6 brass cartridges) to Viewmodel
+    // Sync live Revolver & Shell-Fed Shotgun/Lever mechanical state to Viewmodel
+    const phaseProg = state.reloadPhaseDuration > 0
+      ? Math.max(0, Math.min(1, 1 - state.reloadPhaseTimer / state.reloadPhaseDuration))
+      : 0;
     if (root.ViewmodelSystem && typeof root.ViewmodelSystem.setRevolverState === 'function') {
       const isRev = Boolean(activeBuild && activeBuild.weaponId === 'revolver');
-      const phaseProg = state.reloadPhaseDuration > 0
-        ? Math.max(0, Math.min(1, 1 - state.reloadPhaseTimer / state.reloadPhaseDuration))
-        : 0;
+      const isRevShell = isRev && state.reloading && state.reloadVariant === 'shell';
       root.ViewmodelSystem.setRevolverState({
         active: isRev,
         ammo: isRev ? (state.ammo[state.activeSlot] || 0) : 6,
         magSize: isRev ? (activeBuild.magSize || 6) : 6,
         chargeProgress: isRev ? state.chargeProgress : 0,
         charging: isRev && state.chargeHeld && state.chargeProgress > 0.01,
-        reloadPhase: isRev && state.reloading ? state.reloadPhase : 'none',
-        reloadPhaseProgress: isRev && state.reloading ? phaseProg : 0,
+        reloadPhase: isRevShell ? state.reloadPhase : 'none',
+        reloadPhaseProgress: isRevShell ? phaseProg : 0,
         cylinderIndex: state.cylinderIndex
+      });
+    }
+    if (root.ViewmodelSystem && typeof root.ViewmodelSystem.setShellReloadState === 'function') {
+      const isTubeShell = Boolean(activeBuild && (activeBuild.weaponId === 'shotgun' || activeBuild.weaponId === 'leverslug') && state.reloading && state.reloadVariant === 'shell');
+      root.ViewmodelSystem.setShellReloadState({
+        active: isTubeShell,
+        weaponType: activeBuild ? activeBuild.weaponId : '',
+        reloadPhase: isTubeShell ? state.reloadPhase : 'none',
+        reloadPhaseProgress: isTubeShell ? phaseProg : 0,
+        wasEmpty: state.reloadWasEmpty
       });
     }
 
@@ -3730,6 +3826,7 @@
     advanceChronoState,
     advanceTriggerCharge,
     stepShellReload,
+    chooseReloadVariant,
     advanceKatanaDeflect,
     AVATAR_HITBOX,
     pickBestDynamicHit,

@@ -5,7 +5,7 @@
   const THREE = root.THREE;
   const KS = root.KnivesSystem;
   const VI = root.VelocityInternal || (root.VelocityInternal = {});
-  const { createBladeMaterial, normalizeGeometryUVs, buildSharpenedBladeGeometry } = VI;
+  const { createBladeMaterial, normalizeGeometryUVs, buildSharpenedBladeGeometry, createStatTrakModule } = VI;
   // ---------- 5 Authentic CS:S-Faceted x CS2-Silhouette 3D Knife Models ----------
   function buildKnifeModel(item, targetRenderer) {
     const group = new THREE.Group();
@@ -430,6 +430,29 @@
       const pommel = new THREE.Mesh(new THREE.BoxGeometry(0.017, 0.031, 0.021), accentSteelMat);
       pommel.position.set(-0.071, -0.001, 0);
       group.add(pommel);
+    }
+
+    if (item && item.statTrak && typeof createStatTrakModule === 'function') {
+      const stMod = createStatTrakModule(item.statTrakKills || 0);
+      stMod.scale.setScalar(0.54);
+      if (kt === 'karambit') {
+        stMod.position.set(0.088, 0.008, 0.011);
+        stMod.rotation.y = Math.PI / 2;
+      } else if (kt === 'butterfly') {
+        stMod.position.set(0.024, 0.009, 0.011);
+        stMod.rotation.y = Math.PI / 2;
+      } else if (kt === 'skeleton') {
+        stMod.position.set(0.068, 0.002, 0.006);
+        stMod.rotation.y = Math.PI / 2;
+      } else if (kt === 'm9') {
+        stMod.position.set(0.118, 0.001, 0.007);
+        stMod.rotation.y = Math.PI / 2;
+      } else {
+        stMod.position.set(0.105, 0.001, 0.006);
+        stMod.rotation.y = Math.PI / 2;
+      }
+      group.add(stMod);
+      group.userData.statTrakModule = stMod;
     }
 
     group.userData.knifeType = kt;

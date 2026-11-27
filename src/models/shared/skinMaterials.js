@@ -1274,10 +1274,10 @@
           bump = 112 + core * 54;
         }
 
-        const smudge = KS.fbm2D(u * aspect * 9 + 7.1, v * 9 + 3.3, seed + 601, 2) - 0.5;
-        const grainN = KS.fbm2D(u * aspect * 100, v * 100, seed + 733, 1) - 0.5;
-        rough += smudge * 40 + grainN * 16;
-        bump += grainN * 14;
+        // Clean, crisp showroom micro-finish (zero wear/dirt muddying)
+        const grainN = KS.fbm2D(u * aspect * 92, v * 92, seed + 733, 1) - 0.5;
+        rough += grainN * 10;
+        bump += grainN * 9;
 
 
         ad[idx] = Math.max(0, Math.min(255, Math.round(r)));
@@ -1285,7 +1285,7 @@
         ad[idx + 2] = Math.max(0, Math.min(255, Math.round(b)));
         ad[idx + 3] = 255;
 
-        const rv = Math.max(30, Math.min(245, Math.round(rough)));
+        const rv = Math.max(20, Math.min(235, Math.round(rough)));
         rd[idx] = 255; rd[idx + 1] = rv; rd[idx + 2] = Math.max(0, Math.min(255, Math.round(metal))); rd[idx + 3] = 255;
 
         const bv = Math.max(0, Math.min(255, Math.round(bump)));
@@ -1330,12 +1330,18 @@
           mat.map.offset.y = Math.sin(dynamicSkinClock * 0.55) * 0.08;
         }
         const pulse = 0.5 + 0.5 * Math.sin(dynamicSkinClock * 2.4);
-        mat.emissiveIntensity = 0.42 + pulse * 0.38;
-        mat.emissive.setHSL(0.76 + Math.sin(dynamicSkinClock * 0.7) * 0.06, 0.86, 0.48);
+        mat.emissiveIntensity = 0.48 + pulse * 0.42;
+        mat.emissive.setHSL(0.76 + Math.sin(dynamicSkinClock * 0.7) * 0.06, 0.88, 0.50);
+      } else if (mode === 'camo_diamond') {
+        const shimmer = 0.5 + 0.5 * Math.sin(dynamicSkinClock * 3.8);
+        mat.emissiveIntensity = 0.14 + shimmer * 0.22;
+        mat.emissive.setHSL(0.56 + Math.sin(dynamicSkinClock * 1.4) * 0.05, 0.65, 0.68);
+      } else if (mode === 'camo_gold') {
+        const gleam = 0.5 + 0.5 * Math.sin(dynamicSkinClock * 2.1);
+        mat.emissiveIntensity = 0.08 + gleam * 0.14;
       } else if (mode === 'reactive_overdrive') {
         const pulse = 0.5 + 0.5 * Math.sin(dynamicSkinClock * (3.0 + streakFactor * 5.0));
         mat.emissiveIntensity = 0.22 + streakFactor * 0.95 + pulse * (0.14 + streakFactor * 0.26);
-        // Shifts from cyber cyan (0 kills) -> electric violet (3 kills) -> incandescent gold-white (5+ kills)
         const hue = streak >= 5 ? 0.11 : streak >= 3 ? 0.78 : 0.52;
         mat.emissive.setHSL(hue, 0.95, 0.50 + streakFactor * 0.14);
       } else if (mode === 'reactive_oni') {
@@ -1373,11 +1379,13 @@
 
     const isMetallic = sk === 'fade' || sk === 'case_hardened' || sk === 'damascus' || sk === 'dragon_gold' || sk === 'blaze' || sk === 'redshift' || sk === 'solarflare' || sk === 'camo_gold' || sk === 'camo_diamond' || sk === 'shogun_gold';
     const isGlossy = isMetallic || sk === 'printstream' || sk === 'hyper_chroma' || sk === 'neon_rider' || sk === 'coldfront' || sk === 'nitro' || sk === 'voidglass' || sk === 'holo_prism' || sk === 'camo_dark_matter' || sk === 'reactive_overdrive' || sk === 'reactive_oni' || sk === 'ronin_sakura';
-    const iri = sk === 'holo_prism' ? 0.92 : sk === 'printstream' ? 0.78 : sk === 'camo_diamond' ? 0.64 : sk === 'camo_dark_matter' ? 0.62 : sk === 'fade' ? 0.45 : sk === 'case_hardened' ? 0.36 : sk === 'hyper_chroma' ? 0.42 : sk === 'voidglass' ? 0.54 : sk === 'coldfront' ? 0.26 : 0.0;
+    const iri = sk === 'holo_prism' ? 0.92 : sk === 'printstream' ? 0.78 : sk === 'camo_diamond' ? 0.68 : sk === 'camo_dark_matter' ? 0.65 : sk === 'fade' ? 0.45 : sk === 'case_hardened' ? 0.36 : sk === 'hyper_chroma' ? 0.42 : sk === 'voidglass' ? 0.54 : sk === 'coldfront' ? 0.26 : 0.0;
 
     let emissiveColor = 0x000000;
     let emissiveIntensity = 0.0;
-    if (sk === 'camo_dark_matter') { emissiveColor = 0x8b3dff; emissiveIntensity = 0.55; }
+    if (sk === 'camo_dark_matter') { emissiveColor = 0x8b3dff; emissiveIntensity = 0.60; }
+    else if (sk === 'camo_diamond') { emissiveColor = 0x9be8ff; emissiveIntensity = 0.18; }
+    else if (sk === 'camo_gold') { emissiveColor = 0xd4961a; emissiveIntensity = 0.10; }
     else if (sk === 'reactive_overdrive') { emissiveColor = 0x2deeff; emissiveIntensity = 0.30; }
     else if (sk === 'reactive_oni') { emissiveColor = 0xff2c4d; emissiveIntensity = 0.30; }
     else if (sk === 'molten_magma') { emissiveColor = 0xff4b12; emissiveIntensity = 0.32; }
@@ -1389,19 +1397,19 @@
       bumpMap,
       metalnessMap: roughnessMap,
       bumpScale: sk === 'redline' || sk === 'dragon_gold' || sk === 'damascus' || sk === 'solarflare' || sk === 'tactical_carbon' || sk === 'camo_diamond' || sk === 'camo_gold' ? 0.0034 : 0.0016,
-      roughness: sk === 'camo_diamond' ? 0.14 : sk === 'camo_gold' ? 0.20 : isGlossy ? 0.28 : 0.58,
+      roughness: sk === 'camo_diamond' ? 0.12 : sk === 'camo_gold' ? 0.18 : isGlossy ? 0.26 : 0.52,
       metalness: 1,
-      clearcoat: isGlossy ? 0.82 : 0.18,
-      clearcoatRoughness: sk === 'camo_diamond' || sk === 'holo_prism' ? 0.06 : sk === 'printstream' ? 0.12 : 0.20,
+      clearcoat: isGlossy ? 0.85 : 0.20,
+      clearcoatRoughness: sk === 'camo_diamond' || sk === 'holo_prism' ? 0.05 : sk === 'printstream' ? 0.12 : 0.18,
       iridescence: iri,
       iridescenceIOR: 1.38,
       iridescenceThicknessRange: sk === 'holo_prism' ? [120, 620] : sk === 'printstream' ? [180, 520] : [140, 420],
       emissive: new THREE.Color(emissiveColor),
       emissiveIntensity,
-      envMapIntensity: isMetallic || sk === 'camo_diamond' ? 1.68 : sk === 'printstream' ? 1.45 : 1.22
+      envMapIntensity: isMetallic || sk === 'camo_diamond' ? 1.78 : sk === 'printstream' ? 1.50 : 1.28
     });
 
-    if (sk === 'camo_dark_matter' || sk === 'reactive_overdrive' || sk === 'reactive_oni' || sk === 'molten_magma' || sk === 'cyber_wireframe') {
+    if (sk === 'camo_dark_matter' || sk === 'camo_diamond' || sk === 'camo_gold' || sk === 'reactive_overdrive' || sk === 'reactive_oni' || sk === 'molten_magma' || sk === 'cyber_wireframe') {
       mat.userData.dynamicSkin = sk;
       dynamicSkinMaterials.add(mat);
       if (dynamicSkinMaterials.size > 96) {

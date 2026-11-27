@@ -281,7 +281,36 @@ CombatSystem.setOnWeaponXp((info)=>{
 });
 if(typeof CombatSystem.setOnCombatKill==='function'){
   CombatSystem.setOnCombatKill((killEv)=>{
-    if(!killEv||!window.activeLoadouts||typeof LoadoutsSystem.recordCombatKillForCamos!=='function')return;
+    if(!killEv)return;
+    // Live StatTrak™ kill counter increment for equipped firearm or knife
+    try{
+      if(window.activeInventory&&typeof KnivesSystem!=='undefined'&&typeof KnivesSystem.incrementStatTrakKills==='function'){
+        const wepId=killEv.weaponId||CombatSystem.getActiveWeaponType();
+        let stItem=null;
+        let stSub='weapons';
+        if(killEv.slot==='knife'||wepId==='knife'){
+          stSub='knives';
+          stItem=KnivesSystem.getEquippedKnife(window.activeInventory);
+        }else if(wepId&&typeof resolveEquippedWeaponItem==='function'){
+          stItem=resolveEquippedWeaponItem(wepId);
+        }else if(wepId&&typeof KnivesSystem.getEquippedWeapon==='function'){
+          stItem=KnivesSystem.getEquippedWeapon(window.activeInventory,wepId);
+        }
+        if(stItem&&stItem.statTrak){
+          const stRes=KnivesSystem.incrementStatTrakKills(window.activeInventory,stItem.id,1);
+          if(stRes&&stRes.updated&&stRes.item){
+            window.activeInventory=KnivesSystem.saveLocal(stRes.inventory);
+            if(typeof ViewmodelSystem!=='undefined'&&typeof ViewmodelSystem.updateStatTrakDisplay==='function'){
+              ViewmodelSystem.updateStatTrakDisplay(stSub==='knives'?'knife':wepId,stRes.item.statTrakKills);
+            }
+            if(window.DailyBackend&&typeof window.DailyBackend.updateCloudStatTrakKills==='function'){
+              window.DailyBackend.updateCloudStatTrakKills(stSub,stRes.item.id,stRes.item.statTrakKills).catch(()=>{});
+            }
+          }
+        }
+      }
+    }catch(_){}
+    if(!window.activeLoadouts||typeof LoadoutsSystem.recordCombatKillForCamos!=='function')return;
     const res=LoadoutsSystem.recordCombatKillForCamos(window.activeLoadouts,killEv);
     if(res&&res.changed){
       window.activeLoadouts=LoadoutsSystem.saveLocal(res.state);

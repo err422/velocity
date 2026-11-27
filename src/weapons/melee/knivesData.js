@@ -1873,19 +1873,14 @@
       patternSeed = 412;
     }
 
-    if (entry.itemKind === 'weapon') {
-      const wSkin = WEAPON_SKINS[entry.skinId] || WEAPON_SKINS.factory_slate;
-      let rawT = r();
-      if (rarityId === 'covert') {
-        rawT = Math.pow(rawT, 1.45);
-      } else if (wSkin.maxFloat - wSkin.minFloat > 0.4) {
-        rawT = Math.pow(rawT, 1.25);
-      }
-      const floatValue = Math.round((wSkin.minFloat + rawT * (wSkin.maxFloat - wSkin.minFloat)) * 10000) / 10000;
-      const clampedFloat = Math.max(0.0001, Math.min(0.9999, floatValue));
-      const wear = getWearGrade(clampedFloat);
-      const meta = computeSkinMetadata(entry.skinId, patternSeed, entry);
+    // Pristine showroom condition on all drops (wear visuals & float UI removed)
+    const clampedFloat = 0.01;
+    const wearCode = 'FN';
+    const statTrakChance = (rarityId === 'covert' || rarityId === 'gold') ? 0.22 : 0.14;
+    const isStatTrak = r() < statTrakChance;
 
+    if (entry.itemKind === 'weapon') {
+      const meta = computeSkinMetadata(entry.skinId, patternSeed, entry);
       return sanitizeWeaponItem({
         id: overrideId || createWeaponId(r),
         itemKind: 'weapon',
@@ -1894,24 +1889,17 @@
         rarity: rarityId,
         patternSeed,
         floatValue: clampedFloat,
-        wearGrade: wear.code,
+        wearGrade: wearCode,
         specialTag: meta.specialTag,
         bluePct: meta.bluePct,
-        caseId: caseDef.id
+        caseId: caseDef.id,
+        statTrak: isStatTrak,
+        statTrakKills: 0
       });
     }
 
     if (entry.itemKind === 'glove') {
-      const gSkin = GLOVE_SKINS[entry.skinId] || GLOVE_SKINS.tactical_slate;
-      let rawT = r();
-      if (rarityId === 'gold') {
-        rawT = rawT * 0.30; // Favor crisp FN/MW on Gold glove drops
-      }
-      const floatValue = Math.round((gSkin.minFloat + rawT * (gSkin.maxFloat - gSkin.minFloat)) * 10000) / 10000;
-      const clampedFloat = Math.max(0.0001, Math.min(0.9999, floatValue));
-      const wear = getWearGrade(clampedFloat);
       const meta = computeSkinMetadata(entry.skinId, patternSeed, entry);
-
       return sanitizeGloveItem({
         id: overrideId || createGloveId(r),
         itemKind: 'glove',
@@ -1920,25 +1908,14 @@
         rarity: rarityId,
         patternSeed,
         floatValue: clampedFloat,
-        wearGrade: wear.code,
+        wearGrade: wearCode,
         specialTag: meta.specialTag,
         bluePct: meta.bluePct,
         caseId: caseDef.id
       });
     }
 
-    const skin = SKINS[entry.skinId] || SKINS.vanilla;
-    let rawT = r();
-    if (rarityId === 'gold') {
-      rawT = rawT * 0.25;
-    } else if (skin.maxFloat - skin.minFloat > 0.4) {
-      rawT = Math.pow(rawT, 1.35);
-    }
-    const floatValue = Math.round((skin.minFloat + rawT * (skin.maxFloat - skin.minFloat)) * 10000) / 10000;
-    const clampedFloat = Math.max(0.0001, Math.min(0.9999, floatValue));
-    const wear = getWearGrade(clampedFloat);
     const meta = computeSkinMetadata(entry.skinId, patternSeed, entry);
-
     return sanitizeKnifeItem({
       id: overrideId || createKnifeId(r),
       knifeType: entry.knifeType,
@@ -1946,10 +1923,12 @@
       rarity: rarityId,
       patternSeed,
       floatValue: clampedFloat,
-      wearGrade: wear.code,
+      wearGrade: wearCode,
       specialTag: meta.specialTag,
       bluePct: meta.bluePct,
-      caseId: caseDef.id
+      caseId: caseDef.id,
+      statTrak: isStatTrak,
+      statTrakKills: 0
     });
   }
 
@@ -2065,12 +2044,14 @@
     const rawFloat = Number(src.floatValue);
     const floatValue = Number.isFinite(rawFloat)
       ? Math.round(Math.max(0, Math.min(0.9999, rawFloat)) * 10000) / 10000
-      : 0.12;
+      : 0.01;
     const wearGrade = getWearGrade(floatValue).code;
     const specialTag = SPECIAL_TAGS.includes(src.specialTag) ? src.specialTag : '';
     const rawPct = Number(src.bluePct);
     const bluePct = Number.isFinite(rawPct) ? Math.max(0, Math.min(100, Math.round(rawPct))) : 0;
     const caseId = CASES[src.caseId] || src.caseId === 'starter' ? src.caseId : 'velocity';
+    const statTrak = Boolean(src.statTrak);
+    const statTrakKills = statTrak ? clampInt(src.statTrakKills, 0, 999999, 0) : 0;
 
     return {
       id,
@@ -2082,7 +2063,9 @@
       wearGrade,
       specialTag,
       bluePct,
-      caseId
+      caseId,
+      statTrak,
+      statTrakKills
     };
   }
 
@@ -2098,7 +2081,7 @@
     const rawFloat = Number(src.floatValue);
     const floatValue = Number.isFinite(rawFloat)
       ? Math.round(Math.max(0, Math.min(0.9999, rawFloat)) * 10000) / 10000
-      : 0.08;
+      : 0.01;
     const wearGrade = getWearGrade(floatValue).code;
     const specialTag = SPECIAL_TAGS.includes(src.specialTag) ? src.specialTag : '';
     const rawPct = Number(src.bluePct);
@@ -2132,12 +2115,14 @@
     const rawFloat = Number(src.floatValue);
     const floatValue = Number.isFinite(rawFloat)
       ? Math.round(Math.max(0, Math.min(0.9999, rawFloat)) * 10000) / 10000
-      : 0.09;
+      : 0.01;
     const wearGrade = getWearGrade(floatValue).code;
     const specialTag = SPECIAL_TAGS.includes(src.specialTag) ? src.specialTag : '';
     const rawPct = Number(src.bluePct);
     const bluePct = Number.isFinite(rawPct) ? Math.max(0, Math.min(100, Math.round(rawPct))) : 0;
     const caseId = CASES[src.caseId] || src.caseId === 'starter' ? src.caseId : 'velocity';
+    const statTrak = Boolean(src.statTrak);
+    const statTrakKills = statTrak ? clampInt(src.statTrakKills, 0, 999999, 0) : 0;
 
     return {
       id,
@@ -2150,7 +2135,9 @@
       wearGrade,
       specialTag,
       bluePct,
-      caseId
+      caseId,
+      statTrak,
+      statTrakKills
     };
   }
 
@@ -2324,7 +2311,31 @@
     const wearMul = ECONOMY.SELL_WEAR_MUL[wearCode] || 1.0;
     const specialTag = typeof item.specialTag === 'string' ? item.specialTag : '';
     const specialMul = ECONOMY.SELL_SPECIAL_MUL[specialTag] || 1.0;
-    return Math.max(10, Math.round(rarityBase * typeMul * wearMul * specialMul));
+    const statTrakMul = item.statTrak ? 1.45 : 1.0;
+    return Math.max(10, Math.round(rarityBase * typeMul * wearMul * specialMul * statTrakMul));
+  }
+
+  function incrementStatTrakKills(inventory, itemId, delta = 1) {
+    const inv = sanitizeInventory(inventory);
+    const step = Math.max(1, Math.floor(Number(delta) || 1));
+    let updatedItem = null;
+    for (const w of inv.weapons) {
+      if (w.id === itemId && w.statTrak) {
+        w.statTrakKills = Math.min(999999, (w.statTrakKills || 0) + step);
+        updatedItem = w;
+        break;
+      }
+    }
+    if (!updatedItem) {
+      for (const k of inv.knives) {
+        if (k.id === itemId && k.statTrak) {
+          k.statTrakKills = Math.min(999999, (k.statTrakKills || 0) + step);
+          updatedItem = k;
+          break;
+        }
+      }
+    }
+    return { inventory: inv, item: updatedItem, updated: Boolean(updatedItem) };
   }
 
   function isItemEquippedInInventory(inventory, item) {
@@ -2639,7 +2650,8 @@
   function formatKnifeFullName(item) {
     const kt = KNIFE_TYPES[item.knifeType] || KNIFE_TYPES.default;
     const sk = SKINS[item.skinId] || SKINS.vanilla;
-    return `${kt.name} | ${sk.name}`;
+    const prefix = item.statTrak ? 'StatTrak™ ' : '';
+    return `${prefix}${kt.name} | ${sk.name}`;
   }
 
   function formatGloveFullName(item) {
@@ -2651,7 +2663,8 @@
   function formatWeaponFullName(item) {
     const wt = WEAPON_TYPES[item.weaponType] || WEAPON_TYPES.rifle;
     const sk = WEAPON_SKINS[item.skinId] || WEAPON_SKINS.factory_slate;
-    return `${wt.name} | ${sk.name}`;
+    const prefix = item.statTrak ? 'StatTrak™ ' : '';
+    return `${prefix}${wt.name} | ${sk.name}`;
   }
 
   function formatItemFullName(item) {
@@ -2661,14 +2674,17 @@
   }
 
   function formatKnifeMetaLine(item) {
-    const parts = [item.wearGrade, formatFloat(item.floatValue)];
+    const parts = [];
+    if (item.statTrak) {
+      parts.push(`ST™ ${item.statTrakKills || 0} KILLS`);
+    }
     const sk = isWeaponItem(item)
       ? WEAPON_SKINS[item.skinId]
       : isGloveItem(item)
         ? GLOVE_SKINS[item.skinId]
         : SKINS[item.skinId];
     if (sk && sk.patternBased) {
-      parts.push(`#${item.patternSeed}`);
+      parts.push(`SEED #${item.patternSeed}`);
     }
     if (item.skinId === 'case_hardened' && item.bluePct > 0) {
       parts.push(`${item.bluePct}% Blue`);
@@ -2677,6 +2693,10 @@
     }
     if (item.specialTag) {
       parts.push(item.specialTag);
+    }
+    if (parts.length === 0) {
+      const rar = RARITIES[item.rarity] || RARITIES.milspec;
+      parts.push(rar.label);
     }
     return parts.join(' · ');
   }
@@ -2699,7 +2719,7 @@
 
   function toCloudKnifePayload(item, uid) {
     const clean = sanitizeKnifeItem(item);
-    return {
+    const payload = {
       uid: String(uid || ''),
       id: clean.id,
       knifeType: clean.knifeType,
@@ -2712,6 +2732,11 @@
       bluePct: clean.bluePct,
       caseId: clean.caseId
     };
+    if (clean.statTrak) {
+      payload.statTrak = true;
+      payload.statTrakKills = clean.statTrakKills;
+    }
+    return payload;
   }
 
   function toCloudGlovePayload(item, uid) {
@@ -2733,7 +2758,7 @@
 
   function toCloudWeaponPayload(item, uid) {
     const clean = sanitizeWeaponItem(item);
-    return {
+    const payload = {
       uid: String(uid || ''),
       id: clean.id,
       weaponType: clean.weaponType,
@@ -2746,6 +2771,11 @@
       bluePct: clean.bluePct,
       caseId: clean.caseId
     };
+    if (clean.statTrak) {
+      payload.statTrak = true;
+      payload.statTrakKills = clean.statTrakKills;
+    }
+    return payload;
   }
 
   function countNonStarterItems(inventory) {
@@ -3129,6 +3159,7 @@
     getCasePrice,
     getCaseOdds,
     getItemSellValue,
+    incrementStatTrakKills,
     isItemEquippedInInventory,
     isItemSellable,
     buyCase,

@@ -283,13 +283,13 @@
 
     if (!isArena) {
       if (isKatana) {
-        // Heroic Ronin samurai showcase stance: right hand firmly grips wrapped tsuka in front of chest,
-        // left hand relaxed near tactical belt / scabbard line
-        armR.rotation.set(-0.56, 0.20, -0.18);
-        armR.userData.elbow.rotation.set(-1.12, 0.28, 0.10);
-        armL.rotation.set(-0.24, -0.10, 0.14);
-        armL.userData.elbow.rotation.set(-0.46, -0.14, -0.06);
-        weaponSocket.position.set(0.0, 0.18, 0.28);
+        // Authentic two-handed Chudan-no-kamae samurai guard: BOTH hands meet cleanly across front-center
+        // gripping the extended 0.27m tsuka hilt (right hand high near tsuba, left hand lower near kashira)!
+        armR.rotation.set(-0.62, 0.22, -0.22);
+        armR.userData.elbow.rotation.set(-1.14, 0.42, 0.16);
+        armL.rotation.set(-0.66, -0.26, 0.24);
+        armL.userData.elbow.rotation.set(-1.12, -0.46, -0.18);
+        weaponSocket.position.set(0.0, 0.16, 0.30);
       } else if (isAkimbo) {
         // Dual-wield combat ready: both arms forward holding paired pistols
         armR.rotation.set(-0.72, 0.08, -0.12);
@@ -321,17 +321,14 @@
       const cleanWep = KS.sanitizeWeaponItem(opts.weaponItem || KS.createStarterWeapon('rifle'));
       wepModel = VI.buildWeaponModel(cleanWep, opts.targetRenderer, opts.attachments || {});
       if (isKatana) {
-        // Anchor directly to right gloved palm: yaw by PI so the -Z blade rises upward (+Y) and outward
-        // in world space while the +Z wrapped tsuka handle sits squarely inside the closed fist.
-        const katanaHandSocket = new THREE.Group();
-        katanaHandSocket.position.set(0.0, -0.285, 0.016);
-        katanaHandSocket.rotation.set(0.24, Math.PI - 0.28, -0.18);
-        const kScale = 1.05;
-        wepModel.scale.setScalar(kScale);
-        // Shift weapon along local Z so mid-tsuka (z ≈ +0.105) rests directly inside the gloved palm
-        wepModel.position.set(0, 0.004, -0.105 * kScale);
-        katanaHandSocket.add(wepModel);
-        armR.userData.elbow.add(katanaHandSocket);
+        // Mount to weaponSocket right between both gloved palms so the extended 0.27m tsuka passes
+        // cleanly through BOTH right (upper) and left (lower) fists, blade sweeping diagonally up & across!
+        wepModel.scale.setScalar(1.06);
+        // Weapon +Z = tsuka pommel, -Z = curved katana blade tip.
+        // Rotate so blade rises diagonally upward-right (+Y, -X, +Z) in a poised samurai guard!
+        wepModel.rotation.set(-0.92, Math.PI - 0.56, 0.34);
+        wepModel.position.set(0.005, 0.025, 0.045);
+        weaponSocket.add(wepModel);
       } else {
         if (isAkimbo) {
           wepModel.rotation.set(0.06, Math.PI, 0);

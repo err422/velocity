@@ -4,10 +4,10 @@ function getThumbForItem(item){
   const isGlove=KnivesSystem.isGloveItem(item);
   const isWeapon=KnivesSystem.isWeaponItem(item);
   const key=isWeapon
-    ?`weapon_${item.weaponType}_${item.skinId}_${item.patternSeed}_${item.wearGrade}_${item.specialTag}`
+    ?`weapon_${item.weaponType}_${item.skinId}_${item.patternSeed}_${item.statTrak?'st':''}_${item.specialTag}`
     :isGlove
-      ?`glove_${item.gloveType}_${item.skinId}_${item.patternSeed}_${item.wearGrade}_${item.specialTag}`
-      :`knife_${item.knifeType}_${item.skinId}_${item.patternSeed}_${item.wearGrade}_${item.specialTag}`;
+      ?`glove_${item.gloveType}_${item.skinId}_${item.patternSeed}_${item.specialTag}`
+      :`knife_${item.knifeType}_${item.skinId}_${item.patternSeed}_${item.statTrak?'st':''}_${item.specialTag}`;
   if(thumbCache.has(key))return thumbCache.get(key);
   const url=isWeapon?renderWeaponThumbDataUrl(item):isGlove?renderGloveThumbDataUrl(item):renderKnifeThumbDataUrl(item);
   if(thumbCache.size>240)thumbCache.clear();
@@ -93,7 +93,6 @@ function fillItemSpecs(prefix,item){
   const isGlove=KnivesSystem.isGloveItem(item);
   const isWeapon=KnivesSystem.isWeaponItem(item);
   const rar=KnivesSystem.RARITIES[item.rarity]||KnivesSystem.RARITIES.milspec;
-  const wear=KnivesSystem.getWearGrade(item.floatValue);
   const sk=isWeapon
     ?(KnivesSystem.WEAPON_SKINS[item.skinId]||KnivesSystem.WEAPON_SKINS.factory_slate)
     :isGlove
@@ -115,8 +114,22 @@ function fillItemSpecs(prefix,item){
   }
   $(prefix+'Title').textContent=KnivesSystem.formatItemFullName(item);
   applySpecialTagBadge($(prefix+'SpecialTag'),item.specialTag);
-  $(prefix+'Wear').textContent=`${wear.code} · ${wear.name}`;
-  $(prefix+'Float').textContent=KnivesSystem.formatFloat(item.floatValue);
+  const rarCell=$(prefix+'RarityCell');
+  if(rarCell){
+    rarCell.textContent=rar.label;
+    rarCell.style.color=rar.color;
+  }
+  const stCell=$(prefix+'StatTrak');
+  if(stCell){
+    if(item.statTrak){
+      const kills=Math.max(0,Math.floor(Number(item.statTrakKills)||0));
+      stCell.textContent=`ACTIVE · ${kills} KILLS`;
+      stCell.style.color='#ff8c2e';
+    }else{
+      stCell.textContent='STANDARD';
+      stCell.style.color='';
+    }
+  }
   $(prefix+'Seed').textContent=sk.patternBased?`#${item.patternSeed}`:'FIXED';
   const extraK=$(prefix+'ExtraK'),extraV=$(prefix+'ExtraV');
   if(item.skinId==='case_hardened'){
@@ -138,8 +151,6 @@ function fillItemSpecs(prefix,item){
     extraK.textContent='Container';
     extraV.textContent=cDef?cDef.name.replace(' Case',''):'Starter';
   }
-  const marker=$(prefix+'FloatMarker');
-  if(marker)marker.style.left=`${Math.max(1,Math.min(99,item.floatValue*100))}%`;
 }
 
 function mountArmoryCanvas(hostEl,item,gloveItem,mode){
@@ -457,8 +468,9 @@ function renderBulkCaseResults(){
     name.textContent=bulkDropDisplayName(item);
     const meta=document.createElement('div');
     meta.className='bulk-drop-meta';
-    const parts=[rarity.label,item.wearGrade||KnivesSystem.getWearGrade(item.floatValue).code,
-      `FLOAT ${KnivesSystem.formatFloat(item.floatValue)}`,`#${item.patternSeed}`];
+    const parts=[rarity.label];
+    if(item.statTrak)parts.push('StatTrak™');
+    parts.push(`#${item.patternSeed}`);
     if(item.specialTag)parts.push(item.specialTag);
     meta.textContent=parts.join(' · ');
     details.appendChild(name);
@@ -604,9 +616,8 @@ function refreshRevealActionButtons(){
   $('revealEquipBtn').disabled=isEq;
 
   const sellCheck=KnivesSystem.isItemSellable(window.activeInventory,item);
-  const wear=KnivesSystem.getWearGrade(item.floatValue);
   if(revealValueLine){
-    revealValueLine.textContent=`MARKET VALUE · ${fmtCoins(sellCheck.value)} COINS · ${wear.code}`;
+    revealValueLine.textContent=`MARKET VALUE · ${fmtCoins(sellCheck.value)} COINS${item.statTrak?' · STATTRAK™':''}`;
   }
   if(revealSellBtn){
     revealSellBtn.disabled=!sellCheck.sellable;
@@ -726,7 +737,7 @@ function startCaseUnboxing(caseId){
 
   showCasesView('roulette');
   rouletteCaseLabel.textContent=`UNLOCKING ${cDef.name.toUpperCase()}`;
-  rouletteStatus.textContent='ROLLING PATTERN SEED & WEAR FLOAT...';
+  rouletteStatus.textContent='ROLLING RARITY, PATTERN SEED & STATTRAK™...';
 
   // Populate 45-card roulette strip
   rouletteTrack.textContent='';
@@ -747,11 +758,13 @@ function startCaseUnboxing(caseId){
     const info=document.createElement('div');
     const kn=document.createElement('div');
     kn.className='roulette-kname';
-    kn.textContent=isWeaponCard
+    const baseName=isWeaponCard
       ?KnivesSystem.WEAPON_TYPES[cardItem.weaponType].name
       :isGloveCard
         ?KnivesSystem.GLOVE_TYPES[cardItem.gloveType].name
         :KnivesSystem.KNIFE_TYPES[cardItem.knifeType].name;
+    kn.textContent=cardItem.statTrak?`StatTrak™ ${baseName}`:baseName;
+    if(cardItem.statTrak)kn.style.color='#ff9c42';
     const sn=document.createElement('div');
     sn.className='roulette-sname';
     const skinName=isWeaponCard
@@ -934,7 +947,7 @@ function openSellConfirmModal(items,mode){
       nm.textContent=KnivesSystem.formatItemFullName(entry.item);
       const mt=document.createElement('span');
       mt.className='sell-modal-row-meta';
-      mt.textContent=`${entry.item.wearGrade}${entry.item.specialTag?' · '+entry.item.specialTag:''}`;
+      mt.textContent=`${entry.item.statTrak?'StatTrak™ · ':''}#${entry.item.patternSeed||0}${entry.item.specialTag?' · '+entry.item.specialTag:''}`;
       left.appendChild(nm);
       left.appendChild(mt);
 
@@ -1229,6 +1242,14 @@ function renderArmoryInventory(){
       eq.className='inv-equipped';
       eq.textContent='EQUIPPED';
       card.appendChild(eq);
+    }else if(item.statTrak){
+      const st=document.createElement('span');
+      st.className='inv-equipped';
+      st.style.background='rgba(255,138,42,0.18)';
+      st.style.borderColor='rgba(255,148,56,0.55)';
+      st.style.color='#ff9c42';
+      st.textContent=`ST™ ${Math.max(0,Math.floor(Number(item.statTrakKills)||0))}`;
+      card.appendChild(st);
     }
 
     const img=document.createElement('img');

@@ -56,12 +56,16 @@
       flashTimer: 0,
       reloadT: 1,
       reloadDuration: 1.6,
+      reloadIsTactical: false,
+      reloadVariant: 'standard', // 'standard' | 'tactical' | 'speedloader' | 'shell'
       drawT: 1,
       drawDuration: 0.36,
       drawCueMask: 0,
       inspectT: 1,
       inspectDuration: 2.35,
-      inspectTier: 'normal',
+      inspectTier: 'normal', // 'normal' | 'uncommon' | 'mythic'
+      inspectLayer: 'showcase', // 'showcase' | 'group' | 'signature' | 'easter' | 'mythic'
+      inspectCycleIndex: 0,
       inspectCueMask: 0,
       reloadCueMask: 0,
       boltCueMask: 0,
@@ -73,6 +77,10 @@
       revolverReloadPhase: 'none',
       revolverReloadPhaseProgress: 0,
       revolverCylinderIndex: 0,
+      shellReloadWeapon: '',
+      shellReloadPhase: 'none',
+      shellReloadPhaseProgress: 0,
+      shellReloadWasEmpty: false,
       slashT: 1,
       katanaSlashT: 1,
       katanaSlashCombo: 0,
@@ -177,7 +185,26 @@
     function buildWeaponSignature(item, atts) {
       const a = atts && typeof atts === 'object' ? atts : {};
       const keys = Object.keys(a).sort();
-      return (item ? `${item.id}:${item.skinId}:${item.patternSeed}:${item.floatValue}` : 'none') + '|' + keys.map((k) => `${k}=${a[k]}`).join(',');
+      return (item ? `${item.id}:${item.skinId}:${item.patternSeed}:${item.statTrak ? 1 : 0}` : 'none') + '|' + keys.map((k) => `${k}=${a[k]}`).join(',');
+    }
+
+    function updateStatTrakDisplay(slot, kills) {
+      const n = Math.max(0, Math.floor(Number(kills) || 0));
+      if (slot === 'knife') {
+        if (currentItem) currentItem.statTrakKills = n;
+        const mod = currentKnifeMesh && currentKnifeMesh.userData && currentKnifeMesh.userData.statTrakModule;
+        if (mod && mod.userData && typeof mod.userData.updateCount === 'function') {
+          mod.userData.updateCount(n);
+        }
+        return;
+      }
+      const wt = slot || activeSlot;
+      if (currentWeaponItems[wt]) currentWeaponItems[wt].statTrakKills = n;
+      const mesh = currentWeaponMeshes[wt];
+      const mod = mesh && mesh.userData && mesh.userData.statTrakModule;
+      if (mod && mod.userData && typeof mod.userData.updateCount === 'function') {
+        mod.userData.updateCount(n);
+      }
     }
 
     function equipWeaponSkin(arg1, arg2, attachments) {
@@ -254,6 +281,24 @@
       matchKillStreak = Math.max(0, Math.floor(Number(streak) || 0));
     }
 
+    function setShellReloadState(st) {
+      if (!st || !st.active) {
+        weaponAnim.shellReloadWeapon = '';
+        weaponAnim.shellReloadPhase = 'none';
+        weaponAnim.shellReloadPhaseProgress = 0;
+        weaponAnim.shellReloadWasEmpty = false;
+        return;
+      }
+      weaponAnim.shellReloadWeapon = st.weaponType || activeSlot;
+      weaponAnim.shellReloadPhase = st.reloadPhase || 'none';
+      weaponAnim.shellReloadPhaseProgress = Number.isFinite(st.reloadPhaseProgress) ? st.reloadPhaseProgress : 0;
+      weaponAnim.shellReloadWasEmpty = Boolean(st.wasEmpty);
+      if (weaponAnim.shellReloadPhase !== 'none') {
+        weaponAnim.inspectT = 1;
+        weaponAnim.spinBonus = 0;
+      }
+    }
+
     function setRevolverState(st) {
       if (!st || !st.active) {
         weaponAnim.revolverCharge = 0;
@@ -281,10 +326,16 @@
         adsActive = false;
         adsProgress = 0;
         adsScopedOptic = false;
+        weaponAnim.shellReloadPhase = 'none';
+        weaponAnim.shellReloadPhaseProgress = 0;
+        weaponAnim.revolverReloadPhase = 'none';
+        weaponAnim.revolverReloadPhaseProgress = 0;
       }
       if (valid !== 'knife') ensureWeaponMesh(valid);
       if (rig && rig.reloadShellsGroup) rig.reloadShellsGroup.visible = false;
       if (rig && rig.reloadBulletGroup) rig.reloadBulletGroup.visible = false;
+      if (rig && rig.reloadSingleShellGroup) rig.reloadSingleShellGroup.visible = false;
+      if (rig && rig.reloadSpeedloaderGroup) rig.reloadSpeedloaderGroup.visible = false;
       syncActiveMeshVisibility();
       if (playDraw && changed) {
         if (valid === 'knife') {
@@ -377,8 +428,9 @@
       }
     }
 
-    function triggerReload(duration) {
+    function triggerReload(duration, opts) {
       if (activeSlot === 'knife') return;
+      const options = opts && typeof opts === 'object' ? opts : {};
       weaponAnim.inspectT = 1;
       weaponAnim.spinBonus = 0;
       weaponAnim.reloadT = 0;
@@ -386,13 +438,17 @@
       weaponAnim.boltT = 1;
       weaponAnim.boltCueMask = 0;
       weaponAnim.fanT = 1;
-      weaponAnim.reloadDuration = Math.max(0.6, Number(duration) || 1.6);
+      weaponAnim.reloadIsTactical = Boolean(options.tactical);
+      weaponAnim.reloadVariant = options.variant || (weaponAnim.reloadIsTactical ? 'tactical' : 'standard');
+      weaponAnim.reloadDuration = Math.max(0.55, Number(duration) || 1.6);
       adsActive = false;
       isScoped = false;
       syncActiveMeshVisibility();
       if (activeSlot === 'revolver') {
-        // Revolver crane open audio is triggered by CombatSystem phase sync
-      } else if (activeSlot === 'shotgun') {
+        if (weaponAnim.reloadVariant === 'speedloader') {
+          WeaponAudio.revolverCylinderOpen();
+        }
+      } else if (activeSlot === 'shotgun' || activeSlot === 'leverslug') {
         WeaponAudio.weaponDraw();
       } else {
         WeaponAudio.reloadStart();
@@ -453,46 +509,74 @@
 
     function triggerInspect(forceTier) {
       if (activeSlot !== 'knife') {
-        if (weaponAnim.reloadT < 1 || weaponAnim.revolverReloadPhase !== 'none') return null;
+        if (weaponAnim.reloadT < 1 || weaponAnim.revolverReloadPhase !== 'none' || weaponAnim.shellReloadPhase !== 'none') return null;
         const wt = activeSlot;
 
-        // Protect an active 1/100 Mythic revolver showstopper inspect from accidental early cancel
-        if (!forceTier && wt === 'revolver' && weaponAnim.inspectT < 0.55 && weaponAnim.inspectTier === 'mythic') {
-          return { tier: 'mythic', weaponType: wt, mythicName: 'High Noon Showstopper', continued: true };
+        // Protect an active 1/100 Mythic showstopper inspect from accidental early cancel
+        if (!forceTier && weaponAnim.inspectT < 0.55 && weaponAnim.inspectTier === 'mythic') {
+          return { tier: 'mythic', layer: weaponAnim.inspectLayer, weaponType: wt, mythicName: wt === 'revolver' ? 'High Noon Showstopper' : 'Butterfingers Save', continued: true };
         }
 
         // Classic CS2 Deagle & R-88 Revolver F-spam chaining during active Trigger-Finger Spin!
-        if (!forceTier && (wt === 'deagle' || wt === 'revolver') && weaponAnim.inspectT < 0.86 && weaponAnim.inspectTier === 'uncommon') {
+        if (!forceTier && (wt === 'deagle' || wt === 'revolver') && weaponAnim.inspectT < 0.86 && weaponAnim.inspectLayer === 'signature') {
           weaponAnim.spinBonus = Math.min(weaponAnim.spinBonus + Math.PI * 2, Math.PI * 10);
           weaponAnim.inspectT = Math.min(weaponAnim.inspectT, 0.24);
           weaponAnim.inspectCueMask &= ~14;
           CaseAudio.spinWhoosh(1.24);
-          return { tier: 'uncommon', weaponType: wt, chained: true };
+          return { tier: 'uncommon', layer: 'signature', weaponType: wt, chained: true };
         }
 
-        let wTier;
+        // 3-Layer Inspect Choreography + Rare Easter Eggs:
+        // Pressing F naturally cycles Layer 1 (Universal Showcase) -> Layer 2 (Group Mechanical Check) -> Layer 3 (Signature Per-Weapon Trick)
+        // with rare ~1/25 Easter Egg & ~1/100 Mythic Showstopper rolls!
+        let wTier = 'normal';
+        let wLayer = 'showcase';
         if (forceTier === 'mythic') {
-          wTier = wt === 'revolver' ? 'mythic' : 'uncommon';
-        } else if (forceTier === 'uncommon' || forceTier === true) {
+          wTier = 'mythic';
+          wLayer = 'mythic';
+        } else if (forceTier === 'easter') {
           wTier = 'uncommon';
-        } else if (forceTier === 'normal' || forceTier === false) {
+          wLayer = 'easter';
+        } else if (forceTier === 'signature' || forceTier === 'uncommon' || forceTier === true) {
+          wTier = 'uncommon';
+          wLayer = 'signature';
+        } else if (forceTier === 'group') {
           wTier = 'normal';
-        } else if (wt === 'revolver') {
-          const r = Math.random();
-          wTier = r < 0.01 ? 'mythic' : r < 0.36 ? 'uncommon' : 'normal';
+          wLayer = 'group';
+        } else if (forceTier === 'showcase' || forceTier === 'normal' || forceTier === false) {
+          wTier = 'normal';
+          wLayer = 'showcase';
         } else {
-          wTier = Math.random() < (wt === 'deagle' ? 0.24 : 0.20) ? 'uncommon' : 'normal';
+          const r = Math.random();
+          if (r < 0.01) {
+            wTier = 'mythic';
+            wLayer = 'mythic';
+          } else if (r < 0.05) {
+            wTier = 'uncommon';
+            wLayer = 'easter';
+          } else {
+            const cycle = ['showcase', 'group', 'signature'];
+            wLayer = cycle[weaponAnim.inspectCycleIndex % 3];
+            weaponAnim.inspectCycleIndex = (weaponAnim.inspectCycleIndex + 1) % 3;
+            wTier = wLayer === 'signature' ? 'uncommon' : 'normal';
+          }
         }
 
         weaponAnim.inspectT = 0;
         weaponAnim.inspectTier = wTier;
+        weaponAnim.inspectLayer = wLayer;
         weaponAnim.inspectCueMask = 0;
         weaponAnim.spinBonus = 0;
-        weaponAnim.inspectDuration = weaponInspectDuration(wt, wTier);
-        if (wTier === 'mythic' && wt === 'revolver') CaseAudio.mythicFlourish();
-        else if (wTier === 'uncommon' && (wt === 'deagle' || wt === 'revolver')) CaseAudio.spinWhoosh(1.18);
+        weaponAnim.inspectDuration = weaponInspectDuration(wt, wTier, wLayer);
+        if (wTier === 'mythic') CaseAudio.mythicFlourish();
+        else if (wLayer === 'signature' && (wt === 'deagle' || wt === 'revolver' || wt === 'akimbo' || wt === 'leverslug' || wt === 'katana')) CaseAudio.spinWhoosh(1.18);
         else WeaponAudio.weaponDraw();
-        return { tier: wTier, weaponType: wt, mythicName: wt === 'revolver' && wTier === 'mythic' ? 'High Noon Showstopper' : '' };
+        return {
+          tier: wTier,
+          layer: wLayer,
+          weaponType: wt,
+          mythicName: wLayer === 'mythic' ? (wt === 'revolver' ? 'High Noon Showstopper' : 'Butterfingers Save!') : (wLayer === 'easter' ? 'Tactical Showoff' : '')
+        };
       }
 
       if (!currentItem) return null;
@@ -700,6 +784,16 @@
       if (rig.reloadBulletGroup) {
         rig.reloadBulletGroup.visible = Boolean(_weaponOut.showReloadBullet) && adsEase < 0.35;
       }
+      if (rig.reloadSingleShellGroup) {
+        const showSingle = Boolean(_weaponOut.showReloadSingleShell) && adsEase < 0.35;
+        rig.reloadSingleShellGroup.visible = showSingle;
+        if (showSingle && rig.shellHullMat) {
+          rig.shellHullMat.color.setHex(wt === 'leverslug' ? 0xd9a838 : (mesh.userData.shellColor || 0xc82532));
+        }
+      }
+      if (rig.reloadSpeedloaderGroup) {
+        rig.reloadSpeedloaderGroup.visible = Boolean(_weaponOut.showReloadSpeedloader) && adsEase < 0.35;
+      }
 
       applyWeaponMechanicalParts(mesh, wt, _weaponOut, reloadArc, boltArc, weaponAnim.slideKick, weaponAnim.hammerKick);
       lockSupportHandToWeapon(rig, mesh, wt, reloadArc, _weaponOut);
@@ -756,6 +850,8 @@
 
       if (rig && rig.reloadShellsGroup) rig.reloadShellsGroup.visible = false;
       if (rig && rig.reloadBulletGroup) rig.reloadBulletGroup.visible = false;
+      if (rig && rig.reloadSingleShellGroup) rig.reloadSingleShellGroup.visible = false;
+      if (rig && rig.reloadSpeedloaderGroup) rig.reloadSpeedloaderGroup.visible = false;
       if (!currentKnifeMesh) return;
       const kt = currentItem.knifeType;
 
@@ -827,6 +923,8 @@
       triggerFireRecoil,
       triggerReload,
       setRevolverState,
+      setShellReloadState,
+      updateStatTrakDisplay,
       setKatanaState,
       triggerKatanaSlash,
       triggerKatanaDash,
@@ -1017,6 +1115,8 @@
         comboKnifeMesh = null;
         studioFloorGroup = null;
       }
+      lastCanvasW = 0;
+      lastCanvasH = 0;
       canvasEl = canvas;
       contextLost = false;
       pRenderer = new THREE.WebGLRenderer({
@@ -1112,7 +1212,8 @@
           resize();
           if (active) renderOnce();
         });
-        ro.observe(canvas.parentElement || canvas);
+        ro.observe(canvas);
+        if (canvas.parentElement) ro.observe(canvas.parentElement);
         canvas.__velResizeObs = ro;
       }
     }
@@ -1126,10 +1227,13 @@
       const w = Math.floor(rect.width);
       const h = Math.floor(rect.height);
       if (w < 40 || h < 40) return false;
-      if (w !== lastCanvasW || h !== lastCanvasH) {
+      const dpr = (typeof isSoftwareGl !== 'undefined' && isSoftwareGl) ? 1 : Math.min(devicePixelRatio, 2);
+      const expectedW = Math.round(w * dpr);
+      const expectedH = Math.round(h * dpr);
+      const bufferMismatch = Math.abs(canvasEl.width - expectedW) > 2 || Math.abs(canvasEl.height - expectedH) > 2;
+      if (w !== lastCanvasW || h !== lastCanvasH || bufferMismatch) {
         lastCanvasW = w;
         lastCanvasH = h;
-        const dpr = (typeof isSoftwareGl !== 'undefined' && isSoftwareGl) ? 1 : Math.min(devicePixelRatio, 2);
         pRenderer.setPixelRatio(dpr);
         pRenderer.setSize(w, h, false);
         pCamera.aspect = w / h;
@@ -1419,17 +1523,19 @@
       if (previewMode === 'runner') return;
       if (previewKind === 'weapon') {
         const wt = currentWeapon.weaponType;
-        const wTier = (tier === 'mythic' && wt === 'revolver') ? 'mythic' : (tier === 'mythic' || tier === 'uncommon') ? 'uncommon' : 'normal';
+        const wTier = tier === 'mythic' ? 'mythic' : (tier === 'uncommon' || tier === 'signature' || tier === 'easter') ? 'uncommon' : 'normal';
+        const wLayer = tier === 'mythic' ? 'mythic' : tier === 'easter' ? 'easter' : (tier === 'uncommon' || tier === 'signature') ? 'signature' : tier === 'group' ? 'group' : 'showcase';
         comboAnimState.drawT = 1;
         comboAnimState.inspectT = 0;
         comboAnimState.inspectCueMask = 0;
         comboAnimState.spinBonus = 0;
         comboAnimState.inspectTier = wTier;
-        comboAnimState.inspectDuration = weaponInspectDuration(wt, wTier);
+        comboAnimState.inspectLayer = wLayer;
+        comboAnimState.inspectDuration = weaponInspectDuration(wt, wTier, wLayer);
         soloTrickT = 0;
         soloTrickCueMask = 0;
-        if (wTier === 'mythic' && wt === 'revolver') CaseAudio.mythicFlourish();
-        else if (wTier === 'uncommon' && (wt === 'deagle' || wt === 'revolver')) CaseAudio.spinWhoosh(1.22);
+        if (wTier === 'mythic') CaseAudio.mythicFlourish();
+        else if (wLayer === 'signature' && (wt === 'deagle' || wt === 'revolver' || wt === 'akimbo' || wt === 'leverslug' || wt === 'katana')) CaseAudio.spinWhoosh(1.22);
         else WeaponAudio.weaponDraw();
         if (!active) {
           active = true;

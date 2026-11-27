@@ -444,7 +444,7 @@ function renderLoadoutsOverview(){
     info.className='cod-slot-info';
     const cls=document.createElement('div');
     cls.className='cod-slot-class';
-    cls.textContent=`Knife · ${sk.name} (${knife.wearGrade})`;
+    cls.textContent=`Knife · ${sk.name}${knife.statTrak?` · StatTrak™ (${knife.statTrakKills||0})`:''}`;
     const name=document.createElement('div');
     name.className='cod-slot-name';
     name.textContent=kt.name;
@@ -1242,10 +1242,12 @@ function renderGunsmithSkins(entry){
       btn.appendChild(badge);
     }
 
-    if(desc.wearTag){
+    if(desc.statTrakTag){
       const wt=document.createElement('span');
       wt.className='gs-swatch-wear';
-      wt.textContent=desc.wearTag;
+      wt.style.color='#ff9c42';
+      wt.style.borderColor='rgba(255,148,56,0.55)';
+      wt.textContent=desc.statTrakTag;
       btn.appendChild(wt);
     }
 
@@ -1388,16 +1390,16 @@ function renderGunsmithSkins(entry){
     const sk=KnivesSystem.WEAPON_SKINS[item.skinId]||KnivesSystem.WEAPON_SKINS.factory_slate;
     const isEq=!equippedCamoId&&baseEquippedItem&&(baseEquippedItem.id===item.id||(!hasFactoryOwned&&item.skinId==='factory_slate'&&baseEquippedItem.skinId==='factory_slate'));
     const special=item.specialTag?` · ${item.specialTag}`:'';
-    const flt=Number.isFinite(Number(item.floatValue))?Number(item.floatValue).toFixed(4):'0.0400';
+    const stKills=Math.max(0,Math.floor(Number(item.statTrakKills)||0));
     const desc={
       key:`armory:${item.id}`,
       kind:'armory',
       skinId:item.skinId,
       patternSeed:item.patternSeed||0,
-      floatValue:item.floatValue,
-      wearTag:item.wearGrade||'FN',
-      name:sk.name,
-      code:`ARMORY FINISH · ${rar.label.toUpperCase()} · ${item.wearGrade||'FN'} ${flt}`,
+      floatValue:0.01,
+      statTrakTag:item.statTrak?'ST™':'',
+      name:item.statTrak?`StatTrak™ ${sk.name}`:sk.name,
+      code:`ARMORY FINISH · ${rar.label.toUpperCase()}${item.statTrak?` · STATTRAK™ (${stKills} KILLS)`:''}`,
       tier:`PATTERN #${item.patternSeed||0}${special}`,
       desc:sk.description||'Armory weapon finish.',
       sub:equippedCamoId?'Equipping an Armory finish clears the active Challenge Camo':'Owned in Armory Inventory',

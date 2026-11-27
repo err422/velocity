@@ -432,6 +432,8 @@ service cloud.firestore {
           'specialTag',
           'bluePct',
           'caseId',
+          'statTrak',
+          'statTrakKills',
           'createdAt'
         ])
         && data.uid is string
@@ -476,6 +478,8 @@ service cloud.firestore {
         && data.caseId.size() >= 5
         && data.caseId.size() <= 16
         && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin']
+        && (!('statTrak' in data) || data.statTrak is bool)
+        && (!('statTrakKills' in data) || (data.statTrakKills is int && data.statTrakKills >= 0 && data.statTrakKills <= 999999))
         && data.createdAt is timestamp
         && data.createdAt == request.time;
     }
@@ -599,6 +603,8 @@ service cloud.firestore {
           'specialTag',
           'bluePct',
           'caseId',
+          'statTrak',
+          'statTrakKills',
           'createdAt'
         ])
         && data.uid is string
@@ -696,8 +702,22 @@ service cloud.firestore {
         && data.caseId.size() >= 5
         && data.caseId.size() <= 16
         && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin']
+        && (!('statTrak' in data) || data.statTrak is bool)
+        && (!('statTrakKills' in data) || (data.statTrakKills is int && data.statTrakKills >= 0 && data.statTrakKills <= 999999))
         && data.createdAt is timestamp
         && data.createdAt == request.time;
+    }
+
+    function isValidStatTrakKillUpdate(oldData, newData, uid) {
+      return oldData.uid == uid
+        && oldData.uid == request.auth.uid
+        && newData.uid == oldData.uid
+        && ('statTrak' in oldData)
+        && oldData.statTrak == true
+        && newData.diff(oldData).affectedKeys().hasOnly(['statTrakKills'])
+        && newData.statTrakKills is int
+        && newData.statTrakKills >= (('statTrakKills' in oldData && oldData.statTrakKills is int) ? oldData.statTrakKills : 0)
+        && newData.statTrakKills <= 999999;
     }
 
     function isValidLobbyShape(data, lobbyId) {
@@ -1078,7 +1098,11 @@ service cloud.firestore {
           && isValidKnifeItemCreate(incoming(), uid, knifeId)
           && exists(/databases/$(database)/documents/userInventory/$(uid));
 
-        allow update: if false;
+        allow update: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(knifeId)
+          && request.auth.uid == uid
+          && isValidStatTrakKillUpdate(existing(), incoming(), uid);
 
         allow delete: if isSignedIn()
           && isValidId(uid)
@@ -1134,7 +1158,11 @@ service cloud.firestore {
           && isValidWeaponItemCreate(incoming(), uid, weaponId)
           && exists(/databases/$(database)/documents/userInventory/$(uid));
 
-        allow update: if false;
+        allow update: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(weaponId)
+          && request.auth.uid == uid
+          && isValidStatTrakKillUpdate(existing(), incoming(), uid);
 
         allow delete: if isSignedIn()
           && isValidId(uid)

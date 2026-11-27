@@ -722,6 +722,91 @@ test('firestore.rules allows non-existent get checks and matches all catalog ski
   }
 });
 
+test('new drops are pristine, StatTrak™ rolls/sanitizes/tracks kills/adds +45% sell value, and meta line omits wear/float', () => {
+  const rng = makeRng(4242);
+  let sawStatTrak = false;
+  for (let i = 0; i < 60; i++) {
+    const roll = KnivesSystem.rollCaseDrop('spectrum', rng);
+    assert.equal(roll.winner.floatValue, 0.01);
+    assert.equal(roll.winner.wearGrade, 'FN');
+    if (roll.winner.statTrak) {
+      sawStatTrak = true;
+      assert.equal(roll.winner.statTrakKills, 0);
+    }
+  }
+  assert.equal(sawStatTrak, true, 'Expected at least one StatTrak™ drop across 60 rolls');
+
+  const stdAwp = KnivesSystem.sanitizeWeaponItem({
+    id: 'wp_std_awp',
+    weaponType: 'awp',
+    skinId: 'dragon_gold',
+    rarity: 'covert',
+    patternSeed: 123,
+    floatValue: 0.01,
+    statTrak: false
+  });
+  const stAwp = KnivesSystem.sanitizeWeaponItem({
+    id: 'wp_st_awp',
+    weaponType: 'awp',
+    skinId: 'dragon_gold',
+    rarity: 'covert',
+    patternSeed: 123,
+    floatValue: 0.01,
+    statTrak: true,
+    statTrakKills: 42
+  });
+  const stKnife = KnivesSystem.sanitizeKnifeItem({
+    id: 'knf_st_karambit',
+    knifeType: 'karambit',
+    skinId: 'case_hardened',
+    rarity: 'gold',
+    patternSeed: 661,
+    floatValue: 0.01,
+    specialTag: 'BLUE GEM',
+    bluePct: 88,
+    statTrak: true,
+    statTrakKills: 7
+  });
+
+  // +45% StatTrak™ value bonus
+  const stdVal = KnivesSystem.getItemSellValue(stdAwp);
+  const stVal = KnivesSystem.getItemSellValue(stAwp);
+  assert.ok(stVal > stdVal && Math.abs(stVal / stdVal - 1.45) < 0.05, `Expected ~1.45x value for StatTrak™ (${stVal} vs ${stdVal})`);
+
+  // Naming & wear-free meta line
+  assert.equal(KnivesSystem.formatItemFullName(stAwp).startsWith('StatTrak™ '), true);
+  assert.equal(KnivesSystem.formatItemFullName(stKnife).startsWith('StatTrak™ '), true);
+  const meta = KnivesSystem.formatKnifeMetaLine(stKnife);
+  assert.ok(meta.includes('ST™ 7 KILLS'));
+  assert.ok(meta.includes('SEED #661'));
+  assert.ok(meta.includes('BLUE GEM'));
+  assert.ok(!meta.includes('FN') && !meta.includes('0.01'), `Meta line must hide wear/float, got: ${meta}`);
+
+  // Cloud payload includes StatTrak fields when enabled
+  const wpCloud = KnivesSystem.toCloudWeaponPayload(stAwp, 'uid_st');
+  assert.equal(wpCloud.statTrak, true);
+  assert.equal(wpCloud.statTrakKills, 42);
+  const knCloud = KnivesSystem.toCloudKnifePayload(stKnife, 'uid_st');
+  assert.equal(knCloud.statTrak, true);
+  assert.equal(knCloud.statTrakKills, 7);
+
+  // incrementStatTrakKills updates weapon & knife counters and ignores non-StatTrak items
+  let inv = KnivesSystem.createStarterInventory();
+  inv.weapons.push(stdAwp, stAwp);
+  inv.knives.push(stKnife);
+
+  const noopRes = KnivesSystem.incrementStatTrakKills(inv, stdAwp.id, 1);
+  assert.equal(noopRes.updated, false);
+
+  const wpRes = KnivesSystem.incrementStatTrakKills(inv, stAwp.id, 3);
+  assert.equal(wpRes.updated, true);
+  assert.equal(wpRes.item.statTrakKills, 45);
+
+  const knRes = KnivesSystem.incrementStatTrakKills(wpRes.inventory, stKnife.id, 1);
+  assert.equal(knRes.updated, true);
+  assert.equal(knRes.item.statTrakKills, 8);
+});
+
 
 
 

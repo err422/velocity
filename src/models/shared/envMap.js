@@ -64,29 +64,126 @@
     return geo;
   }
 
-  // ---------- Unified Side-Projected Firearm UV Mapper (Stock +Z = u:0 -> Muzzle -Z = u:1) ----------
-  const _uvProjVec = new THREE.Vector3();
+  // ---------- Face-Normal-Aware Box UV Mapper (Eliminates Top/Bottom/Front/Bevel Streaking!) ----------
+  // Side faces (|nx| dominant): u = Stock(+Z)->Muzzle(-Z), v = Bottom->Top
+  // Top/Bottom faces (|ny| dominant): u = Stock(+Z)->Muzzle(-Z), v = Left->Right at matched texel density
+  // Front/Rear faces (|nz| dominant): u = Left->Right at matched density, v = Bottom->Top
+  const _uvA = new THREE.Vector3();
+  const _uvB = new THREE.Vector3();
+  const _uvC = new THREE.Vector3();
+  const _uvE1 = new THREE.Vector3();
+  const _uvE2 = new THREE.Vector3();
+  const _uvN = new THREE.Vector3();
+
   function projectWeaponMeshUVs(mesh, bounds) {
     if (!mesh || !mesh.geometry) return mesh;
     mesh.updateMatrix();
-    const geo = mesh.geometry;
+    let geo = mesh.geometry;
+    if (geo.index) {
+      const nonIdx = geo.toNonIndexed();
+      geo.dispose();
+      geo = nonIdx;
+      mesh.geometry = geo;
+    }
     const pos = geo.attributes.position;
+    if (!pos || pos.count < 3) return mesh;
     let uv = geo.attributes.uv;
-    if (!uv) {
+    if (!uv || uv.count !== pos.count) {
       uv = new THREE.BufferAttribute(new Float32Array(pos.count * 2), 2);
       geo.setAttribute('uv', uv);
     }
-    const spanZ = Math.max(1e-5, bounds.maxZ - bounds.minZ);
-    const spanY = Math.max(1e-5, bounds.maxY - bounds.minY);
+    const spanZ = Math.max(1e-4, bounds.maxZ - bounds.minZ);
+    const spanY = Math.max(1e-4, bounds.maxY - bounds.minY);
     const mat = mesh.matrix;
-    for (let i = 0; i < pos.count; i++) {
-      _uvProjVec.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(mat);
-      const u = Math.max(0.002, Math.min(0.998, (bounds.maxZ - _uvProjVec.z) / spanZ));
-      const v = Math.max(0.002, Math.min(0.998, (_uvProjVec.y - bounds.minY) / spanY));
-      uv.setXY(i, u, v);
+    const clampUV = (val) => Math.max(0.012, Math.min(0.988, val));
+
+    for (let i = 0; i < pos.count; i += 3) {
+      if (i + 2 >= pos.count) break;
+      _uvA.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(mat);
+      _uvB.set(pos.getX(i + 1), pos.getY(i + 1), pos.getZ(i + 1)).applyMatrix4(mat);
+      _uvC.set(pos.getX(i + 2), pos.getY(i + 2), pos.getZ(i + 2)).applyMatrix4(mat);
+
+      _uvE1.subVectors(_uvB, _uvA);
+      _uvE2.subVectors(_uvC, _uvA);
+      _uvN.crossVectors(_uvE1, _uvE2);
+
+      const ax = Math.abs(_uvN.x);
+      const ay = Math.abs(_uvN.y);
+      const az = Math.abs(_uvN.z);
+
+      const verts = [_uvA, _uvB, _uvC];
+      for (let k = 0; k < 3; k++) {
+        const p = verts[k];
+        let u, v;
+        if (ax >= ay && ax >= az) {
+          // Play-side / off-side faces: classic full-length projection
+          u = (bounds.maxZ - p.z) / spanZ;
+          v = (p.y - bounds.minY) / spanY;
+        } else if (ay >= ax && ay >= az) {
+          // Top dust cover / upper receiver / under-handguard: map X smoothly across V band (centered around upper body)
+          u = (bounds.maxZ - p.z) / spanZ;
+          v = 0.62 + (p.x / spanY);
+        } else {
+          // Front / rear faces: map X along U at matched vertical density so no edge lines ever smear
+          u = 0.50 + (p.x / spanZ);
+          v = (p.y - bounds.minY) / spanY;
+        }
+        uv.setXY(i + k, clampUV(u), clampUV(v));
+      }
     }
     uv.needsUpdate = true;
+    geo.computeVertexNormals();
     return mesh;
+  }
+
+  // ---------- 3D StatTrak™ Glowing Digital LED Kill Counter Module ----------
+  function paintStatTrakCanvas(ctx, kills) {
+    const w = ctx.canvas.width;
+    const h = ctx.canvas.height;
+    ctx.fillStyle = '#07090e';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(255, 138, 36, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(2, 2, w - 4, h - 4);
+    const digits = String(Math.max(0, Math.min(999999, Math.floor(Number(kills) || 0)))).padStart(6, '0');
+    // Subtle dark ghost segments
+    ctx.font = 'bold 28px "JetBrains Mono", "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255, 120, 24, 0.14)';
+    ctx.fillText('888888', w * 0.5, h * 0.54);
+    // Glowing amber LED readout
+    ctx.shadowColor = '#ff7b1c';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#ff9a32';
+    ctx.fillText(digits, w * 0.5, h * 0.54);
+    ctx.shadowBlur = 0;
+  }
+
+  function createStatTrakModule(kills) {
+    const grp = new THREE.Group();
+    grp.name = 'statTrakModule';
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x151a22, roughness: 0.42, metalness: 0.72 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xc96218, roughness: 0.34, metalness: 0.65 });
+    const housing = new THREE.Mesh(new THREE.BoxGeometry(0.0085, 0.0175, 0.038), bodyMat);
+    const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.0092, 0.0145, 0.034), trimMat);
+    const canvas = document.createElement('canvas');
+    canvas.width = 160;
+    canvas.height = 56;
+    const ctx = canvas.getContext('2d');
+    paintStatTrakCanvas(ctx, kills);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const screenMat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.031, 0.0115), screenMat);
+    screen.rotation.y = -Math.PI / 2;
+    screen.position.x = -0.0049;
+    grp.add(housing, bezel, screen);
+    grp.userData.updateCount = (nextKills) => {
+      paintStatTrakCanvas(ctx, nextKills);
+      tex.needsUpdate = true;
+    };
+    return grp;
   }
 
   // ---------- True Sharpened Bevel Blade Loft Geometry Builder ----------
@@ -205,6 +302,7 @@
     getProceduralTexSize,
     normalizeGeometryUVs,
     projectWeaponMeshUVs,
+    createStatTrakModule,
     buildSharpenedBladeGeometry,
     disposeGroupResources
   });

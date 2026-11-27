@@ -466,6 +466,9 @@
       const side = handGroup.userData.side;
       const names = ['index', 'middle', 'ring', 'pinky'];
       const wrapW = pose.wrapGrip || 0;
+      const hiltWrapW = pose.hiltWrap || 0;
+      const gunWrapW = pose.gunWrap || 0;
+      const pinchW = pose.shellPinch || 0;
       for (const nm of names) {
         const c = pose[nm] !== undefined ? pose[nm] : 0.85;
         const j = f[nm];
@@ -474,9 +477,6 @@
         let pipX = -0.06 - c * 1.28;
         let dipX = -0.04 - c * 0.82;
         if (wrapW > 0 && nm !== 'index') {
-          // Surface-accurate C-wrap around knife handle seated in fist pocket (y=-0.0325, z=-0.0453):
-          // proximal stays ABOVE handle, middle passes cleanly IN FRONT of handle (clearing finger radius),
-          // distal curls cleanly BENEATH/OUTSIDE the handle with zero mesh penetration!
           const w = wrapW * c;
           const wrapMcp = nm === 'pinky' ? -0.04 : nm === 'ring' ? -0.30 : -0.36;
           const wrapPip = nm === 'pinky' ? -1.26 : nm === 'ring' ? -1.26 : -1.24;
@@ -485,6 +485,37 @@
           pipX = THREE.MathUtils.lerp(pipX, wrapPip, w);
           dipX = THREE.MathUtils.lerp(dipX, wrapDip, w);
         }
+        if (hiltWrapW > 0) {
+          // Firm anatomical C-wrap closing all 4 fingers tightly around cylindrical Katana tsuka hilt
+          const w = hiltWrapW;
+          const hMcp = nm === 'index' ? -0.92 : nm === 'middle' ? -1.04 : nm === 'ring' ? -1.08 : -1.02;
+          const hPip = nm === 'index' ? -1.32 : nm === 'middle' ? -1.38 : nm === 'ring' ? -1.36 : -1.28;
+          const hDip = nm === 'index' ? -0.78 : nm === 'middle' ? -0.84 : nm === 'ring' ? -0.80 : -0.72;
+          mcpX = THREE.MathUtils.lerp(mcpX, hMcp, w);
+          pipX = THREE.MathUtils.lerp(pipX, hPip, w);
+          dipX = THREE.MathUtils.lerp(dipX, hDip, w);
+        }
+        if (gunWrapW > 0) {
+          // Tight pistol-grip / foregrip curl: middle, ring, pinky wrap firmly around grip backstrap/frontstrap;
+          // index finger curves naturally onto trigger guard
+          const w = gunWrapW;
+          const gMcp = nm === 'index' ? -0.46 : nm === 'middle' ? -0.98 : nm === 'ring' ? -1.06 : -1.04;
+          const gPip = nm === 'index' ? -0.68 : nm === 'middle' ? -1.34 : nm === 'ring' ? -1.36 : -1.30;
+          const gDip = nm === 'index' ? -0.44 : nm === 'middle' ? -0.82 : nm === 'ring' ? -0.82 : -0.76;
+          mcpX = THREE.MathUtils.lerp(mcpX, gMcp, w);
+          pipX = THREE.MathUtils.lerp(pipX, gPip, w);
+          dipX = THREE.MathUtils.lerp(dipX, gDip, w);
+        }
+        if (pinchW > 0) {
+          // Precision thumb-index-middle pinch for inserting shotgun shells or gripping speedloader knob
+          const w = pinchW;
+          const pMcp = nm === 'index' ? -0.62 : nm === 'middle' ? -0.74 : -1.05;
+          const pPip = nm === 'index' ? -0.78 : nm === 'middle' ? -0.88 : -1.24;
+          const pDip = nm === 'index' ? -0.52 : nm === 'middle' ? -0.58 : -0.72;
+          mcpX = THREE.MathUtils.lerp(mcpX, pMcp, w);
+          pipX = THREE.MathUtils.lerp(pipX, pPip, w);
+          dipX = THREE.MathUtils.lerp(dipX, pDip, w);
+        }
         j.mcp.rotation.x = mcpX;
         j.mcp.rotation.y = side * spread * (1 - c * 0.7);
         j.pip.rotation.x = pipX;
@@ -492,10 +523,6 @@
       }
       if (pose.indexRingHook) {
         const h = pose.indexRingHook;
-        // Exact fist-pocket spindle lock: at h=1, mcp(-1.50) + pip(-0.0708) = -PI/2 so
-        // the index middle phalanx runs dead-vertical along -Y at (-0.0270, -0.0309..-0.0529, -0.0453),
-        // threading squarely through the Karambit ring & Skeleton hole while middle/ring/pinky
-        // wrap cleanly AROUND the outside of the handle with zero clipping!
         f.index.mcp.rotation.x = THREE.MathUtils.lerp(f.index.mcp.rotation.x, -1.50, h);
         f.index.mcp.rotation.y = THREE.MathUtils.lerp(f.index.mcp.rotation.y, 0.0, h);
         f.index.pip.rotation.x = THREE.MathUtils.lerp(f.index.pip.rotation.x, -0.0708, h);
@@ -509,8 +536,6 @@
       }
       const tc = pose.thumb !== undefined ? pose.thumb : 0.8;
       if (wrapW > 0) {
-        // CS2 Karambit / Skeleton thumb sits cleanly along the outside left flank of the fist
-        // (resting beside the index knuckle/ring, never stabbing inside the knife handle)
         const baseCmcX = -0.18 - tc * 0.34;
         const baseCmcY = -side * (0.28 + tc * 0.42);
         const baseCmcZ = side * (0.35 + tc * 0.48);
@@ -525,6 +550,11 @@
           0
         );
         f.thumb.ip.rotation.set(THREE.MathUtils.lerp(-0.06 - tc * 0.58, -0.22, wrapW), 0, 0);
+      } else if (hiltWrapW > 0) {
+        // Thumb locks firmly across upper side of Katana tsuka opposing the curled fingers
+        f.thumb.cmc.rotation.set(-0.44, -side * 0.62, side * 0.72);
+        f.thumb.mcp.rotation.set(-0.56, -side * 0.16, 0);
+        f.thumb.ip.rotation.set(-0.52, 0, 0);
       } else {
         f.thumb.cmc.rotation.set(
           -0.18 - tc * 0.34,
@@ -679,6 +709,53 @@
     reloadBulletGroup.visible = false;
     leftHand.add(reloadBulletGroup);
 
+    // Single 12-gauge shell / .45-70 brass slug gripped in left thumb+index for M870 & LV-45 shell-by-shell tube loading
+    const reloadSingleShellGroup = new THREE.Group();
+    reloadSingleShellGroup.position.set(0.010, -0.022, -0.056);
+    reloadSingleShellGroup.rotation.set(0.14, 0.10, -0.12);
+    const singleHull = new THREE.Mesh(new THREE.CylinderGeometry(0.0088, 0.0088, 0.042, 10), shellHullMat);
+    singleHull.rotation.x = Math.PI / 2;
+    singleHull.position.set(0, 0, -0.006);
+    const singleBrass = new THREE.Mesh(new THREE.CylinderGeometry(0.0094, 0.0094, 0.014, 10), shellBrassMat);
+    singleBrass.rotation.x = Math.PI / 2;
+    singleBrass.position.set(0, 0, 0.021);
+    const singleRim = new THREE.Mesh(new THREE.CylinderGeometry(0.0104, 0.0104, 0.003, 10), shellBrassMat);
+    singleRim.rotation.x = Math.PI / 2;
+    singleRim.position.set(0, 0, 0.028);
+    reloadSingleShellGroup.add(singleHull, singleBrass, singleRim);
+    reloadSingleShellGroup.visible = false;
+    leftHand.add(reloadSingleShellGroup);
+
+    // 6-Round Tactical Speedloader (HKS-style knurled black alloy body + twist release knob + 6 gleaming .500 rounds) for R-88 Empty Reload!
+    const reloadSpeedloaderGroup = new THREE.Group();
+    reloadSpeedloaderGroup.position.set(0.010, -0.024, -0.054);
+    reloadSpeedloaderGroup.rotation.set(0.16, 0.06, -0.08);
+    const slBodyMat = new THREE.MeshStandardMaterial({ color: 0x161c24, roughness: 0.42, metalness: 0.72 });
+    const slKnobMat = new THREE.MeshStandardMaterial({ color: 0x3b4856, roughness: 0.30, metalness: 0.84 });
+    const slBody = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.020, 14), slBodyMat);
+    slBody.rotation.x = Math.PI / 2;
+    slBody.position.set(0, 0, 0.024);
+    const slKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.012, 0.016, 10), slKnobMat);
+    slKnob.rotation.x = Math.PI / 2;
+    slKnob.position.set(0, 0, 0.041);
+    const slRing = new THREE.Mesh(new THREE.TorusGeometry(0.0242, 0.0018, 6, 16), new THREE.MeshBasicMaterial({ color: 0xffa630 }));
+    slRing.position.set(0, 0, 0.020);
+    reloadSpeedloaderGroup.add(slBody, slKnob, slRing);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const rx = Math.cos(a) * 0.0145;
+      const ry = Math.sin(a) * 0.0145;
+      const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.0056, 0.0056, 0.032, 8), revCaseMat);
+      sc.rotation.x = Math.PI / 2;
+      sc.position.set(rx, ry, -0.002);
+      const sn = new THREE.Mesh(new THREE.ConeGeometry(0.0054, 0.012, 8), revTipMat);
+      sn.rotation.x = -Math.PI / 2;
+      sn.position.set(rx, ry, -0.024);
+      reloadSpeedloaderGroup.add(sc, sn);
+    }
+    reloadSpeedloaderGroup.visible = false;
+    leftHand.add(reloadSpeedloaderGroup);
+
     setHandPose(leftHand, { index: 0.64, middle: 0.74, ring: 0.82, pinky: 0.88, thumb: 0.56 });
 
     rootRig.add(rightHandPivot);
@@ -696,6 +773,8 @@
       knifeSocket,
       reloadShellsGroup,
       reloadBulletGroup,
+      reloadSingleShellGroup,
+      reloadSpeedloaderGroup,
       shellHullMat,
       gloveMaterials,
       setHandPose,

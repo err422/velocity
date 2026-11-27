@@ -388,6 +388,12 @@
           "type": "string",
           "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin"]
         },
+        "statTrak": {
+          "type": "boolean"
+        },
+        "statTrakKills": {
+          "type": "integer"
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"
@@ -571,6 +577,12 @@
         "caseId": {
           "type": "string",
           "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin"]
+        },
+        "statTrak": {
+          "type": "boolean"
+        },
+        "statTrakKills": {
+          "type": "integer"
         },
         "createdAt": {
           "type": "string",
