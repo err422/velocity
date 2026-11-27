@@ -164,7 +164,7 @@
   function classifyPlayerMessage(value) {
     const text = sanitizeMessage(value).toLowerCase();
     if (!text) return 'empty';
-    if (/\b(who'?s winning|who is winning|what'?s the score|whats the score|scoreboard|who'?s up|who is up|who'?s leading)\b/.test(text)) return 'score_query';
+    if (/\b(score|scoreboard|who'?s winning|who is winning|what'?s the score|whats the score|who'?s up|who is up|who'?s leading|how are we doing)\b/.test(text)) return 'score_query';
     if (/\b(hi|hey|hello|yo|sup|glhf|whats up|what's up)\b/.test(text)) return 'greeting';
     if (/\b(gg|ggs|wp|well played|nice shot|nice)\b/.test(text)) return 'gg';
     if (/\b(cope|excuse|ping|lag|hacks|cheating|broken|unfair)\b/.test(text)) return 'excuse';
