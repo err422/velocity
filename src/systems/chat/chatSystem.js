@@ -63,7 +63,9 @@
   let open = false;
   let initialized = false;
   let messages = [];
+  let messagesVisible = false;
   let container = null;
+  let mobileButton = null;
   let messageList = null;
   let composer = null;
   let input = null;
@@ -100,6 +102,16 @@
       return root.ArenaCatalog.isValidArenaId(state.mapId);
     }
     return typeof state.mapId === 'string' && state.mapId.indexOf('arena_') === 0;
+  }
+
+  function isGameplayActive() {
+    if (!root.document || !root.document.body) return true;
+    const pageState = root.document.body.dataset ? root.document.body.dataset.state : '';
+    return !pageState || pageState === 'playing';
+  }
+
+  function canInteractWithChat() {
+    return isArenaChatAvailable() && isGameplayActive();
   }
 
   function getBotRoster() {
@@ -173,9 +185,10 @@
     const active = isArenaChatAvailable();
     container.classList.toggle('is-active', active);
     container.classList.toggle('is-open', active && open);
-    container.style.display = active && (open || messages.length > 0) ? 'flex' : 'none';
+    container.style.display = active && (open || messagesVisible) ? 'flex' : 'none';
     if (composer) composer.style.display = active && open ? 'flex' : 'none';
     if (hint) hint.style.display = active && !open ? 'block' : 'none';
+    if (mobileButton) mobileButton.style.display = active ? '' : 'none';
     if (!active && open) closeChat(false);
   }
 
@@ -183,9 +196,9 @@
     if (fadeTimer) clearTimeout(fadeTimer);
     fadeTimer = setTimeout(function () {
       fadeTimer = null;
-      if (!open && container) {
-        container.style.display = 'none';
-        if (hint) hint.style.display = 'none';
+      if (!open) {
+        messagesVisible = false;
+        refresh();
       }
     }, MESSAGE_VISIBLE_MS);
   }
@@ -195,6 +208,7 @@
     const text = sanitizeMessage(rawMessage.text);
     if (!text) return false;
     messages.push(makeMessage(rawMessage.uid, rawMessage.name, text, rawMessage.isBot));
+    messagesVisible = true;
     if (messages.length > MAX_HISTORY) messages = messages.slice(-MAX_HISTORY);
     renderMessages();
     refresh();
@@ -203,7 +217,7 @@
   }
 
   function openChat() {
-    if (!isArenaChatAvailable() || !input) return false;
+    if (!canInteractWithChat() || !input) return false;
     if (fadeTimer) {
       clearTimeout(fadeTimer);
       fadeTimer = null;
@@ -234,7 +248,7 @@
   }
 
   function handleDocumentKeydown(event) {
-    if (!event || root.isRebindingInput || !isArenaChatAvailable()) return false;
+    if (!event || root.isRebindingInput || !canInteractWithChat()) return false;
     if (open) {
       if (event.code === 'Enter' || event.key === 'Enter') {
         event.preventDefault();
@@ -386,7 +400,7 @@
     composer = root.document.getElementById('arenaChatComposer');
     input = root.document.getElementById('arenaChatInput');
     hint = root.document.getElementById('arenaChatHint');
-    const mobileButton = root.document.getElementById('mtChatBtn');
+    mobileButton = root.document.getElementById('mtChatBtn');
     if (mobileButton) mobileButton.addEventListener('click', openChat);
     root.document.addEventListener('keydown', handleDocumentKeydown, true);
     refresh();
@@ -400,6 +414,7 @@
     classifyPlayerMessage: classifyPlayerMessage,
     isOpen: function () { return open; },
     isEnabled: isArenaChatAvailable,
+    canInteract: canInteractWithChat,
     open: openChat,
     close: closeChat,
     refresh: refresh,
