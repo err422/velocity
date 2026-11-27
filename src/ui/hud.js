@@ -174,11 +174,12 @@ function renderControlsLegend(){
     [`${f(kb.slotRifle)}-${f(kb.slotDeagle)} / ${f(kb.slotKnife)}`,'Primary · Sec · Melee / Swap'],
     ['5','Deploy Scorestreak'],
     [f(kb.reload),'Reload'],
+    [f(kb.checkpoint),'Previous checkpoint'],
     [f(kb.jump),'Jump / wall jump'],
     [f(kb.slide),'Slide'],
     [f(kb.grapple),'Grapple / Katana Dash (Q)'],
     [f(kb.burst),'Speed burst'],
-    [f(kb.restart),'Restart run'],
+    [f(kb.restart),'Reset run'],
     [f(kb.inspect),'Inspect weapon / knife']
   ];
   menuControlsEl.textContent='';
