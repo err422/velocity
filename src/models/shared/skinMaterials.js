@@ -798,6 +798,57 @@
     });
   }
 
+
+  const WEAPON_UV_ASPECT = Object.freeze({ rifle:3.55, awp:4.48, deagle:1.75, revolver:1.80, smg:2.67, shotgun:5.26, pistol:1.89, famas:3.15, scar:4.08, honeybadger:3.91, mp7:2.52, sawedoff:3.30, leverslug:4.86, dmr:4.08, scout:4.70, g18:1.48, usps:2.50, akimbo:1.76, katana:8.83 });
+  const WEAPON_TEX_BUDGET = 2;
+  function weaponTexDims(type, baseRes) {
+    const uvAspect = WEAPON_UV_ASPECT[type] || 3.5, budget = baseRes * baseRes * WEAPON_TEX_BUDGET;
+    const W = Math.min(2048, Math.max(64, Math.round(Math.sqrt(budget * uvAspect) / 4) * 4));
+    const H = Math.max(64, Math.round(W / uvAspect / 4) * 4);
+    return { W, H, aspect: W / H };
+  }
+  const WEAPON_METAL_BASE = Object.freeze({ fade:225, case_hardened:225, damascus:225, dragon_gold:225, blaze:225, redshift:225, solarflare:225, shogun_gold:225, camo_gold:245, camo_diamond:199, printstream:41 });
+  function paintWeaponDecals(skinId, ctx, bump, W, H, seed) {
+    const stroke = (color, width) => { ctx.strokeStyle = color; ctx.lineWidth = width; };
+    if (skinId === 'crimson_web') {
+      const draw = (c, color, width) => {
+        c.save(); c.strokeStyle=color; c.lineWidth=width;
+        for(let i=0;i<3;i++){
+          const x=(.16+KS.hash2D(seed,i*19+5,211)*.68)*W, y=(.18+KS.hash2D(seed,i*29+9,307)*.64)*H;
+          const n=7+((seed+i)%3), rot=KS.hash2D(seed,i*41,131)*Math.PI*2, r=H*.46;
+          for(let s=0;s<n;s++){const a=rot+s/n*Math.PI*2;c.beginPath();c.moveTo(x,y);c.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r);c.stroke();}
+          for(let k=1;k<=4;k++){const rr=k/4*r;c.beginPath();for(let s=0;s<n;s++){const a=rot+s/n*Math.PI*2,b=rot+(s+1)/n*Math.PI*2,m=(a+b)/2;if(!s)c.moveTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr);c.quadraticCurveTo(x+Math.cos(m)*rr*.88,y+Math.sin(m)*rr*.88,x+Math.cos(b)*rr,y+Math.sin(b)*rr);}c.closePath();c.stroke();}
+        } c.restore();
+      };
+      draw(ctx,'rgba(10,8,12,.90)',Math.max(1.3,H/150)); draw(bump,'rgba(62,62,62,.85)',Math.max(1.4,H/145));
+    } else if (skinId === 'printstream') {
+      ctx.save(); stroke('rgba(16,19,25,.90)',Math.max(1.6,H/130));ctx.fillStyle='rgba(16,19,25,.92)';ctx.strokeRect(W*.06,H*.14,W*.88,H*.54);
+      for(const x of [.44,.485,.53]){const y=H*.4,r=H*.05;ctx.lineWidth=Math.max(2,H/90);ctx.beginPath();ctx.moveTo(W*x-r,y-r);ctx.lineTo(W*x+r,y+r);ctx.moveTo(W*x+r,y-r);ctx.lineTo(W*x-r,y+r);ctx.stroke();}
+      for(let i=0;i<14;i++)ctx.fillRect(W*.14+i*.020*H,H*.24,(i%3===0?.012:.006)*H,H*.12);
+      for(let i=0;i<5;i++){const x=W*.74+i*.125*H;ctx.beginPath();ctx.moveTo(x,H*.22);ctx.lineTo(x+.09*H,H*.22);ctx.lineTo(x-.02*H,H*.42);ctx.lineTo(x-.11*H,H*.42);ctx.closePath();ctx.fill();}
+      ctx.beginPath();ctx.arc(W*.28,H*.52,H*.06,0,Math.PI*2);ctx.stroke();ctx.fillRect(W*.40,H*.54,W*.26,H*.022);ctx.restore();
+    } else if (skinId === 'asiimov') {
+      ctx.save();stroke('rgba(20,22,26,.85)',Math.max(1.4,H/150));ctx.beginPath();ctx.moveTo(W*.08,H*.34);ctx.lineTo(W*.48,H*.34);ctx.lineTo(W*.60,H*.52);ctx.lineTo(W*.92,H*.52);ctx.stroke();
+      stroke('rgba(252,108,22,.96)',Math.max(1.8,H/110));ctx.beginPath();ctx.arc(W*.48,H*.44,H*.05,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(252,108,22,.96)';
+      for(let i=0;i<6;i++)ctx.fillRect(W*.14+i*.085*H,H*.62,.04*H,.044*H);ctx.fillStyle='rgba(18,20,24,.94)';
+      for(let i=0;i<4;i++){const x=W*.64+i*.16*H;ctx.beginPath();ctx.moveTo(x,H*.20);ctx.lineTo(x+.09*H,H*.20);ctx.lineTo(x+.02*H,H*.30);ctx.lineTo(x-.07*H,H*.30);ctx.closePath();ctx.fill();}ctx.restore();
+    } else if (skinId === 'neon_rider') {
+      ctx.save();const x=W*.52,y=H*.44,r=H*.19,g=ctx.createRadialGradient(x,y,r*.2,x,y,r*1.45);g.addColorStop(0,'rgba(255,48,204,.55)');g.addColorStop(1,'rgba(255,48,204,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*1.45,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#a028e8';ctx.beginPath();ctx.moveTo(x-r*.72,y+r*.62);ctx.lineTo(x-r*.92,y-r*.12);ctx.lineTo(x-r*.36,y-r*.86);ctx.lineTo(x+r*.52,y-r*.78);ctx.lineTo(x+r*.98,y-r*.10);ctx.lineTo(x+r*.76,y+r*.68);ctx.lineTo(x+r*.05,y+r*.84);ctx.closePath();ctx.fill();
+      stroke('#38f0ff',Math.max(1.8,H/130));ctx.stroke();ctx.fillStyle='#0e1630';ctx.fillRect(x-r*.2,y-r*.2,r*1.05,r*.4);ctx.fillStyle='#38f6ff';ctx.fillRect(x-r*.1,y-r*.12,r*.85,r*.13);
+      stroke('rgba(56,246,255,.9)',Math.max(2,H/110));for(let i=0;i<4;i++){const yy=y-r*.45+i*r*.32;ctx.beginPath();ctx.moveTo(x-r,yy);ctx.lineTo(x-r*(1.8+(i%2)*.45),yy+H*.02);ctx.stroke();}ctx.restore();
+    } else if (skinId === 'dragon_gold') {
+      ctx.save();stroke('rgba(255,224,102,.92)',Math.max(2.2,H/90));ctx.beginPath();ctx.moveTo(W*.08,H*.48);ctx.bezierCurveTo(W*.28,H*.20,W*.52,H*.74,W*.76,H*.36);ctx.quadraticCurveTo(W*.86,H*.24,W*.94,H*.40);ctx.stroke();stroke('rgba(255,210,72,.78)',Math.max(1.5,H/140));ctx.strokeRect(W*.04,H*.14,W*.92,H*.68);ctx.restore();
+    } else if (skinId === 'redline') {
+      ctx.save();ctx.fillStyle='rgba(238,34,42,.96)';for(let i=0;i<3;i++){const x=W*.64+i*.15*H;ctx.beginPath();ctx.moveTo(x,H*.28);ctx.lineTo(x+.08*H,H*.28);ctx.lineTo(x+.03*H,H*.38);ctx.lineTo(x-.05*H,H*.38);ctx.closePath();ctx.fill();}ctx.restore();
+    } else if (skinId === 'ronin_sakura') {
+      ctx.save();stroke('rgba(28,20,26,.88)',Math.max(2,H/85));ctx.beginPath();ctx.moveTo(W*.06,H*.56);ctx.quadraticCurveTo(W*.36,H*.38,W*.78,H*.28);ctx.stroke();
+      for(let i=0;i<16;i++){const x=(.10+KS.hash2D(seed+3,i*19,317)*.82)*W,y=(.14+KS.hash2D(seed+7,i*29,419)*.70)*H,r=H*(.03+KS.hash2D(seed+11,i*37,503)*.03);ctx.save();ctx.translate(x,y);ctx.fillStyle=i%3===0?'rgba(255,196,224,.94)':'rgba(255,118,178,.92)';for(let p=0;p<5;p++){const a=p/5*Math.PI*2;ctx.beginPath();ctx.ellipse(Math.cos(a)*r*.65,Math.sin(a)*r*.65,r*.55,r*.32,a,0,Math.PI*2);ctx.fill();}ctx.fillStyle='rgba(255,220,110,.95)';ctx.beginPath();ctx.arc(0,0,r*.24,0,Math.PI*2);ctx.fill();ctx.restore();}ctx.restore();
+    } else if (skinId === 'oni_crimson') {
+      ctx.save();const x=W*.52,y=H*.48,r=H*.19;ctx.fillStyle='rgba(18,12,16,.92)';ctx.beginPath();ctx.moveTo(x,y-r);ctx.lineTo(x+r*.85,y-r*.25);ctx.lineTo(x+r*.65,y+r*.82);ctx.lineTo(x,y+r);ctx.lineTo(x-r*.65,y+r*.82);ctx.lineTo(x-r*.85,y-r*.25);ctx.closePath();ctx.fill();stroke('rgba(246,192,74,.95)',Math.max(2,H/100));ctx.stroke();ctx.fillStyle='#ff324d';ctx.fillRect(x-r*.52,y-r*.16,r*.34,r*.16);ctx.fillRect(x+r*.18,y-r*.16,r*.34,r*.16);ctx.fillStyle='#f8f2e4';ctx.beginPath();ctx.moveTo(x-r*.36,y+r*.54);ctx.lineTo(x-r*.24,y+r*.18);ctx.lineTo(x-r*.12,y+r*.54);ctx.moveTo(x+r*.12,y+r*.54);ctx.lineTo(x+r*.24,y+r*.18);ctx.lineTo(x+r*.36,y+r*.54);ctx.fill();ctx.restore();
+    }
+  }
+
   // ---------- Procedural Firearm PBR Skin Painter & Material (Unified Side-Projected UVs) ----------
   function weaponCacheKey(item) {
     const wt = (item && item.weaponType) || 'rifle';
@@ -811,49 +862,51 @@
   // u = 0 -> buttstock / rear of slide, u = 1 -> muzzle / front shroud
   // v = 0 -> lower chassis / frame,     v = 1 -> upper receiver / dust cover / top rail
   function paintWeaponToCanvases(weaponItem, size) {
-    const res = size || getProceduralTexSize();
+    const baseRes = size || getProceduralTexSize();
     const item = KS.sanitizeWeaponItem(weaponItem || KS.createStarterWeapon('rifle'));
-    const key = weaponCacheKey(item) + '_' + res;
+    const key = weaponCacheKey(item) + '_' + baseRes;
+    const { W, H, aspect } = weaponTexDims(item.weaponType, baseRes);
     if (weaponCanvasCache.has(key)) return weaponCanvasCache.get(key);
 
     const albedoCanvas = document.createElement('canvas');
-    albedoCanvas.width = res;
-    albedoCanvas.height = res;
+    albedoCanvas.width = W;
+    albedoCanvas.height = H;
     const actx = albedoCanvas.getContext('2d');
 
     const roughCanvas = document.createElement('canvas');
-    roughCanvas.width = res;
-    roughCanvas.height = res;
+    roughCanvas.width = W;
+    roughCanvas.height = H;
     const rctx = roughCanvas.getContext('2d');
 
     const bumpCanvas = document.createElement('canvas');
-    bumpCanvas.width = res;
-    bumpCanvas.height = res;
+    bumpCanvas.width = W;
+    bumpCanvas.height = H;
     const bctx = bumpCanvas.getContext('2d');
 
     const skinId = item.skinId;
     const seed = item.patternSeed || 0;
     const flt = Math.max(0, Math.min(0.9999, Number(item.floatValue) || 0.09));
     const wearFactor = Math.max(0, Math.min(1, (flt - 0.06) / 0.72));
+    const baseMetal = WEAPON_METAL_BASE[skinId] ?? 87;
     const fadePct = skinId === 'fade' ? (item.bluePct || KS.computeFadePct(seed)) : 92;
     const ox = KS.hash2D(seed, 17, 67) * 10;
     const oy = KS.hash2D(seed, 31, 97) * 10;
 
-    const aImg = actx.createImageData(res, res);
-    const rImg = rctx.createImageData(res, res);
-    const bImg = bctx.createImageData(res, res);
+    const aImg = actx.createImageData(W, H);
+    const rImg = rctx.createImageData(W, H);
+    const bImg = bctx.createImageData(W, H);
     const ad = aImg.data;
     const rd = rImg.data;
     const bd = bImg.data;
 
-    for (let py = 0; py < res; py++) {
+    for (let py = 0; py < H; py++) {
       // Canvas Y=0 is top of image -> v=1 is top of weapon when CanvasTexture flipY=true!
-      const v = 1 - py / (res - 1);
-      for (let px = 0; px < res; px++) {
-        const u = px / (res - 1);
-        const idx = (py * res + px) * 4;
+      const v = 1 - py / (H - 1);
+      for (let px = 0; px < W; px++) {
+        const u = px / (W - 1);
+        const idx = (py * W + px) * 4;
         const micro = KS.fbm2D(u * 24, v * 24, seed + 13, 2);
-        let r = 46, g = 54, b = 64, rough = 126, bump = 128;
+        let r = 46, g = 54, b = 64, rough = 126, bump = 128, metal = baseMetal;
 
         if (skinId === 'factory_slate') {
           const brush = KS.fbm2D(u * 54, v * 10, 7, 2);
@@ -1262,18 +1315,24 @@
           bump = 112 + core * 54;
         }
 
-        // Authentic edge-weighted float wear scuffing
+        const smudge = KS.fbm2D(u * aspect * 9 + 7.1, v * 9 + 3.3, seed + 601, 2) - 0.5;
+        const grainN = KS.fbm2D(u * aspect * 100, v * 100, seed + 733, 1) - 0.5;
+        rough += smudge * 40 + grainN * 16;
+        bump += grainN * 14;
+
         if (wearFactor > 0.02 && skinId !== 'factory_slate') {
-          const sc = KS.fbm2D(u * 15 + 1.9, v * 15 + 4.3, seed + 521, 3);
+          const sc = KS.fbm2D(u * aspect * 10 + 1.9, v * 10 + 4.3, seed + 521, 3);
           const edgeMask = (v > 0.80 || v < 0.20 || u > 0.84) ? 0.32 : 0.0;
           const thresh = 0.88 - wearFactor * 0.58 - edgeMask * wearFactor * 0.40;
           if (sc > thresh) {
             const k = Math.min(1, (sc - thresh) * 4.6);
-            r = r * (1 - k) + 96 * k;
-            g = g * (1 - k) + 102 * k;
-            b = b * (1 - k) + 110 * k;
-            rough = Math.min(242, rough + k * 90);
+            r = r * (1 - k) + 168 * k; g = g * (1 - k) + 172 * k; b = b * (1 - k) + 178 * k;
+            rough = rough * (1 - k) + 92 * k;
+            metal = metal * (1 - k) + 255 * k;
             bump = Math.max(28, bump - k * 56);
+          } else if (sc > thresh - 0.06) {
+            const dim = 1 - 0.35 * ((sc - (thresh - 0.06)) / 0.06);
+            r *= dim; g *= dim; b *= dim;
           }
         }
 
@@ -1282,8 +1341,8 @@
         ad[idx + 2] = Math.max(0, Math.min(255, Math.round(b)));
         ad[idx + 3] = 255;
 
-        const rv = Math.max(18, Math.min(245, Math.round(rough)));
-        rd[idx] = rv; rd[idx + 1] = rv; rd[idx + 2] = rv; rd[idx + 3] = 255;
+        const rv = Math.max(30, Math.min(245, Math.round(rough)));
+        rd[idx] = 255; rd[idx + 1] = rv; rd[idx + 2] = Math.max(0, Math.min(255, Math.round(metal))); rd[idx + 3] = 255;
 
         const bv = Math.max(0, Math.min(255, Math.round(bump)));
         bd[idx] = bv; bd[idx + 1] = bv; bd[idx + 2] = bv; bd[idx + 3] = 255;
@@ -1294,274 +1353,7 @@
     rctx.putImageData(rImg, 0, 0);
     bctx.putImageData(bImg, 0, 0);
 
-    // High-resolution vector decals & CS2 artwork overlays!
-    if (skinId === 'crimson_web') {
-      const drawWpnWebs = (ctx2d, style, lw) => {
-        ctx2d.save();
-        ctx2d.strokeStyle = style;
-        ctx2d.lineWidth = lw;
-        for (let i = 0; i < 3; i++) {
-          const cx = (0.16 + KS.hash2D(seed, i * 19 + 5, 211) * 0.68) * res;
-          const cy = (0.18 + KS.hash2D(seed, i * 29 + 9, 307) * 0.64) * res;
-          const spokes = 7 + ((seed + i) % 3);
-          const rot = KS.hash2D(seed, i * 41, 131) * Math.PI * 2;
-          const maxR = res * 0.42;
-          for (let s = 0; s < spokes; s++) {
-            const ang = rot + (s / spokes) * Math.PI * 2;
-            ctx2d.beginPath();
-            ctx2d.moveTo(cx, cy);
-            ctx2d.lineTo(cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR);
-            ctx2d.stroke();
-          }
-          for (let ring = 1; ring <= 4; ring++) {
-            const rr = (ring / 4) * maxR;
-            ctx2d.beginPath();
-            for (let s = 0; s < spokes; s++) {
-              const a0 = rot + (s / spokes) * Math.PI * 2;
-              const a1 = rot + ((s + 1) / spokes) * Math.PI * 2;
-              const am = (a0 + a1) * 0.5;
-              if (s === 0) ctx2d.moveTo(cx + Math.cos(a0) * rr, cy + Math.sin(a0) * rr);
-              ctx2d.quadraticCurveTo(cx + Math.cos(am) * rr * 0.88, cy + Math.sin(am) * rr * 0.88, cx + Math.cos(a1) * rr, cy + Math.sin(a1) * rr);
-            }
-            ctx2d.closePath();
-            ctx2d.stroke();
-          }
-        }
-        ctx2d.restore();
-      };
-      drawWpnWebs(actx, 'rgba(10, 8, 12, 0.90)', Math.max(1.3, res / 165));
-      drawWpnWebs(bctx, 'rgba(62, 62, 62, 0.85)', Math.max(1.4, res / 160));
-    } else if (skinId === 'printstream') {
-      // Iconic CS2 Printstream vector marks: X-crosses, sharp diagonal slashes, barcode telemetry, clean border frame
-      actx.save();
-      const s = res;
-      actx.strokeStyle = 'rgba(16, 19, 25, 0.90)';
-      actx.fillStyle = 'rgba(16, 19, 25, 0.92)';
-      actx.lineWidth = Math.max(1.6, s / 160);
-      // Technical outer panel frame
-      actx.strokeRect(s * 0.06, s * 0.14, s * 0.88, s * 0.54);
-      // Iconic bold X-X-X cross badges across receiver center
-      const drawX = (cx, cy, r) => {
-        actx.lineWidth = Math.max(2.2, s / 110);
-        actx.beginPath();
-        actx.moveTo(cx - r, cy - r); actx.lineTo(cx + r, cy + r);
-        actx.moveTo(cx + r, cy - r); actx.lineTo(cx - r, cy + r);
-        actx.stroke();
-      };
-      drawX(s * 0.44, s * 0.40, s * 0.032);
-      drawX(s * 0.53, s * 0.40, s * 0.032);
-      drawX(s * 0.62, s * 0.40, s * 0.032);
-      // Crisp vertical telemetry barcode strip
-      for (let i = 0; i < 14; i++) {
-        const bw = (i % 3 === 0 ? 0.008 : 0.004) * s;
-        actx.fillRect(s * (0.14 + i * 0.013), s * 0.24, bw, s * 0.12);
-      }
-      // Precision diagonal slash vents near muzzle
-      for (let i = 0; i < 5; i++) {
-        actx.beginPath();
-        actx.moveTo(s * (0.74 + i * 0.032), s * 0.22);
-        actx.lineTo(s * (0.765 + i * 0.032), s * 0.22);
-        actx.lineTo(s * (0.735 + i * 0.032), s * 0.42);
-        actx.lineTo(s * (0.710 + i * 0.032), s * 0.42);
-        actx.closePath();
-        actx.fill();
-      }
-      // Subtle geometric target circle + micro dots
-      actx.lineWidth = Math.max(1.4, s / 190);
-      actx.beginPath();
-      actx.arc(s * 0.28, s * 0.52, s * 0.042, 0, Math.PI * 2);
-      actx.stroke();
-      actx.fillRect(s * 0.40, s * 0.54, s * 0.26, s * 0.022);
-      actx.restore();
-    } else if (skinId === 'asiimov') {
-      // Crisp CS2 Asiimov sci-fi micro-markings, hazard ticks, and precision panel seams
-      actx.save();
-      const s = res;
-      actx.strokeStyle = 'rgba(20, 22, 26, 0.85)';
-      actx.lineWidth = Math.max(1.4, s / 210);
-      // Angled panel seam lines
-      actx.beginPath();
-      actx.moveTo(s * 0.08, s * 0.34); actx.lineTo(s * 0.48, s * 0.34); actx.lineTo(s * 0.60, s * 0.52); actx.lineTo(s * 0.92, s * 0.52);
-      actx.stroke();
-      // Safety-orange crosshair / tactical target pips
-      actx.strokeStyle = 'rgba(252, 108, 22, 0.96)';
-      actx.lineWidth = Math.max(1.8, s / 170);
-      actx.beginPath();
-      actx.arc(s * 0.48, s * 0.44, s * 0.036, 0, Math.PI * 2);
-      actx.stroke();
-      actx.fillStyle = 'rgba(252, 108, 22, 0.96)';
-      for (let i = 0; i < 6; i++) {
-        actx.fillRect(s * (0.14 + i * 0.024), s * 0.62, s * 0.012, s * 0.044);
-      }
-      // Crisp black angled hazard chevrons
-      actx.fillStyle = 'rgba(18, 20, 24, 0.94)';
-      for (let i = 0; i < 4; i++) {
-        actx.beginPath();
-        actx.moveTo(s * (0.64 + i * 0.045), s * 0.20);
-        actx.lineTo(s * (0.665 + i * 0.045), s * 0.20);
-        actx.lineTo(s * (0.645 + i * 0.045), s * 0.30);
-        actx.lineTo(s * (0.620 + i * 0.045), s * 0.30);
-        actx.closePath();
-        actx.fill();
-      }
-      actx.restore();
-    } else if (skinId === 'neon_rider') {
-      // Stylized CS2 Neon Rider retro-synthwave cyber-helmet graphic centerpiece on receiver!
-      actx.save();
-      const s = res;
-      const hx = s * 0.52;
-      const hy = s * 0.44;
-      const hr = s * 0.16;
-      // Glowing magenta outer halo
-      const glow = actx.createRadialGradient(hx, hy, hr * 0.2, hx, hy, hr * 1.45);
-      glow.addColorStop(0, 'rgba(255, 48, 204, 0.55)');
-      glow.addColorStop(1, 'rgba(255, 48, 204, 0.0)');
-      actx.fillStyle = glow;
-      actx.beginPath();
-      actx.arc(hx, hy, hr * 1.45, 0, Math.PI * 2);
-      actx.fill();
-      // Angular helmet shell (hot pink -> deep violet)
-      const hGrad = actx.createLinearGradient(hx - hr, hy - hr, hx + hr, hy + hr);
-      hGrad.addColorStop(0, '#ff4fd8');
-      hGrad.addColorStop(0.55, '#a028e8');
-      hGrad.addColorStop(1, '#1d1448');
-      actx.fillStyle = hGrad;
-      actx.beginPath();
-      actx.moveTo(hx - hr * 0.72, hy + hr * 0.62);
-      actx.lineTo(hx - hr * 0.92, hy - hr * 0.12);
-      actx.lineTo(hx - hr * 0.36, hy - hr * 0.86);
-      actx.lineTo(hx + hr * 0.52, hy - hr * 0.78);
-      actx.lineTo(hx + hr * 0.98, hy - hr * 0.10);
-      actx.lineTo(hx + hr * 0.76, hy + hr * 0.68);
-      actx.lineTo(hx + hr * 0.05, hy + hr * 0.84);
-      actx.closePath();
-      actx.fill();
-      actx.strokeStyle = '#38f0ff';
-      actx.lineWidth = Math.max(1.8, s / 180);
-      actx.stroke();
-      // Razor-sharp electric cyan cyber visor + specular slash
-      actx.fillStyle = '#0e1630';
-      actx.beginPath();
-      actx.moveTo(hx - hr * 0.20, hy - hr * 0.24);
-      actx.lineTo(hx + hr * 0.88, hy - hr * 0.16);
-      actx.lineTo(hx + hr * 0.72, hy + hr * 0.30);
-      actx.lineTo(hx - hr * 0.08, hy + hr * 0.22);
-      actx.closePath();
-      actx.fill();
-      actx.fillStyle = '#38f6ff';
-      actx.beginPath();
-      actx.moveTo(hx - hr * 0.10, hy - hr * 0.14);
-      actx.lineTo(hx + hr * 0.76, hy - hr * 0.08);
-      actx.lineTo(hx + hr * 0.66, hy + hr * 0.06);
-      actx.lineTo(hx - hr * 0.04, hy + hr * 0.02);
-      actx.closePath();
-      actx.fill();
-      // Speed streaks shooting backward from helmet
-      actx.strokeStyle = 'rgba(56, 246, 255, 0.9)';
-      actx.lineWidth = Math.max(2.0, s / 160);
-      for (let i = 0; i < 4; i++) {
-        const ly = hy - hr * 0.45 + i * hr * 0.32;
-        actx.beginPath();
-        actx.moveTo(hx - hr * 1.0, ly);
-        actx.lineTo(hx - hr * (1.8 + (i % 2) * 0.45), ly + s * 0.02);
-        actx.stroke();
-      }
-      actx.restore();
-    } else if (skinId === 'dragon_gold') {
-      // Sweeping golden dragon flame filigree silhouette along receiver
-      actx.save();
-      const s = res;
-      actx.strokeStyle = 'rgba(255, 224, 102, 0.92)';
-      actx.lineWidth = Math.max(2.2, s / 130);
-      actx.beginPath();
-      actx.moveTo(s * 0.08, s * 0.48);
-      actx.bezierCurveTo(s * 0.28, s * 0.20, s * 0.52, s * 0.74, s * 0.76, s * 0.36);
-      actx.quadraticCurveTo(s * 0.86, s * 0.24, s * 0.94, s * 0.40);
-      actx.stroke();
-      // Ornate border lines
-      actx.strokeStyle = 'rgba(255, 210, 72, 0.78)';
-      actx.lineWidth = Math.max(1.5, s / 200);
-      actx.strokeRect(s * 0.04, s * 0.14, s * 0.92, s * 0.68);
-      actx.restore();
-    } else if (skinId === 'redline') {
-      // Crisp micro red speed chevrons along receiver
-      actx.save();
-      const s = res;
-      actx.fillStyle = 'rgba(238, 34, 42, 0.96)';
-      for (let i = 0; i < 3; i++) {
-        const bx = s * (0.64 + i * 0.042);
-        actx.beginPath();
-        actx.moveTo(bx, s * 0.28);
-        actx.lineTo(bx + s * 0.022, s * 0.28);
-        actx.lineTo(bx + s * 0.008, s * 0.38);
-        actx.lineTo(bx - s * 0.014, s * 0.38);
-        actx.closePath();
-        actx.fill();
-      }
-      actx.restore();
-    } else if (skinId === 'ronin_sakura') {
-      // Drifting sakura blossoms & branch silhouette painted cleanly across receiver/blade
-      actx.save();
-      const s = res;
-      actx.strokeStyle = 'rgba(28, 20, 26, 0.88)';
-      actx.lineWidth = Math.max(2.0, s / 120);
-      actx.beginPath();
-      actx.moveTo(s * 0.06, s * 0.56);
-      actx.quadraticCurveTo(s * 0.36, s * 0.38, s * 0.78, s * 0.28);
-      actx.stroke();
-      for (let i = 0; i < 16; i++) {
-        const bx = (0.10 + KS.hash2D(seed + 3, i * 19, 317) * 0.82) * s;
-        const by = (0.14 + KS.hash2D(seed + 7, i * 29, 419) * 0.70) * s;
-        const rad = s * (0.018 + KS.hash2D(seed + 11, i * 37, 503) * 0.018);
-        actx.save();
-        actx.translate(bx, by);
-        actx.fillStyle = i % 3 === 0 ? 'rgba(255, 196, 224, 0.94)' : 'rgba(255, 118, 178, 0.92)';
-        for (let p = 0; p < 5; p++) {
-          const ang = (p / 5) * Math.PI * 2;
-          actx.beginPath();
-          actx.ellipse(Math.cos(ang) * rad * 0.65, Math.sin(ang) * rad * 0.65, rad * 0.55, rad * 0.32, ang, 0, Math.PI * 2);
-          actx.fill();
-        }
-        actx.fillStyle = 'rgba(255, 220, 110, 0.95)';
-        actx.beginPath();
-        actx.arc(0, 0, rad * 0.24, 0, Math.PI * 2);
-        actx.fill();
-        actx.restore();
-      }
-      actx.restore();
-    } else if (skinId === 'oni_crimson') {
-      // Stylized geometric Oni mask emblem on receiver center
-      actx.save();
-      const s = res;
-      const oxC = s * 0.52, oyC = s * 0.48, rC = s * 0.14;
-      actx.fillStyle = 'rgba(18, 12, 16, 0.92)';
-      actx.beginPath();
-      actx.moveTo(oxC, oyC - rC);
-      actx.lineTo(oxC + rC * 0.85, oyC - rC * 0.25);
-      actx.lineTo(oxC + rC * 0.65, oyC + rC * 0.82);
-      actx.lineTo(oxC, oyC + rC);
-      actx.lineTo(oxC - rC * 0.65, oyC + rC * 0.82);
-      actx.lineTo(oxC - rC * 0.85, oyC - rC * 0.25);
-      actx.closePath();
-      actx.fill();
-      actx.strokeStyle = 'rgba(246, 192, 74, 0.95)';
-      actx.lineWidth = Math.max(2.0, s / 145);
-      actx.stroke();
-      // Glowing Oni eyes & fangs
-      actx.fillStyle = '#ff324d';
-      actx.fillRect(oxC - rC * 0.52, oyC - rC * 0.16, rC * 0.34, rC * 0.16);
-      actx.fillRect(oxC + rC * 0.18, oyC - rC * 0.16, rC * 0.34, rC * 0.16);
-      actx.fillStyle = '#f8f2e4';
-      actx.beginPath();
-      actx.moveTo(oxC - rC * 0.36, oyC + rC * 0.54);
-      actx.lineTo(oxC - rC * 0.24, oyC + rC * 0.18);
-      actx.lineTo(oxC - rC * 0.12, oyC + rC * 0.54);
-      actx.moveTo(oxC + rC * 0.12, oyC + rC * 0.54);
-      actx.lineTo(oxC + rC * 0.24, oyC + rC * 0.18);
-      actx.lineTo(oxC + rC * 0.36, oyC + rC * 0.54);
-      actx.fill();
-      actx.restore();
-    }
+    paintWeaponDecals(skinId, actx, bctx, W, H, seed);
 
     const result = { albedoCanvas, roughCanvas, bumpCanvas };
     if (weaponCanvasCache.size > 48) {
@@ -1651,9 +1443,10 @@
       map,
       roughnessMap,
       bumpMap,
+      metalnessMap: roughnessMap,
       bumpScale: sk === 'redline' || sk === 'dragon_gold' || sk === 'damascus' || sk === 'solarflare' || sk === 'tactical_carbon' || sk === 'camo_diamond' || sk === 'camo_gold' ? 0.0034 : 0.0016,
       roughness: sk === 'camo_diamond' ? 0.14 : sk === 'camo_gold' ? 0.20 : isGlossy ? 0.28 : 0.58,
-      metalness: sk === 'camo_gold' ? 0.96 : sk === 'camo_diamond' ? 0.78 : isMetallic ? 0.88 : sk === 'printstream' ? 0.16 : 0.34,
+      metalness: 1,
       clearcoat: isGlossy ? 0.82 : 0.18,
       clearcoatRoughness: sk === 'camo_diamond' || sk === 'holo_prism' ? 0.06 : sk === 'printstream' ? 0.12 : 0.20,
       iridescence: iri,
@@ -1700,10 +1493,8 @@
       // Center-crop a balanced square patch from the procedural albedo canvas so fine camo details stay crisp
       const sw = albedoCanvas.width;
       const sh = albedoCanvas.height;
-      const crop = Math.min(sw, sh) * 0.78;
-      const sx = (sw - crop) * 0.5;
-      const sy = (sh - crop) * 0.5;
-      ctx.drawImage(albedoCanvas, sx, sy, crop, crop, 0, 0, size, size);
+      const cw = sw * 0.78, ch = sh * 0.78;
+      ctx.drawImage(albedoCanvas, (sw - cw) * 0.5, (sh - ch) * 0.5, cw, ch, 0, 0, size, size);
       const url = out.toDataURL('image/png');
       if (weaponSwatchCache.size > 160) {
         const firstKey = weaponSwatchCache.keys().next().value;
