@@ -182,7 +182,7 @@
 
   function refresh() {
     if (!container) return;
-    const active = isArenaChatAvailable();
+    const active = canInteractWithChat();
     container.classList.toggle('is-active', active);
     container.classList.toggle('is-open', active && open);
     container.style.display = active && (open || messagesVisible) ? 'flex' : 'none';
