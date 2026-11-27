@@ -13,7 +13,7 @@
   const thumbCache = new Map();
 
   function skinCacheKey(item) {
-    return `${item.skinId}_${item.patternSeed}_${item.specialTag || ''}_${Math.round((item.floatValue || 0) * 50)}`;
+    return `${item.skinId}_${item.patternSeed}_${item.specialTag || ''}`;
   }
 
   function paintSkinToCanvases(item, size) {
@@ -38,8 +38,6 @@
 
     const skinId = item.skinId || 'vanilla';
     const seed = item.patternSeed || 0;
-    const flt = Math.max(0, Math.min(0.9999, Number(item.floatValue) || 0.08));
-    const wearFactor = Math.max(0, Math.min(1, (flt - 0.05) / 0.72));
     const tag = item.specialTag || '';
 
     const aImg = actx.createImageData(res, res);
@@ -241,23 +239,6 @@
           bump = 112 + grind * 34;
         }
 
-        if (wearFactor > 0.01 && skinId !== 'vanilla') {
-          const scratchNoise = KS.fbm2D(u * 15 + 3.1, v * 15 + 7.4, seed + 313, 3);
-          const edgeMask = Math.max(0, 1 - v * 3.4) * 0.58 + Math.max(0, (u - 0.72) * 2.2) * 0.35;
-          const threshold = 0.88 - wearFactor * 0.62 - edgeMask * wearFactor * 0.45;
-          if (scratchNoise > threshold) {
-            const k = Math.min(1, (scratchNoise - threshold) * 5.2);
-            r = r * (1 - k) + 138 * k;
-            g = g * (1 - k) + 144 * k;
-            b = b * (1 - k) + 152 * k;
-            rough = Math.min(240, rough + k * 95);
-            bump = Math.max(24, bump - k * 58);
-          } else {
-            const dark = 1 - wearFactor * 0.20;
-            r *= dark; g *= dark; b *= dark;
-            rough = Math.min(230, rough + wearFactor * 34);
-          }
-        }
 
         ad[idx] = Math.max(0, Math.min(255, Math.round(r)));
         ad[idx + 1] = Math.max(0, Math.min(255, Math.round(g)));
@@ -351,8 +332,7 @@
     const gt = (item && item.gloveType) || 'standard';
     const sk = (item && item.skinId) || 'tactical_slate';
     const sd = (item && item.patternSeed) || 0;
-    const fl = Math.round(((item && item.floatValue) || 0.08) * 50);
-    return `glv_${gt}_${sk}_${sd}_${fl}`;
+    return `glv_${gt}_${sk}_${sd}`;
   }
 
   function paintGloveToCanvases(gloveItem, size) {
@@ -378,8 +358,6 @@
 
     const skinId = item.skinId;
     const seed = item.patternSeed || 0;
-    const flt = Math.max(0, Math.min(0.9999, Number(item.floatValue) || 0.08));
-    const wearFactor = Math.max(0, Math.min(1, (flt - 0.06) / 0.72));
     const palette = GLOVE_PALETTES[skinId] || GLOVE_PALETTES.tactical_slate;
 
     const aImg = actx.createImageData(res, res);
@@ -631,22 +609,6 @@
         }
 
         // Authentic CS glove wear scuffing along knuckles / edges
-        if (wearFactor > 0.02 && skinId !== 'tactical_slate') {
-          const scuff = KS.fbm2D(u * 14 + 2.7, v * 14 + 6.1, seed + 409, 3);
-          const knuckleMask = Math.max(0, 1 - Math.abs(v - 0.25) * 2.8) * 0.55 + 0.22;
-          const thresh = 0.86 - wearFactor * 0.56 - knuckleMask * wearFactor * 0.36;
-          if (scuff > thresh) {
-            const k = Math.min(1, (scuff - thresh) * 4.4);
-            r = r * (1 - k) + 84 * k;
-            g = g * (1 - k) + 82 * k;
-            b = b * (1 - k) + 80 * k;
-            rough = Math.min(248, rough + k * 68);
-            bump = Math.max(32, bump - k * 46);
-          } else {
-            const fadeOut = 1 - wearFactor * 0.15;
-            r *= fadeOut; g *= fadeOut; b *= fadeOut;
-          }
-        }
 
         ad[idx] = Math.max(0, Math.min(255, Math.round(r)));
         ad[idx + 1] = Math.max(0, Math.min(255, Math.round(g)));
@@ -854,8 +816,7 @@
     const wt = (item && item.weaponType) || 'rifle';
     const sk = (item && item.skinId) || 'factory_slate';
     const sd = (item && item.patternSeed) || 0;
-    const fl = Math.round(((item && item.floatValue) || 0.09) * 50);
-    return `wpn_${wt}_${sk}_${sd}_${fl}`;
+    return `wpn_${wt}_${sk}_${sd}`;
   }
 
   // Note on unified weapon UV convention:
@@ -885,8 +846,6 @@
 
     const skinId = item.skinId;
     const seed = item.patternSeed || 0;
-    const flt = Math.max(0, Math.min(0.9999, Number(item.floatValue) || 0.09));
-    const wearFactor = Math.max(0, Math.min(1, (flt - 0.06) / 0.72));
     const baseMetal = WEAPON_METAL_BASE[skinId] ?? 87;
     const fadePct = skinId === 'fade' ? (item.bluePct || KS.computeFadePct(seed)) : 92;
     const ox = KS.hash2D(seed, 17, 67) * 10;
@@ -1320,21 +1279,6 @@
         rough += smudge * 40 + grainN * 16;
         bump += grainN * 14;
 
-        if (wearFactor > 0.02 && skinId !== 'factory_slate') {
-          const sc = KS.fbm2D(u * aspect * 10 + 1.9, v * 10 + 4.3, seed + 521, 3);
-          const edgeMask = (v > 0.80 || v < 0.20 || u > 0.84) ? 0.32 : 0.0;
-          const thresh = 0.88 - wearFactor * 0.58 - edgeMask * wearFactor * 0.40;
-          if (sc > thresh) {
-            const k = Math.min(1, (sc - thresh) * 4.6);
-            r = r * (1 - k) + 168 * k; g = g * (1 - k) + 172 * k; b = b * (1 - k) + 178 * k;
-            rough = rough * (1 - k) + 92 * k;
-            metal = metal * (1 - k) + 255 * k;
-            bump = Math.max(28, bump - k * 56);
-          } else if (sc > thresh - 0.06) {
-            const dim = 1 - 0.35 * ((sc - (thresh - 0.06)) / 0.06);
-            r *= dim; g *= dim; b *= dim;
-          }
-        }
 
         ad[idx] = Math.max(0, Math.min(255, Math.round(r)));
         ad[idx + 1] = Math.max(0, Math.min(255, Math.round(g)));
@@ -1471,19 +1415,16 @@
 
   const weaponSwatchCache = new Map();
 
-  function getWeaponSkinSwatchDataUrl(skinId, patternSeed = 42, floatValue = 0.02) {
+  function getWeaponSkinSwatchDataUrl(skinId, patternSeed = 42) {
     const cleanSkin = KS.WEAPON_SKINS[skinId] ? skinId : 'factory_slate';
     const seed = Math.max(0, Math.min(999, Math.floor(Number(patternSeed) || 0)));
-    const flt = Math.max(0, Math.min(1, Number.isFinite(Number(floatValue)) ? Number(floatValue) : 0.02));
-    const wearBucket = Math.round(flt * 20);
-    const key = `${cleanSkin}|${seed}|${wearBucket}`;
+    const key = `${cleanSkin}|${seed}`;
     if (weaponSwatchCache.has(key)) return weaponSwatchCache.get(key);
     if (typeof document === 'undefined') return '';
     try {
       const { albedoCanvas } = paintWeaponToCanvases({
         skinId: cleanSkin,
-        patternSeed: seed,
-        floatValue: flt
+        patternSeed: seed
       });
       const size = 96;
       const out = document.createElement('canvas');
