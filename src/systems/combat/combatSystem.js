@@ -2658,7 +2658,30 @@
   }
 
   function updateArenaBots(dt, playerState, solidList, movementContext) {
-    if (!playerState || !playerState.isHost || playerState.phase !== 'live' || arenaBotAi.size === 0) return;
+    if (!playerState) return;
+
+    // Netcode's authoritative state is the source of truth for host ownership
+    // and match phase. The render-frame snapshot can lag a transition by one
+    // frame, so don't let that prevent the host AI from starting.
+    const netState = root.NetcodeSystem && typeof root.NetcodeSystem.getState === 'function'
+      ? root.NetcodeSystem.getState()
+      : null;
+    const isHost = Boolean(playerState.isHost || (netState && netState.role === 'host'));
+    const phase = (netState && netState.phase) || playerState.phase;
+    if (!isHost || phase !== 'live') return;
+
+    const roster = Array.isArray(playerState.players) ? playerState.players : [];
+    const botRecords = roster.filter((p) => p && p.isBot && p.alive !== false);
+    if (!botRecords.length) return;
+
+    // Recover missing AI controllers from the authoritative roster. This keeps
+    // bots from becoming inert remote avatars if their visual was created
+    // before the brain registry was populated.
+    if (botRecords.some((p) => !arenaBotAi.has(p.uid))) {
+      syncArenaBots(roster, false);
+    }
+
+    if (arenaBotAi.size === 0) return;
     const BAI = root.BotAISystem;
     if (!BAI || typeof BAI.stepBot !== 'function') return;
 
@@ -2670,7 +2693,6 @@
       ? root.NetcodeSystem.getTacticalLevelData()
       : null;
 
-    const roster = Array.isArray(playerState.players) ? playerState.players : [];
     const rosterByUid = new Map(roster.map((p) => [p.uid, p]));
     const localRec = playerState.uid ? rosterByUid.get(playerState.uid) : null;
     const localTeam = (localRec && localRec.team) || playerState.localTeam || '';
