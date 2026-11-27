@@ -58,6 +58,7 @@ function showMenu(){
     window.MobileControls.updateVisibility({inLevel:false,overlayHidden:false,voting:false});
   }
   document.body.dataset.state='title';
+  if(window.ChatSystem)window.ChatSystem.refresh();
   refreshTodayButton();
   refreshMenuCourseStats();
   renderQuickLoadoutStrips();
@@ -102,6 +103,7 @@ function showPause(){
     window.MobileControls.updateVisibility({inLevel,overlayHidden:false,voting:false});
   }
   document.body.dataset.state='paused';
+  if(window.ChatSystem)window.ChatSystem.refresh();
 }
 
 function isMatchOverVoting(){
@@ -128,6 +130,7 @@ function enter(){
   serversPanelEl.style.display='none';
   if(loadoutsPanelEl)loadoutsPanelEl.style.display='none';
   document.body.dataset.state='playing';
+  if(window.ChatSystem)window.ChatSystem.refresh();
   if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();
   render(0.016);
   renderer.render(scene,camera);
