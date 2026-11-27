@@ -223,7 +223,7 @@ document.addEventListener('pointerlockchange',()=>{
   if(!locked){clearHeldInputs();if(wasLocked)onUnlock(false);}
 });
 document.addEventListener('mousemove',e=>{
-  if(!locked||window.isRebindingInput)return;
+  if(!locked||window.isRebindingInput||(window.ChatSystem&&window.ChatSystem.isOpen()))return;
   const s=getSettings();
   const scopeMul=window.CombatSystem?window.CombatSystem.getScopeSensMultiplier():1;
   const sens=0.0022*s.sensitivity*scopeMul;
@@ -234,6 +234,7 @@ document.addEventListener('mousemove',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(window.isRebindingInput)return;
+  if(window.ChatSystem&&window.ChatSystem.isOpen())return;
   if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
   const activePlay=isActivePlay();
   if(e.code==='Escape'&&activePlay){document.exitPointerLock?.();onUnlock(true);return;}
@@ -259,7 +260,7 @@ document.addEventListener('keyup',e=>{
 // Mouse events report each button independently, including when multiple
 // buttons are held together (e.g. RMB aim + LMB fire).
 document.addEventListener('mousedown',e=>{
-  if(window.isRebindingInput||!isActivePlay())return;
+  if(window.isRebindingInput||(window.ChatSystem&&window.ChatSystem.isOpen())||!isActivePlay())return;
   if(window.MobileControls&&typeof window.MobileControls.wasRecentTouch==='function'&&window.MobileControls.wasRecentTouch(500))return;
   if(e.target&&e.target.closest&&e.target.closest('#arenaScoreboard,#mobileControls,#hudSlotStrip,#hudScorestreak,#devDrawer,#devFloatingToggle'))return;
   const voting=typeof isMatchOverVoting==='function'&&isMatchOverVoting();
