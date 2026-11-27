@@ -266,7 +266,17 @@
     };
   }
 
+  function resetChatSystemsForMatch() {
+    if (root.ChatSystem && typeof root.ChatSystem.resetMatchMemory === 'function') {
+      root.ChatSystem.resetMatchMemory(state.mapId);
+    }
+    if (root.CombatSystem && typeof root.CombatSystem.resetChatObservationTrackers === 'function') {
+      root.CombatSystem.resetChatObservationTrackers();
+    }
+  }
+
   function resetMatchStructures() {
+    resetChatSystemsForMatch();
     state.players.clear();
     state.killFeed = [];
     state.round = 1;
@@ -577,6 +587,7 @@
       roundTimeout = null;
     }
     if (resetScores) {
+      resetChatSystemsForMatch();
       state.round = 1;
       state.matchWinnerUid = null;
       state.matchWinnerName = '';
@@ -681,7 +692,7 @@
     emitState();
   }
 
-  function applyWarmupDamage(damage, botName, weapon, isHeadshot) {
+  function applyWarmupDamage(damage, botName, weapon, isHeadshot, botUid) {
     const isWarmup = state.role === 'warmup' ||
       ((state.role === 'host' || state.role === 'client') && state.phase === 'warmup');
     if (!isWarmup || !state.localAlive || state.localHp <= 0) return false;
@@ -712,7 +723,14 @@
         root.BotAISystem.recordPlayerDeath();
       }
       if (typeof callbacks.onBotEvent === 'function') {
-        callbacks.onBotEvent({ type: 'bot_killed_player', botName: attackerName, playerName: state.localName || 'Runner', weapon: weapon || 'rifle' });
+        callbacks.onBotEvent({
+          type: 'bot_killed_player',
+          botUid: botUid || null,
+          botName: attackerName,
+          playerUid: 'local',
+          playerName: state.localName || 'Runner',
+          weapon: weapon || 'rifle'
+        });
       }
       pushKillFeed(attackerName, state.localName || 'Runner', weapon || 'rifle', isHeadshot);
       showBanner('ELIMINATED', (isHeadshot ? 'HEADSHOT BY ' : 'OUTPLAYED BY ') + attackerName.toUpperCase() + ' · RESPAWNING', 1900);
@@ -802,6 +820,7 @@
       : tally.winnerMapId;
     const mapChanged = nextMapId !== state.mapId;
     state.mapId = nextMapId;
+    resetChatSystemsForMatch();
     if (state.lobby) state.lobby.mapId = nextMapId;
     resetMapVoteState();
 
@@ -827,6 +846,7 @@
     const cleanId = normalizeArenaMapId(mapId, false);
     if (state.role === 'warmup') {
       state.mapId = cleanId;
+      resetChatSystemsForMatch();
       if (typeof callbacks.onMapChange === 'function') callbacks.onMapChange(cleanId);
       emitState();
       return;
@@ -864,6 +884,16 @@
         hostBeginMapVote(roundWinner.uid, roundWinner.name);
       } else {
         const bannerSub = `${roundWinner.name} TAKES ROUND ${state.round}`;
+        if (typeof callbacks.onBotEvent === 'function') {
+          callbacks.onBotEvent({
+            type: 'round_end',
+            round: state.round,
+            roundId: String(state.mapId) + ':' + String(state.round),
+            winnerUid: roundWinner.uid,
+            winnerName: roundWinner.name,
+            winnerIsBot: Boolean(roundWinner.isBot)
+          });
+        }
         broadcastGame({
           t: 'round_won',
           winnerUid: roundWinner.uid,
@@ -989,27 +1019,36 @@
         botUid: attacker.isBot ? attacker.uid : null,
         botName: attacker.isBot ? attacker.name : '',
         botType: attacker.isBot ? attacker.botType : null,
+        playerUid: victim.uid,
         playerName: victim.name
       });
     }
     if (killed && typeof callbacks.onBotEvent === 'function') {
       if (!attacker.isBot && attacker.kills >= 3 && attacker.kills % 3 === 0) {
-        callbacks.onBotEvent({ type: 'player_kill_streak', playerName: attacker.name, totalKills: attacker.kills });
+        callbacks.onBotEvent({
+          type: 'player_kill_streak',
+          playerUid: attacker.uid,
+          playerName: attacker.name,
+          totalKills: attacker.kills
+        });
       }
       if (attacker.isBot && !victim.isBot) {
         callbacks.onBotEvent({
           type: 'bot_killed_player', botUid: attacker.uid, botName: attacker.name,
-          botType: attacker.botType, playerName: victim.name, weapon: slot || 'rifle'
+          botType: attacker.botType, playerUid: victim.uid,
+          playerName: victim.name, weapon: slot || 'rifle'
         });
       } else if (!attacker.isBot && victim.isBot) {
         callbacks.onBotEvent({
           type: 'player_killed_bot', botUid: victim.uid, botName: victim.name,
-          botType: victim.botType, playerName: attacker.name, weapon: slot || 'rifle'
+          botType: victim.botType, playerUid: attacker.uid, attackerUid: attacker.uid,
+          playerName: attacker.name, weapon: slot || 'rifle'
         });
       } else if (attacker.isBot && victim.isBot) {
         callbacks.onBotEvent({
           type: 'bot_killed_bot', botUid: attacker.uid, botName: attacker.name,
-          botType: attacker.botType, victimName: victim.name, killerName: attacker.name
+          botType: attacker.botType, victimUid: victim.uid,
+          victimName: victim.name, killerName: attacker.name
         });
       }
     }
@@ -1544,6 +1583,7 @@
       const nextId = normalizeArenaMapId(msg.mapId, false);
       state.mapId = nextId;
       if (state.lobby) state.lobby.mapId = nextId;
+      resetChatSystemsForMatch();
       resetMapVoteState();
       if (typeof callbacks.onMapChange === 'function') callbacks.onMapChange(nextId);
       emitState();
