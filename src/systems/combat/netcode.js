@@ -879,21 +879,22 @@
         : { scores: { ...scoreMap, [roundWinnerUid]: (scoreMap[roundWinnerUid] || 0) + 1 }, isMatchOver: (roundWinner.score + 1) >= DUEL_WIN_ROUNDS };
       roundWinner.score = duelEval.scores[roundWinnerUid] || (roundWinner.score + 1);
       state.phase = 'round_over';
+      if (typeof callbacks.onBotEvent === 'function') {
+        callbacks.onBotEvent({
+          type: 'round_end',
+          round: state.round,
+          roundId: String(state.mapId) + ':' + String(state.round),
+          winnerUid: roundWinner.uid,
+          winnerName: roundWinner.name,
+          winnerIsBot: Boolean(roundWinner.isBot)
+        });
+      }
 
       if (duelEval.isMatchOver) {
         hostBeginMapVote(roundWinner.uid, roundWinner.name);
       } else {
         const bannerSub = `${roundWinner.name} TAKES ROUND ${state.round}`;
-        if (typeof callbacks.onBotEvent === 'function') {
-          callbacks.onBotEvent({
-            type: 'round_end',
-            round: state.round,
-            roundId: String(state.mapId) + ':' + String(state.round),
-            winnerUid: roundWinner.uid,
-            winnerName: roundWinner.name,
-            winnerIsBot: Boolean(roundWinner.isBot)
-          });
-        }
+
         broadcastGame({
           t: 'round_won',
           winnerUid: roundWinner.uid,
