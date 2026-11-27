@@ -609,30 +609,21 @@
   }
 
   function hostFillLobbyWithBots() {
-    if (state.role !== 'host' || !state.lobby || state.mode !== 'ffa_4p') return false;
-    if (state.phase !== 'warmup' && state.phase !== 'countdown' && state.phase !== 'live') return false;
+    if (state.role !== 'host' || !state.lobby || state.mode !== 'ffa_4p' || state.phase !== 'warmup') return false;
 
-    // If a human is in the middle of joining, retry shortly rather than taking
-    // the seat they are about to occupy.
+    // Never claim a seat while a human peer is still completing its join.
     for (const peer of hostPeers.values()) {
-      if (!peer.joined) {
-        botFillTimer = setTimeout(() => {
-          botFillTimer = null;
-          hostFillLobbyWithBots();
-        }, 5000);
-        return false;
-      }
+      if (!peer.joined) return false;
     }
 
-    const capacity = Math.max(2, Math.min(4, state.lobby.maxPlayers || 2));
+    const capacity = Math.max(2, Math.min(4, state.lobby.maxPlayers || 4));
     const openSlots = Math.max(0, capacity - state.players.size);
     if (openSlots <= 0) return false;
 
     const usedNames = Array.from(state.players.values()).map((player) => player.name);
     const weapons = ['rifle', 'smg', 'awp', 'shotgun'];
-    const added = [];
-    for (let i = 0; i < openSlots; i++) {
-      const botType = i % 4;
+    let added = 0;
+    for (let i = 0; i < capacity && added < openSlots; i++) {
       const uid = `ai_${state.lobby.lobbyId}_${i}`;
       if (state.players.has(uid)) continue;
       const botName = root.BotAISystem && typeof root.BotAISystem.generatePlayerName === 'function'
@@ -642,44 +633,25 @@
       const spawnIdx = findAvailableSpawnIndex();
       const bot = ensurePlayerRecord(uid, botName, spawnIdx);
       bot.isBot = true;
-      bot.botType = botType;
+      bot.botType = i % 4;
       bot.hp = 100;
       bot.alive = true;
-      bot.slot = weapons[botType];
+      bot.slot = weapons[i % weapons.length];
       bot.spawnIdx = spawnIdx;
-      const spawn = getSpawnForIndex(bot.spawnIdx);
+      const spawn = getSpawnForIndex(spawnIdx);
       bot.x = spawn.x;
       bot.y = spawn.y;
       bot.z = spawn.z;
       bot.yaw = spawn.yaw || 0;
-      added.push(bot);
-      if (root.CombatSystem) {
-        root.CombatSystem.upsertRemoteAvatar(uid, {
-          name: bot.name,
-          isBot: true,
-          botType: bot.botType,
-          x: bot.x, y: bot.y, z: bot.z, yaw: bot.yaw,
-          hp: 100, alive: true, slot: bot.slot, snap: true
-        });
-      }
+      added++;
     }
-
-    if (!added.length) return false;
+    if (!added) return false;
     if (root.CombatSystem) {
       root.CombatSystem.setWarmupBotsVisible(false);
       root.CombatSystem.syncArenaBots(serializePlayersList());
     }
-    state.statusText = `AI OPPONENTS JOINED · ${added.length} BOT${added.length === 1 ? '' : 'S'}`;
-    if (state.phase === 'warmup') {
-      hostStartRoundOrMatch(true);
-    } else {
-      // The match may already be live because a second human joined before
-      // the fill timer elapsed. Add the bots to that match without resetting it.
-      broadcastFullSnapshot();
-      syncLobbyMetaNow();
-      emitState();
-    }
-    showBanner('AI OPPONENTS JOINED', `${added.length} BOT${added.length === 1 ? '' : 'S'} ENTERED THE ARENA`, 2200);
+    state.statusText = `AI OPPONENTS JOINED · ${added} BOT${added === 1 ? '' : 'S'}`;
+    showBanner('AI OPPONENTS JOINED', `${added} BOT${added === 1 ? '' : 'S'} ENTERED THE ARENA`, 2200);
     return true;
   }
 
@@ -967,6 +939,11 @@
   // ---------- Host-Authoritative Match Loop ----------
   function hostStartRoundOrMatch(resetScores) {
     if (state.role !== 'host') return;
+    // Fill the remaining FFA seats exactly when the warmup lobby transitions
+    // into a match, rather than relying on a delayed lobby timer.
+    if (state.mode === 'ffa_4p' && state.phase === 'warmup' && state.lobby) {
+      hostFillLobbyWithBots();
+    }
     if (state.mode === 'demolition_5v5') {
       hostStartDemolitionRound(Boolean(resetScores) || !demoMatch);
       return;
