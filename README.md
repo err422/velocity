@@ -4,7 +4,7 @@
 
 VELOCITY is a 3D first-person arena shooter where movement is part of the fight. Build speed, chain movement abilities, take unconventional routes through the map, and use that momentum to win gunfights. Outside of PvP, VELOCITY includes dedicated surf maps, time-trial courses, daily generated runs, and a progression-driven arsenal.
 
-**Play:** [the live game](https://velocity.err422.com) · **Repository:** [err422/velocity](https://github.com/err422/velocity)
+**Repository:** [err422/velocity](https://github.com/err422/velocity)
 
 ---
 
@@ -17,7 +17,7 @@ VELOCITY is a 3D first-person arena shooter where movement is part of the fight.
 - Host or join public/private rooms, including private rooms with short join codes.
 - Peer-to-peer multiplayer using WebRTC data channels, with Firestore-backed lobby discovery and signaling.
 - Arena map voting, scoreboards, kill feed, rematches, and solo bot warmups.
-- Bot opponents for offline practice and warmup matches.
+- Bot opponents for solo practice and warmup matches.
 
 ### Movement
 
@@ -62,10 +62,6 @@ The weapon system is built to support different playstyles without making moveme
 ## Getting started
 
 VELOCITY runs in a modern browser and uses Three.js from a CDN. An internet connection is required to load the game's external dependencies and online services.
-
-### Play the hosted version
-
-Open the [live game](https://velocity.err422.com) in a modern desktop or mobile browser.
 
 ### Run locally
 
@@ -188,4 +184,3 @@ The tests cover systems including arenas, surf courses, daily courses, ghosts, c
 ## Project status
 
 VELOCITY is an actively developed project. Features, balance, maps, weapons, and online systems are still evolving. The repository is the source of truth for the current implementation.
-
