@@ -90,6 +90,7 @@
     killFeed: [] // { id, killer, victim, weapon, headshot, ts }
   };
   const chatLastSentAt = new Map();
+  const remoteChatObservations = new Map();
   let chatSeq = 1;
 
   // WebRTC handles
@@ -266,7 +267,18 @@
     };
   }
 
+  function resetChatSystemsForMatch() {
+    remoteChatObservations.clear();
+    if (root.ChatSystem && typeof root.ChatSystem.resetMatchMemory === 'function') {
+      root.ChatSystem.resetMatchMemory(state.mapId);
+    }
+    if (root.CombatSystem && typeof root.CombatSystem.resetChatObservationTrackers === 'function') {
+      root.CombatSystem.resetChatObservationTrackers();
+    }
+  }
+
   function resetMatchStructures() {
+    resetChatSystemsForMatch();
     state.players.clear();
     state.killFeed = [];
     state.round = 1;
@@ -577,6 +589,7 @@
       roundTimeout = null;
     }
     if (resetScores) {
+      resetChatSystemsForMatch();
       state.round = 1;
       state.matchWinnerUid = null;
       state.matchWinnerName = '';
@@ -681,7 +694,7 @@
     emitState();
   }
 
-  function applyWarmupDamage(damage, botName, weapon, isHeadshot) {
+  function applyWarmupDamage(damage, botName, weapon, isHeadshot, botUid, botType) {
     const isWarmup = state.role === 'warmup' ||
       ((state.role === 'host' || state.role === 'client') && state.phase === 'warmup');
     if (!isWarmup || !state.localAlive || state.localHp <= 0) return false;
@@ -699,7 +712,14 @@
     state.localHp = Math.max(0, state.localHp - cleanDmg);
     const killed = state.localHp <= 0;
     if (!killed && previousHp > 35 && state.localHp <= 35 && typeof callbacks.onBotEvent === 'function') {
-      callbacks.onBotEvent({ type: 'player_low_health', botName: botName || '', playerName: state.localName || 'Runner' });
+      callbacks.onBotEvent({
+        type: 'player_low_health',
+        botUid: botUid || null,
+        botName: botName || '',
+        botType: botType == null ? null : botType,
+        playerUid: 'local',
+        playerName: state.localName || 'Runner'
+      });
     }
     if (killed) {
       state.localAlive = false;
@@ -712,7 +732,15 @@
         root.BotAISystem.recordPlayerDeath();
       }
       if (typeof callbacks.onBotEvent === 'function') {
-        callbacks.onBotEvent({ type: 'bot_killed_player', botName: attackerName, playerName: state.localName || 'Runner', weapon: weapon || 'rifle' });
+        callbacks.onBotEvent({
+          type: 'bot_killed_player',
+          botUid: botUid || null,
+          botName: attackerName,
+          botType: botType == null ? null : botType,
+          playerUid: 'local',
+          playerName: state.localName || 'Runner',
+          weapon: weapon || 'rifle'
+        });
       }
       pushKillFeed(attackerName, state.localName || 'Runner', weapon || 'rifle', isHeadshot);
       showBanner('ELIMINATED', (isHeadshot ? 'HEADSHOT BY ' : 'OUTPLAYED BY ') + attackerName.toUpperCase() + ' · RESPAWNING', 1900);
@@ -802,6 +830,7 @@
       : tally.winnerMapId;
     const mapChanged = nextMapId !== state.mapId;
     state.mapId = nextMapId;
+    resetChatSystemsForMatch();
     if (state.lobby) state.lobby.mapId = nextMapId;
     resetMapVoteState();
 
@@ -827,6 +856,7 @@
     const cleanId = normalizeArenaMapId(mapId, false);
     if (state.role === 'warmup') {
       state.mapId = cleanId;
+      resetChatSystemsForMatch();
       if (typeof callbacks.onMapChange === 'function') callbacks.onMapChange(cleanId);
       emitState();
       return;
@@ -859,11 +889,22 @@
         : { scores: { ...scoreMap, [roundWinnerUid]: (scoreMap[roundWinnerUid] || 0) + 1 }, isMatchOver: (roundWinner.score + 1) >= DUEL_WIN_ROUNDS };
       roundWinner.score = duelEval.scores[roundWinnerUid] || (roundWinner.score + 1);
       state.phase = 'round_over';
+      if (typeof callbacks.onBotEvent === 'function') {
+        callbacks.onBotEvent({
+          type: 'round_end',
+          round: state.round,
+          roundId: String(state.mapId) + ':' + String(state.round),
+          winnerUid: roundWinner.uid,
+          winnerName: roundWinner.name,
+          winnerIsBot: Boolean(roundWinner.isBot)
+        });
+      }
 
       if (duelEval.isMatchOver) {
         hostBeginMapVote(roundWinner.uid, roundWinner.name);
       } else {
         const bannerSub = `${roundWinner.name} TAKES ROUND ${state.round}`;
+
         broadcastGame({
           t: 'round_won',
           winnerUid: roundWinner.uid,
@@ -989,27 +1030,36 @@
         botUid: attacker.isBot ? attacker.uid : null,
         botName: attacker.isBot ? attacker.name : '',
         botType: attacker.isBot ? attacker.botType : null,
+        playerUid: victim.uid,
         playerName: victim.name
       });
     }
     if (killed && typeof callbacks.onBotEvent === 'function') {
       if (!attacker.isBot && attacker.kills >= 3 && attacker.kills % 3 === 0) {
-        callbacks.onBotEvent({ type: 'player_kill_streak', playerName: attacker.name, totalKills: attacker.kills });
+        callbacks.onBotEvent({
+          type: 'player_kill_streak',
+          playerUid: attacker.uid,
+          playerName: attacker.name,
+          totalKills: attacker.kills
+        });
       }
       if (attacker.isBot && !victim.isBot) {
         callbacks.onBotEvent({
           type: 'bot_killed_player', botUid: attacker.uid, botName: attacker.name,
-          botType: attacker.botType, playerName: victim.name, weapon: slot || 'rifle'
+          botType: attacker.botType, playerUid: victim.uid,
+          playerName: victim.name, weapon: slot || 'rifle'
         });
       } else if (!attacker.isBot && victim.isBot) {
         callbacks.onBotEvent({
           type: 'player_killed_bot', botUid: victim.uid, botName: victim.name,
-          botType: victim.botType, playerName: attacker.name, weapon: slot || 'rifle'
+          botType: victim.botType, playerUid: attacker.uid, attackerUid: attacker.uid,
+          playerName: attacker.name, weapon: slot || 'rifle'
         });
       } else if (attacker.isBot && victim.isBot) {
         callbacks.onBotEvent({
           type: 'bot_killed_bot', botUid: attacker.uid, botName: attacker.name,
-          botType: attacker.botType, victimName: victim.name, killerName: attacker.name
+          botType: attacker.botType, victimUid: victim.uid,
+          victimName: victim.name, killerName: attacker.name
         });
       }
     }
@@ -1378,6 +1428,59 @@
     }
   }
 
+  function emitRemotePlayerChatEvent(type, peerUid, player, extra) {
+    if (typeof callbacks.onBotEvent !== 'function' || !player || player.isBot) return false;
+    callbacks.onBotEvent(Object.assign({
+      type,
+      playerUid: peerUid,
+      playerName: player.name || 'Runner'
+    }, extra || {}));
+    return true;
+  }
+
+  function observeRemotePlayerActivity(peerUid, player, msg) {
+    if (!player || player.isBot || state.phase !== 'live') {
+      remoteChatObservations.delete(peerUid);
+      return;
+    }
+    const now = Date.now();
+    const previous = remoteChatObservations.get(peerUid);
+    let speed = 0;
+    let displacement = 0;
+    if (previous) {
+      const elapsed = Math.max(0.01, Math.min(0.5, (now - previous.at) / 1000));
+      const dx = msg.x - previous.x;
+      const dz = msg.z - previous.z;
+      displacement = Math.hypot(dx, dz);
+      speed = displacement / elapsed;
+    }
+    let campSince = previous ? previous.campSince : now;
+    let lastCampEventAt = previous ? previous.lastCampEventAt : 0;
+    let lastMovementEventAt = previous ? previous.lastMovementEventAt : 0;
+
+    if (!previous || displacement >= 0.75 || speed >= 1.2) {
+      campSince = now;
+    } else if (now - campSince >= 12000 && now - lastCampEventAt >= 30000) {
+      emitRemotePlayerChatEvent('player_camping', peerUid, player);
+      lastCampEventAt = now;
+      campSince = now;
+    }
+
+    if (speed >= 20 && now - lastMovementEventAt >= 24000) {
+      emitRemotePlayerChatEvent('impressive_movement', peerUid, player, { speed: Math.round(speed) });
+      lastMovementEventAt = now;
+    }
+
+    remoteChatObservations.set(peerUid, {
+      x: msg.x,
+      z: msg.z,
+      at: now,
+      campSince,
+      lastCampEventAt,
+      lastMovementEventAt
+    });
+  }
+
   function onHostPoseMessage(peerUid, raw) {
     let msg;
     try { msg = JSON.parse(raw); } catch (_) { return; }
@@ -1387,6 +1490,15 @@
     // the authoritative player record instead of creating an untyped avatar.
     if (!rec) return;
     const ct = Number(msg.ct) || 0;
+    if (rec.lastObservedPoseSlot != null && msg.slot &&
+        msg.slot !== rec.lastObservedPoseSlot && !rec.isBot) {
+      emitRemotePlayerChatEvent('player_weapon_switch', peerUid, rec, {
+        weapon: msg.slot,
+        weaponName: msg.slot
+      });
+    }
+    if (msg.slot) rec.lastObservedPoseSlot = msg.slot;
+    observeRemotePlayerActivity(peerUid, rec, msg);
     if (rec) {
       if (msg.slot) rec.slot = msg.slot;
       rec.x = msg.x;
@@ -1544,6 +1656,7 @@
       const nextId = normalizeArenaMapId(msg.mapId, false);
       state.mapId = nextId;
       if (state.lobby) state.lobby.mapId = nextId;
+      resetChatSystemsForMatch();
       resetMapVoteState();
       if (typeof callbacks.onMapChange === 'function') callbacks.onMapChange(nextId);
       emitState();
@@ -1801,6 +1914,7 @@
     try { entry.gameCh && entry.gameCh.close(); } catch (_) {}
     try { entry.pc && entry.pc.close(); } catch (_) {}
     hostPeers.delete(peerUid);
+    remoteChatObservations.delete(peerUid);
     state.players.delete(peerUid);
     if (root.CombatSystem) root.CombatSystem.removeRemoteAvatar(peerUid);
     if (state.lobby && root.DailyBackend) {

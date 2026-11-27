@@ -265,8 +265,26 @@ NetcodeSystem.setCallbacks({
 CombatSystem.setOnWarmupKill((info)=>{
   NetcodeSystem.pushWarmupKill(info.botName,info.weaponId||info.slot,info.isHeadshot);
   if(window.ChatSystem){
-    window.ChatSystem.handleGameEvent({type:'player_killed_bot',botName:info.botName,weapon:info.weaponId||info.slot});
-    if(info.totalKills>=3&&info.totalKills%3===0)window.ChatSystem.handleGameEvent({type:'player_kill_streak',playerName:NetcodeSystem.getState().localName,totalKills:info.totalKills});
+    const session=NetcodeSystem.getState();
+    const playerName=(session&&session.localName)||'Runner';
+    window.ChatSystem.handleGameEvent({
+      type:'player_killed_bot',
+      botUid:info.botUid||null,
+      botName:info.botName,
+      botType:info.botType,
+      playerUid:'local',
+      playerName,
+      weapon:info.weaponId||info.slot,
+      weaponName:info.weaponId||info.slot
+    });
+    if(info.totalKills>=3&&info.totalKills%3===0){
+      window.ChatSystem.handleGameEvent({
+        type:'player_kill_streak',
+        playerUid:'local',
+        playerName,
+        totalKills:info.totalKills
+      });
+    }
   }
   renderArenaHudStatic();
 });

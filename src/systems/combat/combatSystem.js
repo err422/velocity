@@ -549,6 +549,21 @@
   let warmupKills = 0;
   let onWarmupKillCb = null;
 
+  function notifyWarmupBotKilled(bot, weaponId, isHeadshot, extra) {
+    if (!onWarmupKillCb || !bot) return false;
+    onWarmupKillCb(Object.assign({
+      botUid: bot.uid || ('warmup_bot_' + String(bot.index == null ? 0 : bot.index)),
+      botName: bot.name || 'AI BOT',
+      botType: bot.index == null ? null : bot.index,
+      playerUid: 'local',
+      slot: weaponId || 'rifle',
+      weaponId: weaponId || 'rifle',
+      isHeadshot: Boolean(isHeadshot),
+      totalKills: warmupKills
+    }, extra || {}));
+    return true;
+  }
+
   // Remote WebRTC Player Avatars and host-authoritative arena AI.
   const remoteAvatars = new Map();
   const arenaBotAi = new Map();
@@ -798,6 +813,11 @@
     if (root.ViewmodelSystem) {
       root.ViewmodelSystem.setActiveSlot(vmType, playDraw);
     }
+    const switchedBuild = getActiveBuild(valid);
+    emitArenaChatEvent('player_weapon_switch', {
+      weapon: getActiveWeaponType(valid),
+      weaponName: (switchedBuild && switchedBuild.name) || getActiveWeaponType(valid)
+    });
     return true;
   }
 
@@ -1180,7 +1200,7 @@
               isAirOrSurf: Boolean(playerObj && (!playerObj.grounded || playerObj.surfing)),
               isDashKill: true
             });
-            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'katana', weaponId: 'katana', isHeadshot: false, totalKills: warmupKills });
+            notifyWarmupBotKilled(bot, 'katana', false);
           } else {
             triggerHitmarker(false, false);
           }
@@ -1280,7 +1300,7 @@
               distance: hitDist,
               isDeflectKill: true
             });
-            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'katana', weaponId: 'katana', isHeadshot: ud.hitbox === 'head', totalKills: warmupKills });
+            notifyWarmupBotKilled(bot, 'katana', ud.hitbox === 'head');
           } else {
             triggerHitmarker(false, false);
           }
@@ -1553,7 +1573,7 @@
                   distance: b.start.distanceTo(_tmpA),
                   isScorestreakKill: true
                 });
-                if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'railcannon', weaponId: 'railcannon', isHeadshot: false, totalKills: warmupKills });
+                notifyWarmupBotKilled(bot, 'railcannon', false);
               } else {
                 triggerHitmarker(false, false);
               }
@@ -1959,7 +1979,7 @@
             warmupKills += 1;
             triggerHitmarker(false, true);
             recordCombatKill({ weaponId, isBot: true, isHeadshot: false, distance: dist, isScorestreakKill: true });
-            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: weaponId, weaponId, isHeadshot: false, totalKills: warmupKills });
+            notifyWarmupBotKilled(bot, weaponId, false);
           } else {
             triggerHitmarker(false, false);
           }
@@ -2362,6 +2382,8 @@
             yaw
           })
         : { index: i, name: profile.name, profile, visual, hp: 100, alive: true, respawnTimer: 0, pos: new THREE.Vector3(sp.x, sp.y, sp.z), yaw };
+      bot.uid = bot.uid || ('warmup_bot_' + i);
+      bot.index = Number.isFinite(Number(bot.index)) ? Number(bot.index) : i;
       warmupBots.push(bot);
     }
   }
@@ -2509,7 +2531,16 @@
         const finishBonus = Number.isFinite(hp) && hp <= 40 ? Math.min(16, (41 - hp) * 0.42) : 0;
         const chronoBonus = chronoTier > 0 ? 11.0 : 0;
         const currentTargetBonus = bot.targetUid === uid ? 2.5 : 0;
-        const score = distance - finishBonus - chronoBonus - currentTargetBonus;
+        const rivalry = root.ChatSystem && typeof root.ChatSystem.getBotRivalry === 'function'
+          ? root.ChatSystem.getBotRivalry(bot.uid)
+          : null;
+        const humanFocusBonus = !isBot && rivalry
+          ? Math.max(0, (Number(rivalry.aggressionBias) - 1) * 2.0)
+          : 0;
+        const grudgeBonus = !isBot && rivalry && rivalry.grudgeTargetUid === uid
+          ? 7.5 * Math.max(0.8, Math.min(1.35, Number(rivalry.aggressionBias) || 1))
+          : 0;
+        const score = distance - finishBonus - chronoBonus - currentTargetBonus - humanFocusBonus - grudgeBonus;
         if (score < targetScore) {
           targetScore = score;
           target = {
@@ -2556,7 +2587,11 @@
 
       bot.targetUid = target ? target.uid : '';
 
+      const rivalry = root.ChatSystem && typeof root.ChatSystem.getBotRivalry === 'function'
+        ? root.ChatSystem.getBotRivalry(bot.uid)
+        : null;
       BAI.stepBot(bot, dt, {
+        aggressionBias: rivalry ? rivalry.aggressionBias : 1,
         config: movementContext && movementContext.config,
         solids: movementContext && movementContext.solids,
         solidMeshes: solidList,
@@ -2833,7 +2868,10 @@
                 isAirOrSurf: Boolean(o.airborne || o.isSurfing),
                 isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5
               });
-              if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'katana', weaponId: 'katana', isHeadshot: isCrit, totalKills: warmupKills });
+              notifyWarmupBotKilled(bot, 'katana', isCrit, {
+                isAirOrSurf: Boolean(o.airborne || o.isSurfing),
+                isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5
+              });
             } else {
               triggerHitmarker(isCrit, false);
             }
@@ -3281,7 +3319,10 @@
           isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5,
           isScorestreakKill: isScorestreak
         });
-        if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: weaponId, weaponId, isHeadshot: isHead, totalKills: warmupKills });
+        notifyWarmupBotKilled(bot, weaponId, isHead, {
+          isAirOrSurf: Boolean(o.airborne || o.isSurfing),
+          isHighSpeed: (Number(o.moveSpeed) || 0) >= 13.5
+        });
       } else {
         triggerHitmarker(isHead, false);
       }
@@ -3334,6 +3375,72 @@
 
   // ---------- Per-Frame Update (Zero Allocations) ----------
   let animClock = 0;
+  let chatCampSince = 0;
+  let chatCampLastEventAt = 0;
+  let chatMovementLastEventAt = 0;
+  let chatCampPosition = null;
+
+  function emitArenaChatEvent(type, extra) {
+    const chat = root.ChatSystem;
+    const netcode = root.NetcodeSystem;
+    if (!chat || typeof chat.handleGameEvent !== 'function' || !netcode ||
+        typeof netcode.getState !== 'function') return false;
+    let session;
+    try { session = netcode.getState(); } catch (_) { return false; }
+    if (!session || (session.role !== 'warmup' && session.role !== 'host') ||
+        !session.isArena || session.mapId === 'sandbox') return false;
+    return chat.handleGameEvent(Object.assign({
+      type,
+      playerUid: session.role === 'warmup' ? 'local' : session.localUid,
+      playerName: session.localName || 'Runner'
+    }, extra || {}));
+  }
+
+  function resetChatObservationTrackers() {
+    chatCampSince = 0;
+    chatCampLastEventAt = 0;
+    chatMovementLastEventAt = 0;
+    chatCampPosition = null;
+  }
+
+  function updateChatObservations(playerPos) {
+    const netcode = root.NetcodeSystem;
+    const session = netcode && typeof netcode.getState === 'function' ? netcode.getState() : null;
+    const pageState = root.document && root.document.body && root.document.body.dataset
+      ? root.document.body.dataset.state
+      : 'playing';
+    if (!session || (session.role !== 'warmup' && session.role !== 'host') ||
+        !session.isArena || session.mapId === 'sandbox' || pageState !== 'playing' || !playerPos) {
+      chatCampSince = 0;
+      chatCampPosition = null;
+      return;
+    }
+
+    const now = Date.now();
+    const dx = chatCampPosition ? playerPos.x - chatCampPosition.x : Infinity;
+    const dz = chatCampPosition ? playerPos.z - chatCampPosition.z : Infinity;
+    const displacement = Math.hypot(dx, dz);
+    const speed = Number(state.lastPlayerSpeed) || 0;
+    const isStationary = speed < 1.15 && displacement < 0.75;
+
+    if (!isStationary || !chatCampSince) {
+      chatCampSince = now;
+      chatCampPosition = { x: playerPos.x, z: playerPos.z };
+    } else if (now - chatCampSince >= 12000 && now - chatCampLastEventAt >= 30000) {
+      emitArenaChatEvent('player_camping');
+      chatCampLastEventAt = now;
+      chatCampSince = now;
+      chatCampPosition = { x: playerPos.x, z: playerPos.z };
+    }
+
+    const airborneHighSpeed = state.lastPlayerAirborne && speed >= 19;
+    const sustainedHighSpeed = speed >= 27;
+    if ((airborneHighSpeed || sustainedHighSpeed) && now - chatMovementLastEventAt >= 24000) {
+      emitArenaChatEvent('impressive_movement', { speed: Math.round(speed) });
+      chatMovementLastEventAt = now;
+    }
+  }
+
   function update(dt, playerState, solidMeshes, movementContext) {
     const playerPos = playerState && (playerState.position || playerState.pos || playerState);
     const playerAlive = !playerState || playerState.alive !== false;
@@ -3366,6 +3473,7 @@
       state.lastPlayerAirborne = Boolean(!po.grounded || po.surfing);
       state.lastPlayerSpeed = po.vel ? Math.hypot(po.vel.x, po.vel.z) : 0;
     }
+    updateChatObservations(playerPos);
 
     const activeBuild = getActiveBuild(state.activeSlot);
 
@@ -3453,7 +3561,7 @@
             bot.respawnTimer = 4.5;
             bot.visual.group.visible = false;
             warmupKills += 1;
-            if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: 'nuke', weaponId: 'nuke', isHeadshot: false, totalKills: warmupKills });
+            notifyWarmupBotKilled(bot, 'nuke', false);
           }
         }
         if (typeof onNukeEventCb === 'function') {
@@ -3657,7 +3765,11 @@
           }
           continue;
         }
+        const rivalry = root.ChatSystem && typeof root.ChatSystem.getBotRivalry === 'function'
+          ? root.ChatSystem.getBotRivalry(bot.uid)
+          : null;
         BAI.stepBot(bot, dt, {
+          aggressionBias: rivalry ? rivalry.aggressionBias : 1,
           config: movementContext && movementContext.config,
           solids: movementContext && movementContext.solids,
           solidMeshes: botSolids,
@@ -3678,7 +3790,7 @@
                 return;
               }
               if (root.NetcodeSystem && typeof root.NetcodeSystem.applyWarmupDamage === 'function') {
-                root.NetcodeSystem.applyWarmupDamage(damage, bot.name, weapon, Boolean(isHeadshot));
+                root.NetcodeSystem.applyWarmupDamage(damage, bot.name, weapon, Boolean(isHeadshot), bot.uid, bot.index);
               }
             }
           }
@@ -3801,6 +3913,7 @@
     chooseBotMovementIntent,
     setWarmupBotsVisible,
     setOnWarmupKill: (cb) => { onWarmupKillCb = cb; },
+    resetChatObservationTrackers,
     upsertRemoteAvatar,
     updateAvatarChronoVisual,
     updateAvatarGrappleVisual,
