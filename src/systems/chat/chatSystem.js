@@ -43,6 +43,8 @@
     bot_killed_player: 0.58,
     player_killed_bot: 0.54,
     bot_killed_bot: 0.24,
+    player_low_health: 0.48,
+    player_kill_streak: 0.62,
     round_start: 0.28
   };
 
@@ -343,6 +345,22 @@
       pool = personality.killed.concat([playerName + ' got me there', 'ok ' + playerName + ', i see you', 'that was a nasty shot']);
     } else if (event.type === 'bot_killed_bot') {
       pool = [killerName + ' is actually frying', 'someone stop ' + killerName, 'that trade was rough', 'bro just got folded'];
+    } else if (event.type === 'player_low_health') {
+      pool = [
+        playerName + ' is one shot',
+        'careful ' + playerName + ', youre weak',
+        playerName + ' is looking low',
+        'theyre weak, dont let them reset',
+        'someone check ' + playerName + 's hp'
+      ];
+    } else if (event.type === 'player_kill_streak') {
+      pool = [
+        playerName + ' is on a heater',
+        'somebody stop ' + playerName,
+        'ok ' + playerName + ' is frying',
+        playerName + ' needs to chill',
+        'three straight? seriously?'
+      ];
     } else if (event.type === 'round_start') {
       pool = personality.round;
     }
