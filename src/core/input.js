@@ -2,7 +2,7 @@
 // ---------- input ----------
 function getSettings(){
   if(window.activeSettings)return window.activeSettings;
-  return window.VelocitySettings?VelocitySettings.DEFAULT_SETTINGS:{sensitivity:1,invertY:false,baseFov:85,keybinds:{forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',slide:'ShiftLeft',grapple:'KeyE',burst:'KeyQ',restart:'KeyR',checkpoint:'KeyT',ghost:'KeyG',inspect:'KeyF',fire:'Mouse0',altFire:'Mouse2',reload:'KeyC',slotRifle:'Digit1',slotAwp:'Digit2',slotDeagle:'Digit3',slotKnife:'Digit4'}};
+  return window.VelocitySettings?VelocitySettings.DEFAULT_SETTINGS:{sensitivity:1,invertY:false,baseFov:85,keybinds:{forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',slide:'ShiftLeft',grapple:'KeyE',burst:'KeyQ',restart:'KeyT',checkpoint:'KeyC',ghost:'KeyG',inspect:'KeyF',fire:'Mouse0',altFire:'Mouse2',reload:'KeyR',slotRifle:'Digit1',slotAwp:'Digit2',slotDeagle:'Digit3',slotKnife:'Digit4'}};
 }
 const mobileHeldActions={fire:false,altFire:false,jump:false,slide:false};
 function isActionDown(action){
