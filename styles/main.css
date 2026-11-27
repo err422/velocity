@@ -369,6 +369,26 @@
   .kf-row.hs{border-right-color:var(--orange)}
   .kf-wep{color:#7ea4bc;margin:0 6px}
 
+  /* Arena chat: compact, low-profile and readable without covering the fight. */
+  #arenaChat{position:absolute;left:24px;bottom:112px;width:min(390px,calc(100vw - 48px));z-index:18;display:none;flex-direction:column;align-items:stretch;gap:5px;pointer-events:none}
+  #arenaChat.is-active{display:flex}
+  #arenaChatMessages{display:flex;flex-direction:column;align-items:flex-start;gap:3px;max-height:156px;overflow:hidden}
+  .arena-chat-message{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;gap:8px;max-width:100%;padding:5px 9px;background:linear-gradient(90deg,rgba(4,10,17,.88),rgba(4,10,17,.58));border-left:2px solid rgba(101,231,255,.56);color:#e8f4fb;font:500 11px/1.35 "Plus Jakarta Sans",sans-serif;text-shadow:0 1px 2px #000;animation:arenaChatIn .14s ease-out}
+  .arena-chat-message.is-bot{border-left-color:#b38bff}
+  .arena-chat-message.is-self{border-left-color:#7dff9e}
+  .arena-chat-sender{color:#74e5f4;font-weight:800;white-space:nowrap}
+  .arena-chat-message.is-bot .arena-chat-sender{color:#c6a7ff}
+  .arena-chat-message.is-self .arena-chat-sender{color:#91ffa9}
+  .arena-chat-text{min-width:0;overflow-wrap:anywhere}
+  #arenaChatComposer{display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 8px;background:rgba(3,9,16,.94);border:1px solid rgba(101,231,255,.34);box-shadow:0 7px 22px rgba(0,0,0,.28);pointer-events:auto}
+  .arena-chat-channel{padding:4px 6px;background:rgba(101,231,255,.14);color:#82efff;font:800 9px/1 "Plus Jakarta Sans",sans-serif;letter-spacing:.12em}
+  #arenaChatInput{flex:1;min-width:0;padding:4px 2px;border:0;outline:0;background:transparent;color:#f2fbff;font:600 12px/1.3 "Plus Jakarta Sans",sans-serif;box-shadow:none}
+  #arenaChatInput::placeholder{color:#7690a3}
+  .arena-chat-send-hint{color:#7893a7;font:700 8px/1 "Plus Jakarta Sans",sans-serif;letter-spacing:.1em;white-space:nowrap}
+  #arenaChatHint{padding:2px 7px;color:rgba(179,207,222,.66);font:700 8px/1.2 "Plus Jakarta Sans",sans-serif;letter-spacing:.15em;text-shadow:0 1px 3px #000}
+  #arenaChat.is-open #arenaChatHint{display:none!important}
+  @keyframes arenaChatIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+
   #hitmarker{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);opacity:0;pointer-events:none;transition:opacity .06s}
   #hitmarker::before,#hitmarker::after{content:'';position:absolute;left:50%;top:50%;width:22px;height:2px;background:var(--hm-col,#ffffff);box-shadow:0 0 8px var(--hm-col,#ffffff)}
   #hitmarker::before{transform:translate(-50%,-50%) rotate(45deg)}
@@ -5862,6 +5882,7 @@
   }
 
   /* Killfeed sits below relocated weapon HUD on upper-right */
+  body.touch-controls-active #hud #arenaChat{left:calc(12px + env(safe-area-inset-left));bottom:calc(218px + env(safe-area-inset-bottom));width:min(330px,calc(100vw - 24px))}
   body.touch-controls-active #hud #killFeed {
     top: calc(130px + env(safe-area-inset-top));
     right: calc(14px + env(safe-area-inset-right));

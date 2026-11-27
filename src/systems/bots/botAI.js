@@ -74,6 +74,37 @@
     }
   };
 
+  // Player-style callsigns keep bots from looking like labeled training dummies.
+  const PLAYER_NAME_POOL = Object.freeze([
+    'nox', 'Kairo', 'vanta', 'm1dnite', 'zyro', 'lowkey', 's0lar', 'kaizen',
+    'Rift', 'kuro', 'breezy', 'clutch.exe', 'pixelshift', 'ghosted', 'Jett',
+    'r0gue', 'Echo', 'drift', 'Navi', 'sway', 'coldboot', 'Marlow', 'onyx',
+    'flickz', 'orbit', 'riven', 'no_scope', 'hollow', 'tundra', 'juno',
+    'static', 's1lent', 'Afterglow', 'vexed', 'stride', 'Mako', 'zenith',
+    'rez', 'lumen', 'ace_', 'skylark', 'wraith', 'frosty', 'nimbus', 'koda',
+    'voided', 'dash', 'monarch', 'sidequest', 'lagging', 'sable'
+  ]);
+
+  function generatePlayerName(usedNames) {
+    const used = new Set();
+    if (Array.isArray(usedNames)) {
+      for (const item of usedNames) {
+        const name = typeof item === 'string' ? item : item && item.name;
+        if (name) used.add(String(name).trim().toLowerCase());
+      }
+    }
+    const available = PLAYER_NAME_POOL.filter((name) => !used.has(name.toLowerCase()));
+    if (available.length) return available[Math.floor(Math.random() * available.length)];
+    const base = PLAYER_NAME_POOL[Math.floor(Math.random() * PLAYER_NAME_POOL.length)] || 'player';
+    let suffix = Math.floor(Math.random() * 90) + 10;
+    let candidate = base + suffix;
+    while (used.has(candidate.toLowerCase())) {
+      suffix += 1;
+      candidate = base + suffix;
+    }
+    return candidate.slice(0, 24);
+  }
+
   // Four player-grade bot archetypes (all armed with real Apex Chrono Kits)
   const BOT_ARCHETYPES = [
     {
@@ -1958,6 +1989,8 @@
 
   return {
     BOT_ARCHETYPES,
+    PLAYER_NAME_POOL,
+    generatePlayerName,
     DIFFICULTY_LEVELS,
     DIFFICULTY_STORAGE_KEY,
     H_STAND,

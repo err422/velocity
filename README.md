@@ -16,6 +16,7 @@ VELOCITY is a 3D first-person arena shooter where movement is part of the fight.
 - Six handcrafted arenas: **Surf Stadium**, **Aim Courtyard**, **Helix Spire**, **Cargo Killhouse**, **Skyline Run**, and **Redrock Canyon**.
 - Host or join public/private rooms, including private rooms with short join codes.
 - Peer-to-peer multiplayer using WebRTC data channels, with Firestore-backed lobby discovery and signaling.
+- Arena text chat over the existing WebRTC game channel, with local bot dialogue in solo warmups.
 - Arena map voting, scoreboards, kill feed, rematches, and solo bot warmups.
 - Bot opponents for solo practice and warmup matches.
 
