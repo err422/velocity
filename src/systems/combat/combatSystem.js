@@ -2331,7 +2331,8 @@
     const archetypes = getBotArchetypes();
     const playerSpawn = spawns[0];
     const n = Math.min(count, spawns.length);
-    const usedNames = [];
+    const localState = root.NetcodeSystem && typeof root.NetcodeSystem.getState === 'function' ? root.NetcodeSystem.getState() : null;
+    const usedNames = localState && localState.localName ? [localState.localName] : [];
     for (let i = 0; i < n; i++) {
       const sp = spawns[(i + 1) % spawns.length];
       const profile = archetypes[i % archetypes.length];
