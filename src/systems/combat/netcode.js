@@ -689,6 +689,7 @@
       return false;
     }
 
+    const previousHp = state.localHp;
     const cleanDmg = Math.max(1, Math.min(260, Math.round(Number(damage) || 0)));
     state.lastWarmupAttacker = {
       name: String(botName || 'AI BOT').slice(0, 24),
@@ -697,6 +698,9 @@
     };
     state.localHp = Math.max(0, state.localHp - cleanDmg);
     const killed = state.localHp <= 0;
+    if (!killed && previousHp > 35 && state.localHp <= 35 && typeof callbacks.onBotEvent === 'function') {
+      callbacks.onBotEvent({ type: 'player_low_health', botName: botName || '', playerName: state.localName || 'Runner' });
+    }
     if (killed) {
       state.localAlive = false;
       state.respawnTimer = WARMUP_RESPAWN_SEC;
@@ -940,6 +944,7 @@
     victim.lastAttackerName = attacker.name;
     victim.lastAttackerSlot = slot || 'rifle';
     victim.lastDamagedAtMs = Date.now();
+    const previousHp = victim.hp;
     victim.hp = Math.max(0, victim.hp - cleanDmg);
     const killed = victim.hp <= 0;
 
@@ -978,7 +983,19 @@
     };
     broadcastGame(dmgPacket);
     applyDamageEventLocally(dmgPacket, true);
+    if (!killed && !victim.isBot && previousHp > 35 && victim.hp <= 35 && typeof callbacks.onBotEvent === 'function') {
+      callbacks.onBotEvent({
+        type: 'player_low_health',
+        botUid: attacker.isBot ? attacker.uid : null,
+        botName: attacker.isBot ? attacker.name : '',
+        botType: attacker.isBot ? attacker.botType : null,
+        playerName: victim.name
+      });
+    }
     if (killed && typeof callbacks.onBotEvent === 'function') {
+      if (!attacker.isBot && attacker.kills >= 3 && attacker.kills % 3 === 0) {
+        callbacks.onBotEvent({ type: 'player_kill_streak', playerName: attacker.name, totalKills: attacker.kills });
+      }
       if (attacker.isBot && !victim.isBot) {
         callbacks.onBotEvent({
           type: 'bot_killed_player', botUid: attacker.uid, botName: attacker.name,
