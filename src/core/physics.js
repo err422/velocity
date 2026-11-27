@@ -622,6 +622,7 @@ function pushSphere(cy){
   const R=CFG.radius,p=player.pos,v=player.vel,T=R+CFG.skin;
   _c.set(p.x,p.y+cy,p.z);
   for(const s of solids){
+    if(s.disabled)continue;
     if(s.box.distanceToPoint(_c)>T)continue;
     const d2=sphereVs(s,_c);
     if(d2>=T*T)continue;
@@ -662,7 +663,7 @@ function collide(){
 }
 function headBlocked(){
   const p=player.pos;_c.set(p.x,p.y+H_STAND[2],p.z);
-  for(const s of solids){if(s.box.distanceToPoint(_c)>CFG.radius)continue;if(sphereVs(s,_c)<(CFG.radius-.01)**2)return true;}
+  for(const s of solids){if(s.disabled)continue;if(s.box.distanceToPoint(_c)>CFG.radius)continue;if(sphereVs(s,_c)<(CFG.radius-.01)**2)return true;}
   return false;
 }
 

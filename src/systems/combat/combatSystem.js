@@ -1066,8 +1066,31 @@
     };
   }
 
+  function isDemolitionMode() {
+    return Boolean(root.NetcodeSystem && typeof root.NetcodeSystem.getState === 'function' && root.NetcodeSystem.getState().mode === 'demolition_5v5');
+  }
+
+  function getLocalTeam() {
+    if (!root.NetcodeSystem || typeof root.NetcodeSystem.getState !== 'function') return '';
+    const st = root.NetcodeSystem.getState();
+    return st && st.mode === 'demolition_5v5' ? (st.localTeam || '') : '';
+  }
+
+  function firstActiveWorldHit(hits) {
+    if (!Array.isArray(hits) || hits.length === 0) return null;
+    for (let i = 0; i < hits.length; i++) {
+      const h = hits[i];
+      if (!h || !h.object) continue;
+      if (h.object.visible === false) continue;
+      if (h.object.userData && h.object.userData.disabled) continue;
+      return h;
+    }
+    return null;
+  }
+
   // ---------- Katana Abilities, Persistent Scorestreaks & 3D Projectiles ----------
   function awardScorestreakPoints(amount) {
+    if (isDemolitionMode()) return 0;
     const pts = Math.max(0, Math.round(Number(amount) || 0));
     if (!pts) return state.scorestreakPoints;
     const def = getScorestreakDef(state.scorestreakId);
@@ -1300,8 +1323,10 @@
     let closestWorldDist = maxRange;
     if (solidsArr && solidsArr.length > 0) {
       const wh = _combatRay.intersectObjects(solidsArr, false);
-      if (wh.length > 0) closestWorldDist = wh[0].distance;
+      const firstWh = firstActiveWorldHit(wh);
+      if (firstWh) closestWorldDist = firstWh.distance;
     }
+    const localTeam = getLocalTeam();
     const shootables = [];
     if (warmupEnabled) {
       for (const b of warmupBots) {
@@ -1309,7 +1334,9 @@
       }
     }
     for (const [, av] of remoteAvatars) {
-      if (av.alive) shootables.push(av.visual.headMesh, av.visual.bodyMesh);
+      if (!av.alive) continue;
+      if (localTeam && av.team && av.team === localTeam) continue;
+      shootables.push(av.visual.headMesh, av.visual.bodyMesh);
     }
     let bestHit = null;
     if (shootables.length > 0) {
@@ -2071,7 +2098,7 @@
         _combatRay.near = 0.01;
         _combatRay.far = stepDist + 0.16;
         const hits = _combatRay.intersectObjects(solidList, false);
-        if (hits.length > 0) hitWall = hits[0];
+        hitWall = firstActiveWorldHit(hits);
       }
       // Check direct enemy proximity
       let directHit = false;
@@ -2146,6 +2173,7 @@
   }
 
   function activateScorestreak(ownerName, ownerMeta) {
+    if (isDemolitionMode()) return { activated: false, disabledInMode: true };
     const def = getScorestreakDef(state.scorestreakId);
     if (!def) return { activated: false };
     if (state.scorestreakPoints < def.cost) {
@@ -2478,6 +2506,7 @@
     const wanted = new Set();
     if (!Array.isArray(players)) players = [];
     const BAI = root.BotAISystem;
+    const DE = root.DemolitionEngine;
     const archetypes = getBotArchetypes();
 
     for (const player of players) {
@@ -2492,6 +2521,8 @@
         name: player.name || profile.name || `AI · ${profile.role}`,
         isBot: true,
         botType: profileIndex,
+        team: player.team || '',
+        hasBomb: Boolean(player.hasBomb),
         ...(snap ? {
           x: Number.isFinite(player.x) ? player.x : spawn.x,
           y: Number.isFinite(player.y) ? player.y : spawn.y,
@@ -2509,6 +2540,10 @@
         avatar.visual.group.rotation.y = avatar.yaw;
       }
 
+      const tierDef = DE && DE.SOLO_QUEUE_TIERS && player.skillTier
+        ? DE.SOLO_QUEUE_TIERS[player.skillTier] || null
+        : null;
+
       let bot = arenaBotAi.get(player.uid);
       if (!bot) {
         bot = BAI && typeof BAI.createBotState === 'function'
@@ -2525,6 +2560,12 @@
               alive: avatar.alive
             })
           : { uid: player.uid, name: player.name, profile, visual: avatar.visual, pos: avatar.pos.clone(), yaw: avatar.yaw, hp: avatar.hp, alive: avatar.alive, poseTimer: 0 };
+        bot.team = player.team || '';
+        bot.skillTier = player.skillTier || 'solid';
+        bot.skillProfile = tierDef;
+        bot.utilCooldown = 3.0 + Math.random() * 5.0;
+        bot.lastCalloutAt = 0;
+        bot.tacticalLane = profileIndex % 3;
         arenaBotAi.set(player.uid, bot);
       } else {
         const wasAlive = bot.alive;
@@ -2533,6 +2574,11 @@
         bot.visual = avatar.visual;
         bot.hp = avatar.hp;
         bot.alive = avatar.alive;
+        bot.team = player.team || bot.team || '';
+        if (player.skillTier) {
+          bot.skillTier = player.skillTier;
+          bot.skillProfile = tierDef;
+        }
         if (!bot.alive) {
           bot.chronoTier = 0;
           bot.grapplePoint = null;
@@ -2541,6 +2587,7 @@
         }
         if (resetBrains || (!wasAlive && bot.alive)) {
           bot.yaw = avatar.yaw;
+          bot.utilCooldown = 2.5 + Math.random() * 4.5;
           resetArenaBotBrain(bot);
         }
       }
@@ -2554,21 +2601,105 @@
     }
   }
 
+  function pickDemolitionBotGoal(bot, demoState, mapData, botIdx) {
+    if (!demoState || !mapData || !mapData.tactical) return null;
+    const tac = mapData.tactical;
+    const bomb = demoState.bomb || {};
+    const nowSec = performance.now() * 0.001;
+    const sites = Array.isArray(tac.sites) ? tac.sites : [];
+    const siteA = sites.find((s) => s.id === 'A') || sites[0] || null;
+    const siteB = sites.find((s) => s.id === 'B') || sites[1] || siteA;
+    const wp = Array.isArray(tac.waypoints) ? tac.waypoints : [];
+    const midPt = wp.find((w) => w.tag === 'mid') || wp[0] || { x: 0, y: 0, z: 0 };
+
+    // Respect human quick-ping / radio order for this team (valid for 16s)
+    const teamOrder = demoState.teamOrders && demoState.teamOrders[bot.team];
+    if (teamOrder && (nowSec - (teamOrder.atSec || 0)) < 16) {
+      if (teamOrder.commId === 'rush_a' && siteA) return { x: siteA.x, y: siteA.y || 0, z: siteA.z };
+      if (teamOrder.commId === 'rush_b' && siteB) return { x: siteB.x, y: siteB.y || 0, z: siteB.z };
+      if (teamOrder.commId === 'split_mid') return botIdx % 2 === 0 ? midPt : (siteA ? { x: siteA.x, y: siteA.y || 0, z: siteA.z } : midPt);
+      if (teamOrder.commId === 'backup' && teamOrder.pos) return teamOrder.pos;
+      if (teamOrder.commId === 'rotate') {
+        const curA = siteA ? Math.hypot(bot.pos.x - siteA.x, bot.pos.z - siteA.z) : 999;
+        const curB = siteB ? Math.hypot(bot.pos.x - siteB.x, bot.pos.z - siteB.z) : 999;
+        const tgt = curA < curB && siteB ? siteB : (siteA || midPt);
+        return { x: tgt.x, y: tgt.y || 0, z: tgt.z };
+      }
+      if (teamOrder.commId === 'hold') {
+        if (teamOrder.pos) return teamOrder.pos;
+        return { x: bot.pos.x, y: bot.pos.y, z: bot.pos.z };
+      }
+    }
+
+    if (bot.team === 'atk') {
+      if (bomb.state === 'planted' && bomb.pos) {
+        const angle = (botIdx * 1.75) % (Math.PI * 2);
+        return { x: bomb.pos.x + Math.cos(angle) * 5.2, y: bomb.pos.y, z: bomb.pos.z + Math.sin(angle) * 5.2 };
+      }
+      if (bomb.state === 'dropped' && bomb.pos) {
+        return bomb.pos;
+      }
+      const planSite = demoState.botPlanSite === 'B' && siteB ? siteB : (siteA || siteB);
+      if (bomb.carrierUid === bot.uid && planSite) {
+        return { x: planSite.x, y: planSite.y || 0, z: planSite.z };
+      }
+      if (botIdx % 4 === 3) return midPt;
+      return planSite ? { x: planSite.x, y: planSite.y || 0, z: planSite.z } : midPt;
+    }
+
+    // Defender logic
+    if (bomb.state === 'planted' && bomb.pos) {
+      return bomb.pos;
+    }
+    const lane = botIdx % 3;
+    if (lane === 0 && siteA) return { x: siteA.x, y: siteA.y || 0, z: siteA.z };
+    if (lane === 1 && siteB) return { x: siteB.x, y: siteB.y || 0, z: siteB.z };
+    return midPt;
+  }
+
   function updateArenaBots(dt, playerState, solidList, movementContext) {
     if (!playerState || !playerState.isHost || playerState.phase !== 'live' || arenaBotAi.size === 0) return;
     const BAI = root.BotAISystem;
     if (!BAI || typeof BAI.stepBot !== 'function') return;
 
+    const isDemo = playerState.mode === 'demolition_5v5';
+    const demoState = isDemo && root.NetcodeSystem && typeof root.NetcodeSystem.getDemolitionState === 'function'
+      ? root.NetcodeSystem.getDemolitionState()
+      : null;
+    const mapData = isDemo && root.NetcodeSystem && typeof root.NetcodeSystem.getTacticalLevelData === 'function'
+      ? root.NetcodeSystem.getTacticalLevelData()
+      : null;
+
     const roster = Array.isArray(playerState.players) ? playerState.players : [];
     const rosterByUid = new Map(roster.map((p) => [p.uid, p]));
+    const localRec = playerState.uid ? rosterByUid.get(playerState.uid) : null;
+    const localTeam = (localRec && localRec.team) || playerState.localTeam || '';
+    const US = root.UtilitySystem;
 
+    // Pick single designated defuser among alive defenders when bomb is planted
+    let designatedDefuserUid = '';
+    if (isDemo && demoState && demoState.bomb && demoState.bomb.state === 'planted' && demoState.bomb.pos) {
+      let bestDist = Infinity;
+      for (const b of arenaBotAi.values()) {
+        if (!b.alive || b.team !== 'def') continue;
+        const d = Math.hypot(b.pos.x - demoState.bomb.pos.x, b.pos.z - demoState.bomb.pos.z);
+        if (d < bestDist) {
+          bestDist = d;
+          designatedDefuserUid = b.uid;
+        }
+      }
+    }
+
+    let botCounter = 0;
     for (const bot of arenaBotAi.values()) {
+      botCounter++;
       if (!bot.alive) continue;
       let target = null;
       let targetScore = Infinity;
 
-      const consider = (uid, position, velocity, hp, eye, isAlive, isBot, chronoTier) => {
+      const consider = (uid, position, velocity, hp, eye, isAlive, isBot, chronoTier, candidateTeam) => {
         if (!uid || uid === bot.uid || !position || !isAlive) return;
+        if (isDemo && bot.team && candidateTeam && bot.team === candidateTeam) return;
         const dx = position.x - bot.pos.x;
         const dy = position.y - bot.pos.y;
         const dz = position.z - bot.pos.z;
@@ -2601,7 +2732,8 @@
           playerState.eye,
           playerState.alive !== false,
           false,
-          state.chronoTier || 0
+          state.chronoTier || 0,
+          localTeam
         );
       }
 
@@ -2617,11 +2749,74 @@
           1.6,
           true,
           avatar.isBot,
-          avatar.chronoTier || 0
+          avatar.chronoTier || 0,
+          (record && record.team) || avatar.team || ''
         );
       }
 
       bot.targetUid = target ? target.uid : '';
+
+      // Demolition tactical objective, bomb handling, utility usage & callouts
+      let tacticalGoalPos = null;
+      let holdMovement = false;
+      if (isDemo && demoState) {
+        tacticalGoalPos = pickDemolitionBotGoal(bot, demoState, mapData, botCounter);
+        const bomb = demoState.bomb || {};
+
+        // 1. Auto-pickup dropped bomb for Attackers
+        if (bot.team === 'atk' && bomb.state === 'dropped' && bomb.pos) {
+          const distToBomb = Math.hypot(bot.pos.x - bomb.pos.x, bot.pos.z - bomb.pos.z);
+          if (distToBomb < 2.2 && root.NetcodeSystem && typeof root.NetcodeSystem.botPickupBomb === 'function') {
+            root.NetcodeSystem.botPickupBomb(bot.uid, bot.pos);
+          }
+        }
+
+        // 2. Bomb carrier plants when reaching A or B site
+        if (bot.team === 'atk' && bomb.state === 'carried' && bomb.carrierUid === bot.uid && mapData && root.TacticalMapCatalog) {
+          const siteObj = root.TacticalMapCatalog.findPlantSiteAt(mapData, bot.pos.x, bot.pos.y, bot.pos.z);
+          if (siteObj) {
+            holdMovement = true;
+            if (root.NetcodeSystem && typeof root.NetcodeSystem.stepBotBombAction === 'function') {
+              root.NetcodeSystem.stepBotBombAction(bot.uid, dt, siteObj.id, bot.pos);
+            }
+          }
+        }
+
+        // 3. Designated defender defuses planted bomb once on top of it
+        if (bot.team === 'def' && bomb.state === 'planted' && bomb.pos && bot.uid === designatedDefuserUid) {
+          const distToBomb = Math.hypot(bot.pos.x - bomb.pos.x, bot.pos.z - bomb.pos.z);
+          const enemyClose = target && targetScore < 8.5;
+          if (distToBomb < 2.6 && !enemyClose) {
+            holdMovement = true;
+            if (root.NetcodeSystem && typeof root.NetcodeSystem.stepBotBombAction === 'function') {
+              root.NetcodeSystem.stepBotBombAction(bot.uid, dt, bomb.site || 'A', bot.pos);
+            }
+          }
+        }
+
+        // 4. Bot tactical utility throws (smoke / flash / frag / breach)
+        bot.utilCooldown = Math.max(0, (bot.utilCooldown || 0) - dt);
+        if (!holdMovement && bot.utilCooldown <= 0 && target && targetScore > 6 && targetScore < 28) {
+          bot.utilCooldown = 6.5 + Math.random() * 5.0;
+          if (root.NetcodeSystem && typeof root.NetcodeSystem.botTryUseUtility === 'function') {
+            root.NetcodeSystem.botTryUseUtility(bot.uid, bot.pos, target.position, solidList);
+          }
+        }
+
+        // 5. Occasional tactical callout in chat when spotting enemy
+        const nowSec = performance.now() * 0.001;
+        if (target && targetScore < 26 && (nowSec - (bot.lastCalloutAt || 0)) > 14 && Math.random() < dt * 0.35) {
+          bot.lastCalloutAt = nowSec;
+          if (root.NetcodeSystem && typeof root.NetcodeSystem.botTacticalCallout === 'function') {
+            const locName = mapData && root.TacticalMapCatalog
+              ? root.TacticalMapCatalog.getCalloutName(mapData, target.position.x, target.position.z)
+              : 'MID';
+            root.NetcodeSystem.botTacticalCallout(bot.uid, bot.team, locName);
+          }
+        }
+      }
+
+      const blinded = Boolean(isDemo && US && typeof US.isBotBlinded === 'function' && US.isBotBlinded(bot.uid));
 
       BAI.stepBot(bot, dt, {
         config: movementContext && movementContext.config,
@@ -2630,7 +2825,11 @@
         pads: movementContext && movementContext.pads,
         boosters: movementContext && movementContext.boosters,
         teleporters: movementContext && movementContext.teleporters,
-        abilitiesAllowed: !movementContext || movementContext.abilitiesAllowed !== false,
+        abilitiesAllowed: !isDemo && (!movementContext || movementContext.abilitiesAllowed !== false),
+        skillOverride: isDemo ? bot.skillProfile : null,
+        blinded,
+        holdMovement,
+        tacticalGoalPos,
         viewerPos: playerState.position,
         target,
         callbacks: {
@@ -2699,7 +2898,8 @@
       const botPalette = getBotArchetypes().map((p) => p.color);
       const isBot = Boolean(info && info.isBot);
       const botType = info && Number.isFinite(info.botType) ? info.botType : 0;
-      const color = isBot ? botPalette[botType % botPalette.length] : palette[remoteAvatars.size % palette.length];
+      const teamColor = info && info.team === 'atk' ? 0xff6b35 : (info && info.team === 'def' ? 0x38bdf8 : null);
+      const color = teamColor || (isBot ? botPalette[botType % botPalette.length] : palette[remoteAvatars.size % palette.length]);
       const visual = createAvatarMesh({ name: (info && info.name) || 'PLAYER', accentColor: color, isBot });
       visual.headMesh.userData.remoteUid = uid;
       visual.headMesh.userData.hitbox = 'head';
@@ -2718,6 +2918,8 @@
         alive: true,
         isBot: Boolean(info && info.isBot),
         botType: info && Number.isFinite(info.botType) ? info.botType : null,
+        team: (info && info.team) || '',
+        hasBomb: Boolean(info && info.hasBomb),
         activeSlot: 'rifle',
         chronoTier: Number(info && info.ct) || 0,
         grapplePoint: null
@@ -2727,6 +2929,8 @@
     if (info) {
       if (typeof info.isBot === 'boolean') entry.isBot = info.isBot;
       if (Number.isFinite(info.botType)) entry.botType = info.botType;
+      if (typeof info.team === 'string') entry.team = info.team;
+      if (typeof info.hasBomb === 'boolean') entry.hasBomb = info.hasBomb;
       if (typeof info.x === 'number' && typeof info.y === 'number' && typeof info.z === 'number') {
         entry.targetPos.set(info.x, info.y, info.z);
         if (info.snap) entry.pos.copy(entry.targetPos);
@@ -2771,6 +2975,7 @@
       const wasAlive = botBrain.alive;
       botBrain.hp = entry.hp;
       botBrain.alive = entry.alive;
+      if (entry.team) botBrain.team = entry.team;
       if (!wasAlive && botBrain.alive && info && info.snap) {
         botBrain.visual.group.position.copy(entry.pos);
         botBrain.visual.group.rotation.y = entry.yaw;
@@ -2910,8 +3115,10 @@
           }
         }
       }
+      const localTeamKat = getLocalTeam();
       for (const [uid, av] of remoteAvatars) {
         if (!av.alive) continue;
+        if (localTeamKat && av.team && av.team === localTeamKat) continue;
         const aPos = _tmpA.set(av.pos.x, av.pos.y + 1.15, av.pos.z);
         const to = _tmpB.copy(aPos).sub(origin);
         const dist = to.length();
@@ -3068,7 +3275,8 @@
       }
     }
 
-    // Collect shootable meshes once for all pellets
+    // Collect shootable meshes once for all pellets (skip teammates in Demolition 5v5)
+    const localTeam = getLocalTeam();
     const shootables = [];
     if (rangeResetMesh) shootables.push(rangeResetMesh);
     for (const t of targets) {
@@ -3080,7 +3288,9 @@
       }
     }
     for (const [, av] of remoteAvatars) {
-      if (av.alive) shootables.push(av.visual.headMesh, av.visual.bodyMesh);
+      if (!av.alive) continue;
+      if (localTeam && av.team && av.team === localTeam) continue;
+      shootables.push(av.visual.headMesh, av.visual.bodyMesh);
     }
 
     const tracerColors = {
@@ -3113,11 +3323,13 @@
       recoilPitch: isKnife ? 0 : (isFan ? build.recoilPitch * 0.72 : build.recoilPitch * (1 - state.adsProgress * 0.18)),
       recoilYaw: isKnife ? 0 : (Math.random() - 0.5) * 2 * build.recoilYaw * (isFan ? 1.85 : (1 - state.adsProgress * 0.22)),
       kickbackForce,
-      kickbackGroundLift
+      kickbackGroundLift,
+      panelHits: []
     };
 
     const playerDmgMap = new Map();
     const botDmgMap = new Map();
+    const panelDmgMap = new Map();
     const isPiercingRail = isScorestreak && weaponId === 'railcannon';
 
     for (let pIdx = 0; pIdx < pellets; pIdx++) {
@@ -3139,9 +3351,11 @@
       _combatRay.far = maxRange;
 
       let closestWorldDist = maxRange;
+      let firstWorldHit = null;
       if (solidList && solidList.length > 0) {
         const worldHits = _combatRay.intersectObjects(solidList, false);
-        if (worldHits.length > 0) closestWorldDist = worldHits[0].distance;
+        firstWorldHit = firstActiveWorldHit(worldHits);
+        if (firstWorldHit) closestWorldDist = firstWorldHit.distance;
       }
 
       let bestHit = null;
@@ -3180,6 +3394,11 @@
 
       const hitsToProcess = isPiercingRail && pierceHits ? pierceHits : (bestHit ? [bestHit] : []);
       if (hitsToProcess.length === 0) {
+        if (firstWorldHit && firstWorldHit.object && firstWorldHit.object.userData && firstWorldHit.object.userData.destructiblePanelId) {
+          const pid = firstWorldHit.object.userData.destructiblePanelId;
+          const pDmg = isKnife ? 45 : (build ? Math.max(12, Math.round((build.damageBody || 28) / Math.max(1, pellets > 1 ? 2.2 : 1))) : 28);
+          panelDmgMap.set(pid, (panelDmgMap.get(pid) || 0) + pDmg);
+        }
         if (!isKnife && closestWorldDist < maxRange && pIdx < 3) {
           spawnBurst(endPoint, isPiercingRail ? 0x56f0ff : 0xffe2a0, pellets > 1 ? 2 : 5, 4.2);
         }
@@ -3354,6 +3573,16 @@
         if (onWarmupKillCb) onWarmupKillCb({ botName: bot.name, slot: weaponId, weaponId, isHeadshot: isHead, totalKills: warmupKills });
       } else {
         triggerHitmarker(isHead, false);
+      }
+    }
+
+    // Apply aggregated environmental destruction panel hits
+    if (panelDmgMap.size > 0 && root.DestructionSystem && typeof root.DestructionSystem.damagePanel === 'function') {
+      for (const [panelId, pDmg] of panelDmgMap) {
+        const res = root.DestructionSystem.damagePanel(panelId, pDmg, weaponId);
+        if (res && res.hit) {
+          result.panelHits.push({ panelId, damage: pDmg, weaponId });
+        }
       }
     }
 
@@ -3794,12 +4023,17 @@
       phase: playerState && playerState.phase,
       players: playerState && playerState.players,
       hp: playerState && playerState.hp,
-      mode: playerState && playerState.mode
+      mode: playerState && playerState.mode,
+      localTeam: playerState && playerState.localTeam,
+      mapId: playerState && playerState.mapId
     }, botSolids, movementContext);
 
-    // Smoothly interpolate Remote WebRTC Player Avatars
+    // Smoothly interpolate Remote WebRTC Player Avatars + update Demolition faction/silhouette/recon visuals
+    const isDemoMode = Boolean(playerState && playerState.mode === 'demolition_5v5');
+    const localTeamNow = isDemoMode ? ((playerState && playerState.localTeam) || getLocalTeam()) : '';
+    const US = root.UtilitySystem;
     const lerpK = Math.min(1, dt * 16);
-    for (const [, av] of remoteAvatars) {
+    for (const [uid, av] of remoteAvatars) {
       if (!av.alive) continue;
       av.pos.lerp(av.targetPos, lerpK);
       av.visual.group.position.copy(av.pos);
@@ -3811,6 +4045,21 @@
       if (playerPos) {
         av.visual.hpBg.lookAt(playerPos.x, av.pos.y + 2.16, playerPos.z);
         av.visual.hpFill.lookAt(playerPos.x, av.pos.y + 2.16, playerPos.z);
+      }
+      if (isDemoMode && VI.updateAvatarTacticalVisuals) {
+        const isTeammate = Boolean(localTeamNow && av.team && av.team === localTeamNow);
+        const isRevealed = !isTeammate && Boolean(US && typeof US.isEnemyRevealed === 'function' && US.isEnemyRevealed(uid));
+        VI.updateAvatarTacticalVisuals(av.visual, {
+          team: av.team,
+          isTeammate,
+          isRevealed,
+          hasBomb: Boolean(av.hasBomb)
+        });
+        av.visual.hpBg.visible = isTeammate;
+        av.visual.hpFill.visible = isTeammate;
+      } else {
+        av.visual.hpBg.visible = true;
+        av.visual.hpFill.visible = true;
       }
       updateAvatarChronoVisual(av.visual, av.alive ? av.chronoTier : 0, dt);
       updateAvatarGrappleVisual(av.visual, av.pos, av.alive ? av.grapplePoint : null);
@@ -3905,6 +4154,8 @@
     syncArenaBots,
     removeRemoteAvatar,
     clearRemoteAvatars,
+    getRemoteAvatar: (uid) => remoteAvatars.get(uid) || null,
+    getAllRemoteAvatars: () => Array.from(remoteAvatars.values()),
     devChargeScorestreak: (streakId) => {
       if (streakId && LS && LS.SCORESTREAKS && LS.SCORESTREAKS[streakId]) {
         state.scorestreakId = streakId;

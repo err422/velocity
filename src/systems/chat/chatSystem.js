@@ -1,4 +1,4 @@
-// Local arena text chat and lightweight event-driven bot dialogue.
+// Local arena text chat and self-contained human-like bot dialogue coordinator.
 // Multiplayer chat is relayed by the authoritative host over the existing WebRTC game channel.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -10,54 +10,38 @@
   'use strict';
 
   const MAX_MESSAGE_LENGTH = 160;
-  const MAX_HISTORY = 8;
-  const MESSAGE_VISIBLE_MS = 8500;
-  const EVENT_COOLDOWN_MS = 2600;
-  const BOT_COOLDOWN_MS = 8500;
-  const PLAYER_REPLY_COOLDOWN_MS = 2600;
-
-  const PERSONALITIES = [
-    {
-      kill: ['thats another one', 'you walked right into that', 'clean', 'free pick', 'back to spawn'],
-      killed: ['ok that was clean', 'nah i got caught', 'fair enough', 'i deserved that one', 'good shot'],
-      round: ['glhf', 'lets get this', 'same map, same result']
-    },
-    {
-      kill: ['where did you think you were going', 'too slow', 'caught you lacking', 'unlucky', 'read like a book'],
-      killed: ['BRO what was that', 'i actually got deleted', 'not even mad', 'you got that one', 'i wasnt ready'],
-      round: ['yo', 'we running it', 'dont blink']
-    },
-    {
-      kill: ['bad peek', 'held that angle', 'should have rotated', 'thats the timing', 'one tap'],
-      killed: ['nice shot', 'i gave you that angle', 'good swing', 'noted', 'well played'],
-      round: ['watch the angles', 'lets see how this goes', 'focus up']
-    },
-    {
-      kill: ['close range is mine', 'dont push that', 'right into it', 'too close', 'easy trade'],
-      killed: ['ok that hurt', 'you got lucky there', 'ill take that', 'good fight', 'next one'],
-      round: ['come on then', 'lets go', 'no free rounds']
-    }
-  ];
+  const MAX_HISTORY = 10;
+  const MESSAGE_VISIBLE_MS = 9500;
+  const EVENT_COOLDOWN_MS = 2300;
+  const HIGH_PRIORITY_EVENT_COOLDOWN_MS = 650;
+  const BOT_COOLDOWN_MS = 6500;
+  const HIGH_PRIORITY_BOT_COOLDOWN_MS = 2100;
+  const PLAYER_REPLY_COOLDOWN_MS = 1400;
 
   const EVENT_CHANCE = {
-    bot_killed_player: 0.58,
-    player_killed_bot: 0.54,
-    bot_killed_bot: 0.24,
-    player_low_health: 0.48,
-    player_kill_streak: 0.62,
-    round_start: 0.28
+    bot_killed_player: 0.64,
+    player_killed_bot: 0.62,
+    bot_killed_bot: 0.30,
+    void_fall: 0.88,
+    player_low_health: 0.34,
+    player_kill_streak: 0.74,
+    round_start: 0.40,
+    match_over: 1.0,
+    map_vote_cast: 0.84
   };
 
-  const REPLIES = {
-    greeting: ['yo', 'sup', 'glhf', 'hey', 'whats good'],
-    gg: ['ggs', 'wp', 'that was clean', 'respect', 'gg'],
-    taunt: ['you typing or playing', 'scoreboard says otherwise', 'keep talking', 'we will see', 'sure man'],
-    question: ['depends whos asking', 'maybe', 'ask me after the round', 'what do you think'],
-    general: ['mid fight bro', 'anyway', 'you good', 'not reading all that', 'lmao']
-  };
+  const HIGH_PRIORITY_EVENTS = new Set(['match_over', 'map_vote_cast', 'void_fall']);
+
+  function getBanterEngine() {
+    if (root.BotBanterEngine) return root.BotBanterEngine;
+    if (typeof require === 'function') {
+      try { return require('./botBanterEngine.js'); } catch (_) { return null; }
+    }
+    return null;
+  }
 
   const lastBotSpeakAt = new Map();
-  const lastBotLine = new Map();
+  const pendingBotTimers = new Set();
   let lastEventAt = 0;
   let lastPlayerReplyAt = 0;
   let messageSeq = 1;
@@ -82,6 +66,10 @@
   }
 
   function classifyPlayerMessage(value) {
+    const engine = getBanterEngine();
+    if (engine && typeof engine.classifyPlayerMessage === 'function') {
+      return engine.classifyPlayerMessage(sanitizeMessage(value));
+    }
     const text = sanitizeMessage(value).toLowerCase();
     if (!text) return 'empty';
     if (/\b(hi|hey|hello|yo|sup|glhf|whats up|what's up)\b/.test(text)) return 'greeting';
@@ -89,6 +77,15 @@
     if (/\b(ez|easy|noob|trash|bot|bad|skill issue|diff|owned|rekt)\b/.test(text)) return 'taunt';
     if (text.includes('?')) return 'question';
     return 'general';
+  }
+
+  function analyzePlayerMessage(value) {
+    const engine = getBanterEngine();
+    if (engine && typeof engine.analyzePlayerMessage === 'function') {
+      return engine.analyzePlayerMessage(sanitizeMessage(value), getBotRoster(), getState());
+    }
+    const cat = classifyPlayerMessage(value);
+    return { intent: cat, legacyCategory: cat, mentionedBot: null, mentionedMap: null, mentionedWeapon: null };
   }
 
   function getState() {
@@ -109,6 +106,10 @@
   function isGameplayActive() {
     if (!root.document || !root.document.body) return true;
     const pageState = root.document.body.dataset ? root.document.body.dataset.state : '';
+    const state = getState();
+    if (state && state.phase === 'match_over') {
+      return !pageState || pageState === 'playing' || pageState === 'match_over';
+    }
     return !pageState || pageState === 'playing';
   }
 
@@ -131,20 +132,6 @@
       });
   }
 
-  function randomItem(items) {
-    if (!Array.isArray(items) || !items.length) return '';
-    return items[Math.floor(Math.random() * items.length)];
-  }
-
-  function getPersonalityIndex(bot) {
-    const raw = bot && bot.botType;
-    if (Number.isFinite(Number(raw))) return Math.abs(Math.floor(Number(raw))) % PERSONALITIES.length;
-    const str = String(raw || (bot && bot.uid) || (bot && bot.name) || '');
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
-    return Math.abs(hash) % PERSONALITIES.length;
-  }
-
   function makeMessage(uid, name, text, isBot) {
     return {
       id: 'chat_' + (messageSeq++),
@@ -164,7 +151,7 @@
     messages.slice(-6).forEach(function (message) {
       const row = root.document.createElement('div');
       row.className = 'arena-chat-message';
-      if (message.isBot) row.classList.add('is-bot');
+      // Keep bots visually indistinguishable from real opponents (no purple "bot" giveaway)
       if (!message.isBot && message.uid === localUid) row.classList.add('is-self');
 
       const sender = root.document.createElement('span');
@@ -184,10 +171,13 @@
 
   function refresh() {
     if (!container) return;
+    const state = getState();
     const active = canInteractWithChat();
+    const isPostMatch = Boolean(active && state && state.phase === 'match_over');
     container.classList.toggle('is-active', active);
     container.classList.toggle('is-open', active && open);
-    container.style.display = active && (open || messagesVisible) ? 'flex' : 'none';
+    container.classList.toggle('is-postmatch', isPostMatch);
+    container.style.display = active && (open || messagesVisible || isPostMatch) ? 'flex' : 'none';
     if (composer) composer.style.display = active && open ? 'flex' : 'none';
     if (hint) hint.style.display = active && !open ? 'block' : 'none';
     if (mobileButton) mobileButton.style.display = active ? '' : 'none';
@@ -198,7 +188,8 @@
     if (fadeTimer) clearTimeout(fadeTimer);
     fadeTimer = setTimeout(function () {
       fadeTimer = null;
-      if (!open) {
+      const state = getState();
+      if (!open && !(state && state.phase === 'match_over')) {
         messagesVisible = false;
         refresh();
       }
@@ -279,27 +270,52 @@
     return false;
   }
 
+  function clearPendingBotTimers() {
+    for (const id of pendingBotTimers) {
+      clearTimeout(id);
+    }
+    pendingBotTimers.clear();
+  }
+
+  function resetMatchMemory() {
+    clearPendingBotTimers();
+    lastBotSpeakAt.clear();
+    lastEventAt = 0;
+    lastPlayerReplyAt = 0;
+    const engine = getBanterEngine();
+    if (engine && typeof engine.resetMatchMemory === 'function') {
+      engine.resetMatchMemory();
+    }
+  }
+
   function markBotSpoken(bot) {
     const key = String(bot && (bot.uid || bot.name) || 'bot');
     lastBotSpeakAt.set(key, Date.now());
   }
 
-  function canBotSpeak(bot) {
-    const key = String(bot && (bot.uid || bot.name) || 'bot');
+  function canBotSpeak(bot, highPriority) {
+    if (!bot) return false;
+    const key = String(bot.uid || bot.name || 'bot');
     const last = lastBotSpeakAt.get(key) || 0;
-    return Boolean(bot && Date.now() - last >= BOT_COOLDOWN_MS);
+    const cooldown = highPriority ? HIGH_PRIORITY_BOT_COOLDOWN_MS : BOT_COOLDOWN_MS;
+    return Date.now() - last >= cooldown;
   }
 
-  function sendBotLine(bot, text, delayMs, allowDead) {
+  function sendBotLine(bot, text, delayMs, allowDead, highPriority) {
     if (!bot || !text || !isArenaChatAvailable()) return false;
     if (!allowDead && bot.alive === false) return false;
-    if (!canBotSpeak(bot)) return false;
+    if (!canBotSpeak(bot, highPriority)) return false;
     const clean = sanitizeMessage(text);
     if (!clean) return false;
+    const engine = getBanterEngine();
+    if (engine && typeof engine.containsSlur === 'function' && engine.containsSlur(clean)) return false;
+
     const stateAtSchedule = getState();
     const mapAtSchedule = stateAtSchedule && stateAtSchedule.mapId;
     markBotSpoken(bot);
-    setTimeout(function () {
+
+    const timerId = setTimeout(function () {
+      pendingBotTimers.delete(timerId);
       const current = getState();
       if (!isArenaChatAvailable() || !current || current.mapId !== mapAtSchedule) return;
       const api = root.NetcodeSystem;
@@ -311,96 +327,112 @@
         );
       }
     }, Math.max(0, Number(delayMs) || 0));
+    pendingBotTimers.add(timerId);
     return true;
   }
 
-  function chooseEventBot(event) {
-    const roster = getBotRoster();
-    if (event && event.botUid) {
-      const exact = roster.find(function (bot) { return bot.uid === event.botUid; });
-      if (exact) return exact;
+  function scheduleReaction(reaction, highPriority) {
+    if (!reaction || !reaction.primary || !reaction.primary.bot || !reaction.primary.text) return false;
+    const p = reaction.primary;
+    const sent = sendBotLine(p.bot, p.text, p.delayMs, Boolean(p.allowDead), highPriority);
+    if (sent && reaction.followUp && reaction.followUp.bot && reaction.followUp.text) {
+      const f = reaction.followUp;
+      const sameBot = String(f.bot.uid || f.bot.name) === String(p.bot.uid || p.bot.name);
+      // Allow realistic double-text from the same bot or cross-talk from another bot
+      if (sameBot) {
+        const clean = sanitizeMessage(f.text);
+        const stateAtSchedule = getState();
+        const mapAtSchedule = stateAtSchedule && stateAtSchedule.mapId;
+        if (clean) {
+          const tId = setTimeout(function () {
+            pendingBotTimers.delete(tId);
+            const current = getState();
+            if (!isArenaChatAvailable() || !current || current.mapId !== mapAtSchedule) return;
+            const api = root.NetcodeSystem;
+            if (api && typeof api.sendBotChatMessage === 'function') {
+              api.sendBotChatMessage(
+                f.bot.uid || ('warmup_' + String(f.bot.name || 'bot').toLowerCase().replace(/[^a-z0-9]+/g, '_')),
+                f.bot.name,
+                clean
+              );
+            }
+          }, Math.max(600, Number(f.delayMs) || 1400));
+          pendingBotTimers.add(tId);
+        }
+      } else {
+        sendBotLine(f.bot, f.text, f.delayMs, Boolean(f.allowDead), true);
+      }
     }
-    if (event && event.botName) {
-      const named = roster.find(function (bot) { return bot.name === event.botName; });
-      if (named) return named;
-      return {
-        uid: event.botUid || ('warmup_' + event.botName.toLowerCase().replace(/[^a-z0-9]+/g, '_')),
-        name: event.botName,
-        botType: event.botType,
-        alive: true
-      };
-    }
-    const living = roster.filter(function (bot) { return bot.alive !== false; });
-    return randomItem(living.length ? living : roster) || null;
-  }
-
-  function eventText(event, bot) {
-    const personality = PERSONALITIES[getPersonalityIndex(bot)];
-    const playerName = String(event.playerName || event.victimName || 'you').slice(0, 24);
-    const killerName = String(event.killerName || event.attackerName || 'someone').slice(0, 24);
-    let pool = [];
-    if (event.type === 'bot_killed_player') {
-      pool = personality.kill.concat([playerName + ', back to spawn', 'got you ' + playerName, 'you gotta watch that angle']);
-    } else if (event.type === 'player_killed_bot') {
-      pool = personality.killed.concat([playerName + ' got me there', 'ok ' + playerName + ', i see you', 'that was a nasty shot']);
-    } else if (event.type === 'bot_killed_bot') {
-      pool = [killerName + ' is actually frying', 'someone stop ' + killerName, 'that trade was rough', 'bro just got folded'];
-    } else if (event.type === 'player_low_health') {
-      pool = [
-        playerName + ' is one shot',
-        'careful ' + playerName + ', youre weak',
-        playerName + ' is looking low',
-        'theyre weak, dont let them reset',
-        'someone check ' + playerName + 's hp'
-      ];
-    } else if (event.type === 'player_kill_streak') {
-      pool = [
-        playerName + ' is on a heater',
-        'somebody stop ' + playerName,
-        'ok ' + playerName + ' is frying',
-        playerName + ' needs to chill',
-        'three straight? seriously?'
-      ];
-    } else if (event.type === 'round_start') {
-      pool = personality.round;
-    }
-    return randomItem(pool);
+    return sent;
   }
 
   function handleGameEvent(event) {
     if (!event || !isArenaChatAvailable()) return false;
-    const chance = EVENT_CHANCE[event.type] || 0;
-    if (!chance || Math.random() > chance) return false;
-    if (Date.now() - lastEventAt < EVENT_COOLDOWN_MS) return false;
-    const bot = chooseEventBot(event);
-    if (!bot || !canBotSpeak(bot)) return false;
-    const line = eventText(event, bot);
-    if (!line) return false;
-    const key = String(bot.uid || bot.name);
-    if (lastBotLine.get(key) === line) return false;
-    lastBotLine.set(key, line);
-    lastEventAt = Date.now();
-    return sendBotLine(bot, line, 350 + Math.floor(Math.random() * 1050), event.type === 'player_killed_bot');
+    const highPriority = HIGH_PRIORITY_EVENTS.has(event.type);
+    const baseChance = EVENT_CHANCE[event.type] || 0;
+    if (!baseChance) return false;
+
+    const now = Date.now();
+    const evCooldown = highPriority ? HIGH_PRIORITY_EVENT_COOLDOWN_MS : EVENT_COOLDOWN_MS;
+    if (!highPriority && now - lastEventAt < evCooldown) return false;
+
+    const engine = getBanterEngine();
+    if (!engine || typeof engine.generateEventReaction !== 'function') return false;
+
+    const roster = getBotRoster();
+    const state = getState();
+
+    // Scale speak probability subtly by persona chattiness when a specific bot is involved
+    let chance = baseChance;
+    if (!highPriority && (event.botUid || event.botName)) {
+      const target = roster.find(function (b) {
+        return (event.botUid && b.uid === event.botUid) || (event.botName && b.name === event.botName);
+      });
+      if (target && typeof engine.getBotProfile === 'function') {
+        const prof = engine.getBotProfile(target);
+        const spec = prof && engine.PERSONA_PROFILES && engine.PERSONA_PROFILES[prof.personaId];
+        if (spec && spec.chattiness) {
+          chance = Math.min(0.95, baseChance * spec.chattiness);
+        }
+      }
+    }
+    if (chance < 1 && Math.random() > chance) return false;
+
+    const reaction = engine.generateEventReaction(event, roster, state);
+    if (!reaction || !reaction.primary) return false;
+    if (!canBotSpeak(reaction.primary.bot, highPriority)) return false;
+
+    lastEventAt = now;
+    return scheduleReaction(reaction, highPriority);
   }
 
   function handlePlayerMessage(message) {
     const state = getState();
     if (!message || message.isBot || !isArenaChatAvailable() || !state) return false;
     if (state.role !== 'warmup' && state.role !== 'host') return false;
-    if (Date.now() - lastPlayerReplyAt < PLAYER_REPLY_COOLDOWN_MS) return false;
-    if (Math.random() > 0.68) return false;
+    const now = Date.now();
+    if (now - lastPlayerReplyAt < PLAYER_REPLY_COOLDOWN_MS) return false;
+
     const roster = getBotRoster();
     if (!roster.length) return false;
-    const ready = roster.filter(function (bot) { return bot.alive !== false && canBotSpeak(bot); });
-    if (!ready.length) return false;
-    const bot = randomItem(ready);
-    const category = classifyPlayerMessage(message.text);
-    const line = randomItem(REPLIES[category] || REPLIES.general);
-    const key = String(bot.uid || bot.name);
-    if (lastBotLine.get(key) === line) return false;
-    lastBotLine.set(key, line);
-    lastPlayerReplyAt = Date.now();
-    return sendBotLine(bot, line, 650 + Math.floor(Math.random() * 1250), false);
+
+    const engine = getBanterEngine();
+    if (!engine || typeof engine.generatePlayerReply !== 'function') return false;
+
+    const reaction = engine.generatePlayerReply(message.text, message.name, roster, state);
+    if (!reaction || !reaction.primary) return false;
+
+    const analysis = reaction.analysis || {};
+    const highReplyChance = Boolean(
+      analysis.mentionedBot ||
+      state.phase === 'match_over' ||
+      ['bot_accusation', 'hackusation', 'direct_insult', 'map_talk', 'camping_salt'].includes(analysis.intent)
+    );
+    const replyProb = highReplyChance ? 0.98 : 0.84;
+    if (Math.random() > replyProb) return false;
+
+    lastPlayerReplyAt = now;
+    return scheduleReaction(reaction, true);
   }
 
   function onChatMessage(message) {
@@ -430,6 +462,8 @@
     MAX_MESSAGE_LENGTH: MAX_MESSAGE_LENGTH,
     sanitizeMessage: sanitizeMessage,
     classifyPlayerMessage: classifyPlayerMessage,
+    analyzePlayerMessage: analyzePlayerMessage,
+    resetMatchMemory: resetMatchMemory,
     isOpen: function () { return open; },
     isEnabled: isArenaChatAvailable,
     canInteract: canInteractWithChat,
@@ -438,6 +472,7 @@
     refresh: refresh,
     handleGameEvent: handleGameEvent,
     onChatMessage: onChatMessage,
+    getMessages: function () { return messages.slice(); },
     _getBotRoster: getBotRoster
   };
 });

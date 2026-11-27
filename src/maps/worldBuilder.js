@@ -10,15 +10,18 @@ function registerSolid(m,extra){
   m.userData=m.userData||{};
   m.userData.isSurf=!!(extra&&extra.isSurf);
   const g=m.geometry.parameters;
-  solids.push({
+  const entry={
     half:V3(g.width/2,g.height/2,g.depth/2),
     inv:m.matrixWorld.clone().invert(),
     q:m.quaternion.clone(),
     box:new THREE.Box3().setFromObject(m),
     isSurf:!!(extra&&extra.isSurf),
-    surfNormal:extra&&extra.surfNormal?extra.surfNormal.clone():null
-  });
+    surfNormal:extra&&extra.surfNormal?extra.surfNormal.clone():null,
+    disabled:false
+  };
+  solids.push(entry);
   solidMeshes.push(m);
+  return entry;
 }
 
 // Scales top-face (+Y) UVs of a BoxGeometry so shared surf materials tile uniformly without stretching.

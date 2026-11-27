@@ -24,7 +24,16 @@ if(typeof ArenaPreview3D!=='undefined'&&ArenaPreview3D.setOnModeChange){
 
 function getArenaMetaSafe(mapId){
   if(typeof ArenaCatalog==='undefined')return null;
-  return ArenaCatalog.getArenaMeta(ArenaCatalog.normalizeArenaId(mapId,'arena_surf'));
+  const fallback=hostSelectedMode==='ffa_4p'?'arena_surf':'tac_citadel';
+  return ArenaCatalog.getArenaMeta(ArenaCatalog.normalizeArenaId(mapId,fallback));
+}
+
+function getMapsForSelectedMode(){
+  if(typeof ArenaCatalog==='undefined')return [];
+  if(typeof ArenaCatalog.getCatalogForMode==='function'){
+    return ArenaCatalog.getCatalogForMode(hostSelectedMode);
+  }
+  return ArenaCatalog.ARENA_CATALOG||[];
 }
 
 function selectHostArena(mapId,skipPreview){
@@ -44,7 +53,11 @@ function selectHostArena(mapId,skipPreview){
   if(arenaDetailDescEl)arenaDetailDescEl.textContent=meta.description;
   if(arenaDetailFeaturesEl)arenaDetailFeaturesEl.textContent=(meta.features||[]).join(' · ');
   if(arenaPreviewLabelEl)arenaPreviewLabelEl.textContent=`${meta.shortName} · LIVE 3D`;
-  if(warmupSelectedBtn)warmupSelectedBtn.textContent=`SOLO BOT WARMUP · ${meta.shortName}`;
+  if(warmupSelectedBtn){
+    warmupSelectedBtn.textContent=meta.isDemolition
+      ?`PLAY SOLO 5V5 · ${meta.shortName}`
+      :`SOLO BOT WARMUP · ${meta.shortName}`;
+  }
 
   if(!skipPreview&&typeof ArenaPreview3D!=='undefined'&&arenaPreviewCanvas&&serversPanelEl&&serversPanelEl.style.display!=='none'){
     ArenaPreview3D.showCourse(arenaPreviewCanvas,meta);
@@ -54,8 +67,29 @@ function selectHostArena(mapId,skipPreview){
 
 function renderArenaMapPicker(){
   if(!arenaMapGridEl||typeof ArenaCatalog==='undefined')return;
+  const pool=getMapsForSelectedMode();
+  if(pool.length&&!pool.some(m=>m.id===hostSelectedMap)){
+    hostSelectedMap=pool[0].id;
+  }
+  const previewNoteEl=document.querySelector('.srv-preview-note');
+  if(previewNoteEl){
+    previewNoteEl.textContent=hostSelectedMode==='ffa_4p'
+      ?'Post-match voting rotates between all 6 FFA arenas'
+      :'5v5 Bomb Demolition · Max 4 Humans + Solo-Queue Bots · 3 Destructible Maps';
+  }
+  const botStripEl=$('srvBotDiffStrip');
+  const botMetaEl=$('srvBotDiffMeta');
+  const botDescEl=$('srvBotDiffDesc');
+  if(hostSelectedMode==='demolition_5v5'){
+    if(botStripEl)botStripEl.style.display='none';
+    if(botMetaEl)botMetaEl.textContent='SOLO-QUEUE MIX LOCKED';
+    if(botDescEl)botDescEl.textContent='Each 5v5 match rolls realistic teammates (1 Carry, 2 Solid, 1–2 Weaker) that cannot be altered.';
+  }else{
+    if(botStripEl)botStripEl.style.display='';
+    if(typeof renderBotDifficultyUi==='function')renderBotDifficultyUi();
+  }
   arenaMapGridEl.textContent='';
-  for(const meta of ArenaCatalog.ARENA_CATALOG){
+  for(const meta of pool){
     const card=document.createElement('button');
     card.type='button';
     card.className='arena-map-card'+(meta.id===hostSelectedMap?' selected':'');
@@ -130,8 +164,8 @@ function renderServersBoard(){
     title.textContent=lob.roomName;
     const mapLabel=(typeof ArenaCatalog!=='undefined')
       ?ArenaCatalog.getArenaName(lob.mapId).toUpperCase()
-      :(lob.mapId==='arena_surf'?'SURF STADIUM':'AIM COURTYARD');
-    const modeLabel=lob.mode==='ffa_4p'?'FFA':'1v1 DUEL';
+      :(lob.mapId==='arena_surf'?'SURF STADIUM':'DESERT CITADEL');
+    const modeLabel=lob.mode==='ffa_4p'?'4P FFA':'DEMOLITION 5V5';
     const meta=document.createElement('div');
     meta.className='srv-row-meta';
     meta.textContent=`HOST: ${lob.hostName} · ${mapLabel} · ${modeLabel} · ${lob.playerCount}/${lob.maxPlayers}`;
@@ -207,15 +241,23 @@ function closeServersPanel(){
 }
 
 function launchSoloArenaWarmup(mapId){
-  const targetId=(typeof ArenaCatalog!=='undefined')?ArenaCatalog.normalizeArenaId(mapId,'arena_surf'):(mapId||'arena_surf');
+  const isTac=Boolean(window.TacticalMapCatalog&&window.TacticalMapCatalog.isTacticalMapId(mapId));
+  const targetId=(typeof ArenaCatalog!=='undefined')?ArenaCatalog.normalizeArenaId(mapId,isTac?'tac_citadel':'arena_surf'):(mapId||'tac_citadel');
   const label=(typeof ArenaCatalog!=='undefined')?ArenaCatalog.getArenaName(targetId).toUpperCase():'ARENA';
   stopServersSubscription();
   if(typeof ArenaPreview3D!=='undefined')ArenaPreview3D.stop();
-  NetcodeSystem.startSoloWarmup(targetId,'duel_1v1');
+  if(window.TacticalMapCatalog&&window.TacticalMapCatalog.isTacticalMapId(targetId)){
+    loadLevel(targetId,{keepSession:false});
+    inLevel=true;
+    enter();
+    showToast(`${label} · DEMOLITION 5V5 — PRESS [B] FOR SHOP`);
+    return;
+  }
+  NetcodeSystem.startSoloWarmup(targetId,'ffa_4p');
   loadLevel(targetId,{keepSession:true});
   inLevel=true;
   enter();
-  showToast(`${label} WARMUP · SHOOT AI BOTS FOR GUN XP`);
+  showToast(`${label} FFA WARMUP · SHOOT AI BOTS FOR GUN XP`);
 }
 
 async function handleHostDeploy(){

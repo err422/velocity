@@ -94,11 +94,18 @@
       }
     }
     if (maxCamos) {
+      const sigTargets = LS.CLASS_SIGNATURE_CAMOS ? Object.values(LS.CLASS_SIGNATURE_CAMOS) : [];
       for (const wid of LS.WEAPON_IDS) {
         if (!next.camoProgress[wid]) next.camoProgress[wid] = {};
         for (const ch of LS.CAMO_CHALLENGES) {
           const cur = Number(next.camoProgress[wid][ch.id]) || 0;
           next.camoProgress[wid][ch.id] = Math.max(cur, ch.target);
+        }
+        for (const sig of sigTargets) {
+          if (sig && sig.metric && sig.target) {
+            const cur = Number(next.camoProgress[wid][sig.metric]) || 0;
+            next.camoProgress[wid][sig.metric] = Math.max(cur, sig.target);
+          }
         }
       }
     }
@@ -381,7 +388,7 @@
     const next = buildMaxedLoadoutsState(root.activeLoadouts, root.LoadoutsSystem, { maxXp: false, maxCamos: true });
     root.activeLoadouts = root.LoadoutsSystem.saveLocal(next);
     refreshAllGameUi();
-    toast('DEV: ALL BASE, GOLD, DIAMOND & DARK MATTER CAMOS UNLOCKED');
+    toast('DEV: ALL BASE, SIGNATURE, PRESTIGE & MASTERY CAMOS UNLOCKED');
   }
 
   function grantAllArmoryItems() {
@@ -417,7 +424,7 @@
       root.KnivesSystem.setLocalDirty(false);
     }
     refreshAllGameUi();
-    toast('DEV: EVERYTHING UNLOCKED (LV.12 + DARK MATTER + ALL SKINS + 9.9M C)');
+    toast('DEV: EVERYTHING UNLOCKED (LV.12 + ALL MASTERY/PRESTIGE + 50 SKINS + 9.9M C)');
   }
 
   function ensureSoloCheatsAllowed() {

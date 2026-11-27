@@ -290,9 +290,103 @@
     cs.haloMesh.scale.setScalar(0.95 + pulse * 0.10);
   }
 
+  function ensureAvatarTacticalParts(visual) {
+    if (!visual || !visual.group || visual.tacticalParts) return visual && visual.tacticalParts;
+    // Bomb backpack (shown only on active Attacker bomb carrier)
+    const bombPack = new THREE.Mesh(
+      new THREE.BoxGeometry(0.32, 0.36, 0.16),
+      new THREE.MeshStandardMaterial({
+        color: 0x1f2937,
+        emissive: 0xff5a36,
+        emissiveIntensity: 0.75,
+        roughness: 0.45,
+        metalness: 0.5
+      })
+    );
+    bombPack.position.set(0, 1.15, 0.25);
+    bombPack.visible = false;
+    visual.group.add(bombPack);
+
+    // Lightweight through-wall silhouette & overhead chevron (depthTest: false)
+    const wallSilhouette = new THREE.Mesh(
+      new THREE.BoxGeometry(0.56, 1.48, 0.34),
+      new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.24,
+        depthTest: false,
+        depthWrite: false
+      })
+    );
+    wallSilhouette.position.set(0, 0.96, 0);
+    wallSilhouette.renderOrder = 25;
+    wallSilhouette.visible = false;
+    visual.group.add(wallSilhouette);
+
+    const allyChevron = new THREE.Mesh(
+      new THREE.ConeGeometry(0.16, 0.26, 4),
+      new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        depthTest: false,
+        depthWrite: false
+      })
+    );
+    allyChevron.rotation.x = Math.PI;
+    allyChevron.position.set(0, 2.48, 0);
+    allyChevron.renderOrder = 26;
+    allyChevron.visible = false;
+    visual.group.add(allyChevron);
+
+    visual.tacticalParts = { bombPack, wallSilhouette, allyChevron, lastTeamHex: 0 };
+    return visual.tacticalParts;
+  }
+
+  function updateAvatarTacticalVisuals(visual, opts) {
+    if (!visual || !visual.group) return;
+    const parts = ensureAvatarTacticalParts(visual);
+    if (!parts) return;
+    const o = opts || {};
+    const team = o.team || '';
+    const isTeammate = Boolean(o.isTeammate);
+    const isRevealed = Boolean(o.isRevealed);
+    const hasBomb = Boolean(o.hasBomb);
+
+    parts.bombPack.visible = hasBomb;
+
+    if (isTeammate) {
+      const colHex = team === 'atk' ? 0xff8a4c : 0x38bdf8;
+      parts.wallSilhouette.visible = true;
+      parts.wallSilhouette.material.color.setHex(colHex);
+      parts.wallSilhouette.material.opacity = 0.22;
+      parts.allyChevron.visible = true;
+      parts.allyChevron.material.color.setHex(colHex);
+    } else if (isRevealed) {
+      parts.wallSilhouette.visible = true;
+      parts.wallSilhouette.material.color.setHex(0xff3b5c);
+      parts.wallSilhouette.material.opacity = 0.34;
+      parts.allyChevron.visible = false;
+    } else {
+      parts.wallSilhouette.visible = false;
+      parts.allyChevron.visible = false;
+    }
+
+    // Apply crisp faction visor/armor trim tint once per team swap
+    const factionHex = team === 'atk' ? 0xff6b35 : (team === 'def' ? 0x38bdf8 : 0);
+    if (factionHex && parts.lastTeamHex !== factionHex && visual.operatorRoot) {
+      parts.lastTeamHex = factionHex;
+      visual.operatorRoot.traverse((ch) => {
+        if (ch.isMesh && ch.material && ch.material.emissive && ch.material.emissiveIntensity > 0.2) {
+          ch.material.color.setHex(factionHex);
+          ch.material.emissive.setHex(factionHex);
+        }
+      });
+    }
+  }
+
   VI.makeCallsignSprite = makeCallsignSprite;
   VI.createAvatarMesh = createAvatarMesh;
   VI.updateAvatarGrappleVisual = updateAvatarGrappleVisual;
   VI.disposeAvatarAuxVisuals = disposeAvatarAuxVisuals;
   VI.updateAvatarChronoVisual = updateAvatarChronoVisual;
+  VI.updateAvatarTacticalVisuals = updateAvatarTacticalVisuals;
 })(typeof self !== 'undefined' ? self : globalThis);

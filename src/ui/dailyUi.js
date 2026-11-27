@@ -33,10 +33,19 @@ async function hydrateCloudSettingsForUser(user){
       if(settingsPanelEl.style.display!=='none')renderSettingsPanel();
       updateSettingsSyncLabel('CLOUD SYNCED');
     }else if(res&&res.cloudSynced){
-      await window.DailyBackend.saveUserSettings(window.activeSettings);
-      updateSettingsSyncLabel('CLOUD SYNCED');
+      const saveRes=await window.DailyBackend.saveUserSettings(window.activeSettings);
+      if(saveRes&&saveRes.saved){
+        updateSettingsSyncLabel('CLOUD SYNCED');
+      }else{
+        lastSyncedUid=null;
+        updateSettingsSyncLabel('LOCAL FALLBACK');
+      }
+    }else{
+      lastSyncedUid=null;
+      updateSettingsSyncLabel('LOCAL FALLBACK');
     }
   }catch(_){
+    lastSyncedUid=null;
     updateSettingsSyncLabel('LOCAL FALLBACK');
   }
 }
@@ -52,6 +61,7 @@ async function hydrateCloudInventoryForUser(user){
   try{
     const res=await window.DailyBackend.loadUserInventory();
     if(!res||!res.cloudSynced){
+      lastInvSyncedUid=null;
       updateArmorySyncLabel('LOCAL FALLBACK');
       return;
     }
@@ -204,7 +214,20 @@ async function hydrateCloudLoadoutsForUser(user){
   if(lastLoadoutsSyncedUid===user.uid)return;
   lastLoadoutsSyncedUid=user.uid;
   try{
+    if(window.DailyBackend.ready)await window.DailyBackend.ready;
+    const preState=window.DailyBackend.getState?window.DailyBackend.getState():null;
+    if(preState&&!preState.online){
+      lastLoadoutsSyncedUid=null;
+      updateLoadoutsSyncLabel('LOCAL FALLBACK');
+      return;
+    }
     const cloudDoc=await window.DailyBackend.loadUserLoadouts();
+    const postState=window.DailyBackend.getState?window.DailyBackend.getState():null;
+    if(!cloudDoc&&postState&&!postState.online){
+      lastLoadoutsSyncedUid=null;
+      updateLoadoutsSyncLabel('LOCAL FALLBACK');
+      return;
+    }
     const mergedState=LoadoutsSystem.mergeLoadoutStates(window.activeLoadouts,cloudDoc);
     window.activeLoadouts=LoadoutsSystem.saveLocal(mergedState);
     selectedLoadoutIdx=window.activeLoadouts.activeIndex;
@@ -218,10 +241,16 @@ async function hydrateCloudLoadoutsForUser(user){
     const needsSync=!cloudSanitized||JSON.stringify(mergedState)!==JSON.stringify(cloudSanitized);
     if(needsSync){
       if(cloudLoadoutsSaveTimer){clearTimeout(cloudLoadoutsSaveTimer);cloudLoadoutsSaveTimer=null;}
-      await window.DailyBackend.saveUserLoadouts(window.activeLoadouts);
+      const saved=await window.DailyBackend.saveUserLoadouts(window.activeLoadouts);
+      if(!saved){
+        lastLoadoutsSyncedUid=null;
+        updateLoadoutsSyncLabel('LOCAL FALLBACK');
+        return;
+      }
     }
     updateLoadoutsSyncLabel('CLOUD SYNCED');
   }catch(err){
+    lastLoadoutsSyncedUid=null;
     console.warn('Cloud loadouts hydration failed; keeping local loadouts intact:',err);
     updateLoadoutsSyncLabel('LOCAL FALLBACK');
   }

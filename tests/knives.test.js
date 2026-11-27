@@ -10,10 +10,10 @@ function makeRng(seed) {
   };
 }
 
-test('catalog defines 5 knife silhouettes, 12 skins, 7 cases, and 5 rarity tiers', () => {
+test('catalog defines 5 knife silhouettes, 12 skins, 9 cases, and 5 rarity tiers', () => {
   assert.deepEqual(KnivesSystem.KNIFE_TYPE_IDS, ['default', 'karambit', 'butterfly', 'm9', 'skeleton']);
   assert.equal(KnivesSystem.SKIN_IDS.length, 12);
-  assert.deepEqual(KnivesSystem.CASE_IDS, ['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin']);
+  assert.deepEqual(KnivesSystem.CASE_IDS, ['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin', 'prestige', 'phantom']);
   assert.deepEqual(KnivesSystem.RARITY_IDS, ['milspec', 'restricted', 'classified', 'covert', 'gold']);
 });
 
@@ -280,7 +280,7 @@ test('tiered cases enforce escalating prices and increasing Gold odds', () => {
     'famas', 'scar', 'honeybadger', 'mp7', 'sawedoff', 'leverslug',
     'dmr', 'scout', 'katana', 'g18', 'akimbo', 'usps'
   ]);
-  assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 32);
+  assert.equal(KnivesSystem.WEAPON_SKIN_IDS.length, 50);
   assert.equal(KnivesSystem.getCasePrice('velocity'), 100);
   assert.equal(KnivesSystem.getCasePrice('chroma'), 175);
   assert.equal(KnivesSystem.getCasePrice('spectrum'), 275);
@@ -288,6 +288,8 @@ test('tiered cases enforce escalating prices and increasing Gold odds', () => {
   assert.equal(KnivesSystem.getCasePrice('overdrive'), 500);
   assert.equal(KnivesSystem.getCasePrice('eclipse'), 650);
   assert.equal(KnivesSystem.getCasePrice('ronin'), 450);
+  assert.equal(KnivesSystem.getCasePrice('prestige'), 550);
+  assert.equal(KnivesSystem.getCasePrice('phantom'), 600);
 
   const velOdds = KnivesSystem.getCaseOdds('velocity');
   const chrOdds = KnivesSystem.getCaseOdds('chroma');

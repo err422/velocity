@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>VELOCITY — Arena PvP Shooter</title>
-<meta name="description" content="High-speed movement arena PvP shooter with 1v1 duels, 4-player FFA, custom gunsmith loadouts, and movement courses.">
-<meta property="og:title" content="VELOCITY — Arena PvP Shooter">
-<meta property="og:description" content="High-speed movement arena PvP shooter with 1v1 duels, 4-player FFA, custom gunsmith loadouts, and movement courses.">
+<title>VELOCITY — Tactical Demolition 5v5 &amp; Arena Shooter</title>
+<meta name="description" content="5v5 Tactical Bomb Demolition with Finals-style environmental destruction, CS2 equipment economy, custom gunsmith loadouts, 4-player FFA arenas, and movement courses.">
+<meta property="og:title" content="VELOCITY — Tactical Demolition 5v5 &amp; Arena Shooter">
+<meta property="og:description" content="5v5 Tactical Bomb Demolition with Finals-style environmental destruction, CS2 equipment economy, custom gunsmith loadouts, 4-player FFA arenas, and movement courses.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -41,18 +41,18 @@
       <div class="menu-layout">
         <main class="menu-primary">
           <div class="menu-intro">
-            <div class="menu-kicker">6 Themed Arenas · 1v1 Duels · 4-Player FFA · Map Voting</div>
-            <h1>Outmove. Outshoot<span>.</span></h1>
-            <p>High-speed movement meets lethal hitscan gunplay. Duel friends across six distinct arenas with launch vents, portals, and post-match map voting.</p>
+            <div class="menu-kicker">5v5 Tactical Demolition · Destructible Sites · CS2 Equipment Economy · 4P FFA</div>
+            <h1>Breach. Plant. Outmove<span>.</span></h1>
+            <p>Blow open soft walls, hatch floors, and sightlines across 3 destructible 2-site maps. Swap Gunsmith loadouts freely, buy tactical utility, and fight first-to-5 rounds with halftime side-swaps.</p>
           </div>
 
           <button type="button" class="menu-pvp-hero" id="openServersBtn">
             <span class="menu-pvp-top">
-              <span class="menu-mode-label">Primary Mode · Peer-to-Peer WebRTC</span>
+              <span class="menu-mode-label">Flagship Mode · Demolition 5v5 &amp; 4P FFA · WebRTC P2P</span>
               <span class="menu-pvp-live" id="menuLiveArenaStat">Host or Join Match</span>
             </span>
-            <strong>Play PvP Arena <span aria-hidden="true">↗</span></strong>
-            <small>6 Arenas · Surf Stadium, Aim Courtyard, Helix Spire, Cargo Killhouse, Skyline Run &amp; Redrock Canyon</small>
+            <strong>Play Demolition 5v5 <span aria-hidden="true">↗</span></strong>
+            <small>3 Destructible Tactical Maps (Desert Citadel, Neon Skyway, Alpine Bunker) + 6 FFA Arenas · Max 4 Humans + Solo-Queue Bots</small>
           </button>
 
           <div class="menu-pvp-quick">
@@ -64,12 +64,12 @@
               </div>
             </div>
             <div class="menu-quick-card">
-              <div class="menu-quick-head">Solo Bot Warmup · Earns Gun XP</div>
+              <div class="menu-quick-head">Instant Solo 5v5 Demolition &amp; FFA Warmup</div>
               <div class="menu-warmup-pair menu-warmup-quad">
-                <button type="button" class="menu-warmup-btn" id="menuQuickWarmupSurfBtn" data-quick-arena="arena_surf">Surf Stadium</button>
-                <button type="button" class="menu-warmup-btn" id="menuQuickWarmupAimBtn" data-quick-arena="arena_aim">Aim Courtyard</button>
-                <button type="button" class="menu-warmup-btn" data-quick-arena="arena_cargo">Cargo CQB</button>
-                <button type="button" class="menu-warmup-btn" data-quick-arena="arena_spire">Helix Spire</button>
+                <button type="button" class="menu-warmup-btn demo-quick" id="menuQuickCitadelBtn" data-quick-arena="tac_citadel">Desert Citadel 5v5</button>
+                <button type="button" class="menu-warmup-btn demo-quick" id="menuQuickSkywayBtn" data-quick-arena="tac_skyway">Neon Skyway 5v5</button>
+                <button type="button" class="menu-warmup-btn demo-quick" id="menuQuickAlpineBtn" data-quick-arena="tac_alpine">Alpine Bunker 5v5</button>
+                <button type="button" class="menu-warmup-btn" id="menuQuickWarmupSurfBtn" data-quick-arena="arena_surf">Surf Stadium FFA</button>
               </div>
             </div>
           </div>
@@ -676,8 +676,8 @@
     <div id="serversPanel" style="display:none">
       <div class="hub-head">
         <div>
-          <div class="eyebrow">PEER-TO-PEER PVP · 6 ARENAS</div>
-          <h2 class="hub-title">PvP Arena Lobby</h2>
+          <div class="eyebrow">PEER-TO-PEER PVP · DEMOLITION 5V5 &amp; 4P FFA</div>
+          <h2 class="hub-title">PvP Servers &amp; Tactical Maps</h2>
         </div>
         <div class="hub-actions">
           <span class="set-sync" id="serversSyncNote">P2P BOARD</span>
@@ -692,8 +692,8 @@
             <div class="section-label" style="margin:0">Live Public Servers</div>
             <div class="srv-filters">
               <button type="button" class="arm-filter-btn active" data-srv-filter="all">ALL</button>
-              <button type="button" class="arm-filter-btn" data-srv-filter="duel_1v1">1v1 DUEL</button>
-              <button type="button" class="arm-filter-btn" data-srv-filter="ffa_4p">FFA</button>
+              <button type="button" class="arm-filter-btn" data-srv-filter="demolition_5v5">DEMOLITION 5V5</button>
+              <button type="button" class="arm-filter-btn" data-srv-filter="ffa_4p">4P FFA</button>
             </div>
           </div>
           <div class="srv-list" id="serversBoardList" aria-live="polite"></div>
@@ -710,13 +710,13 @@
             <div class="section-label">Host Match Configuration</div>
             <div class="set-field" style="margin-bottom:10px">
               <div class="set-row-head"><label class="set-label" for="hostRoomName">Room Name</label></div>
-              <input id="hostRoomName" class="set-input" type="text" maxlength="32" placeholder="e.g. Surf Stadium 1v1" autocomplete="off">
+              <input id="hostRoomName" class="set-input" type="text" maxlength="32" placeholder="e.g. Desert Citadel 5v5" autocomplete="off">
             </div>
             <div class="srv-host-toggles">
               <div class="set-field" style="margin-bottom:0">
                 <div class="set-row-head"><span class="set-label">Match Mode</span></div>
                 <div class="seg-group">
-                  <button type="button" class="seg-btn active" data-host-mode="duel_1v1">1v1 (FT5)</button>
+                  <button type="button" class="seg-btn active" data-host-mode="demolition_5v5">DEMOLITION 5V5</button>
                   <button type="button" class="seg-btn" data-host-mode="ffa_4p">4P FFA</button>
                 </div>
               </div>
@@ -731,25 +731,25 @@
 
             <div class="bot-diff-wrap" style="margin-top:12px">
               <div class="bot-diff-head">
-                <span class="bot-diff-title">AI DIFFICULTY</span>
-                <span class="bot-diff-meta" id="srvBotDiffMeta">ADAPTIVE · +12/+18 XP</span>
+                <span class="bot-diff-title">AI ROSTER</span>
+                <span class="bot-diff-meta" id="srvBotDiffMeta">SOLO-QUEUE MIX LOCKED</span>
               </div>
               <div class="bot-diff-strip" id="srvBotDiffStrip" role="radiogroup" aria-label="Bot AI Difficulty"></div>
-              <div class="bot-diff-desc" id="srvBotDiffDesc">Auto-scales to your K/D · applies to Warmup, Sandbox &amp; Arena Bot Fill</div>
+              <div class="bot-diff-desc" id="srvBotDiffDesc">Each 5v5 match rolls realistic teammates (1 Carry, 2 Solid, 1–2 Weaker) that cannot be altered.</div>
             </div>
 
             <div class="srv-deploy-actions">
-              <button type="button" id="hostDeployBtn">HOST &amp; DEPLOY ARENA</button>
-              <button type="button" class="alt srv-warmup-launch" id="warmupSelectedBtn">SOLO BOT WARMUP · SURF STADIUM</button>
+              <button type="button" id="hostDeployBtn">HOST &amp; DEPLOY MATCH</button>
+              <button type="button" class="alt srv-warmup-launch" id="warmupSelectedBtn">PLAY SOLO 5V5 · CITADEL</button>
             </div>
-            <div class="set-help" id="hostDeployNote" style="margin-top:8px">Zero server setup: your room appears instantly on the public board via Firestore and connects players peer-to-peer over WebRTC.</div>
+            <div class="set-help" id="hostDeployNote" style="margin-top:8px">Zero server setup: your room appears instantly on the public board via Firestore and connects up to 4 humans over WebRTC with bots filling remaining 5v5 slots.</div>
           </div>
         </div>
 
         <div class="srv-col-right">
           <div class="srv-preview-head">
-            <div class="section-label" style="margin:0">Arena Preview &amp; Map Pool</div>
-            <span class="srv-preview-note">Post-match voting rotates between all 6 arenas</span>
+            <div class="section-label" style="margin:0">Map Preview &amp; Tactical Pool</div>
+            <span class="srv-preview-note">5v5 Bomb Demolition · Max 4 Humans + Solo-Queue Bots · 3 Destructible Maps</span>
           </div>
 
           <div class="arena-preview-stage" id="arenaPreviewStage">
@@ -759,18 +759,18 @@
               <button type="button" class="cb-mode-btn" id="srvModeFly">FLYTHROUGH</button>
             </div>
             <div class="cb-preview-caption">
-              <span id="arenaPreviewLabel">SURF STADIUM · LIVE 3D</span>
+              <span id="arenaPreviewLabel">DESERT CITADEL · LIVE 3D</span>
               <span class="cb-preview-hint" id="arenaPreviewHint">DRAG TO ORBIT · SCROLL TO ZOOM</span>
             </div>
           </div>
 
           <div class="arena-detail-bar">
             <div class="arena-detail-top">
-              <h3 class="arena-detail-title" id="arenaDetailTitle">Surf Stadium</h3>
-              <span class="arena-detail-sub" id="arenaDetailSub">Curved Surf-Bowl · Open Movement</span>
+              <h3 class="arena-detail-title" id="arenaDetailTitle">Desert Citadel</h3>
+              <span class="arena-detail-sub" id="arenaDetailSub">3-Lane Citadel · Destructible 2-Site</span>
             </div>
-            <p class="arena-detail-desc" id="arenaDetailDesc">High-velocity curved surf bowl with elevated sniper perches, turbo boost rings, opposing flank portals, and a lethal center void pit.</p>
-            <div class="arena-feature-list" id="arenaDetailFeatures">Surf Bowl · Turbo Rings · Flank Portals · Void Pit</div>
+            <p class="arena-detail-desc" id="arenaDetailDesc">Sun-baked sandstone fortress with destructible palace walls, B-tunnel breach doors, mid window control, and upper rafters.</p>
+            <div class="arena-feature-list" id="arenaDetailFeatures">2 Bomb Sites · Destructible Walls · Ceiling Hatches · 3-Lane Flow</div>
           </div>
 
           <div class="arena-map-grid" id="arenaMapGrid" role="listbox" aria-label="PvP Arenas"></div>
@@ -895,7 +895,8 @@
             <aside class="gs-camo-rail" aria-label="Camo and finish categories">
               <div class="gs-camo-subtabs" id="gsCamoSubtabs" role="tablist" aria-label="Finish filter">
                 <button type="button" class="gs-camo-subtab active" data-camo-filter="all" role="tab" aria-selected="true">ALL</button>
-                <button type="button" class="gs-camo-subtab" data-camo-filter="challenges" role="tab" aria-selected="false">CHALLENGES</button>
+                <button type="button" class="gs-camo-subtab" data-camo-filter="challenges" role="tab" aria-selected="false">MASTERY</button>
+                <button type="button" class="gs-camo-subtab" data-camo-filter="prestige" role="tab" aria-selected="false">PRESTIGE</button>
                 <button type="button" class="gs-camo-subtab" data-camo-filter="armory" role="tab" aria-selected="false">ARMORY</button>
               </div>
               <div class="gs-camo-scroll" id="gsCamoScroll">
@@ -1320,8 +1321,8 @@
 </div>
 <div id="arenaScoreboard">
   <div class="sb-head">
-    <div class="sb-title" id="sbTitle">ARENA SCOREBOARD</div>
-    <div class="sb-sub" id="sbSub">1v1 DUEL · FIRST TO 5</div>
+    <div class="sb-title" id="sbTitle">MATCH SCOREBOARD</div>
+    <div class="sb-sub" id="sbSub">DEMOLITION 5V5 · FIRST TO 5</div>
   </div>
   <div class="sb-table" id="sbTable"></div>
   <div class="sb-vote-section" id="sbVoteSection" style="display:none">
@@ -1435,6 +1436,9 @@ const SCRIPTS = [
   "src/weapons/projectiles/tracers.js",
   "src/models/enemies/holoTargets.js",
   "src/models/player/avatarModel.js",
+  "src/systems/tactical/demolitionEngine.js",
+  "src/systems/tactical/destructionSystem.js",
+  "src/systems/tactical/utilitySystem.js",
   "src/systems/bots/botAI.js",
   "src/systems/combat/combatSystem.js",
   "src/core/physics.js",
@@ -1442,10 +1446,12 @@ const SCRIPTS = [
   "src/maps/sandbox.js",
   "src/maps/courses.js",
   "src/maps/coursePreview.js",
+  "src/maps/tacticalMaps.js",
   "src/maps/arenas.js",
   "src/maps/daily.js",
   "src/systems/replays/ghost.js",
   "src/systems/combat/netcode.js",
+  "src/systems/chat/botBanterEngine.js",
   "src/systems/chat/chatSystem.js",
   "src/core/player.js",
   "src/core/mobileControls.js",
@@ -1453,6 +1459,7 @@ const SCRIPTS = [
   "src/core/input.js",
   "src/core/gameLoop.js",
   "src/ui/hud.js",
+  "src/ui/demolitionUi.js",
   "src/ui/settingsUi.js",
   "src/ui/armoryUi.js",
   "src/ui/serversUi.js",

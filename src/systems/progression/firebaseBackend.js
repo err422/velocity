@@ -17,6 +17,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
 import {
   getFirestore,
+  initializeFirestore,
   doc,
   getDoc,
   getDocFromServer,
@@ -77,6 +78,22 @@ function handleFirestoreError(error, operationType, path) {
   throw new Error(JSON.stringify(errInfo));
 }
 
+function isOfflineError(error) {
+  if (window.VelocityAuthHelpers && typeof window.VelocityAuthHelpers.isOfflineFirestoreError === 'function') {
+    return window.VelocityAuthHelpers.isOfflineFirestoreError(error);
+  }
+  if (!error) return false;
+  const code = typeof error.code === 'string' ? error.code.toLowerCase() : '';
+  const msg = error instanceof Error ? error.message : String(error);
+  if (code === 'permission-denied' || /missing or insufficient permissions|permission-denied/i.test(msg)) {
+    return false;
+  }
+  return (
+    code === 'unavailable' ||
+    /the client is offline|could not reach cloud firestore backend|failed to get document because the client is offline|failed to get document from server|network-request-failed|unable to resolve host/i.test(msg)
+  );
+}
+
 function isCloudAuthenticated(user = currentUser) {
   return Boolean(user && typeof user.uid === 'string' && user.uid.length > 0);
 }
@@ -121,19 +138,29 @@ function sanitizeSplits(splits, fallbackTime) {
   return arr;
 }
 
-async function testConnection() {
-  if (!db) return;
+async function testConnection(allowRetry = true) {
+  if (!db) return false;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    isOnline = false;
+    return false;
+  }
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
     isOnline = true;
+    return true;
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error('Please check your Firebase configuration.');
+    if (isOfflineError(error)) {
+      if (allowRetry && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return testConnection(false);
+      }
       isOnline = false;
-    } else {
-      // Online permission-denied on test/connection confirms live Firestore reachability
-      isOnline = true;
+      console.warn('Cloud Firestore backend unreachable; operating in local fallback mode.');
+      return false;
     }
+    // Online permission-denied on test/connection confirms live Firestore reachability
+    isOnline = true;
+    return true;
   }
 }
 
@@ -143,8 +170,23 @@ async function initFirebase() {
     const res = await fetch(configUrl, { cache: 'no-store' });
     if (!res.ok) throw new Error(`Could not load firebase-applet-config.json (${res.status})`);
     const firebaseConfig = await res.json();
+    if (!firebaseConfig || !firebaseConfig.projectId || !firebaseConfig.apiKey) {
+      console.error('Please check your Firebase configuration.');
+      throw new Error('Missing Firebase project configuration.');
+    }
     app = initializeApp(firebaseConfig);
-    db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    try {
+      db = initializeFirestore(
+        app,
+        {
+          experimentalAutoDetectLongPolling: true,
+          useFetchStreams: false
+        },
+        firebaseConfig.firestoreDatabaseId
+      );
+    } catch (_) {
+      db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    }
     auth = getAuth(app);
 
     onAuthStateChanged(auth, (user) => {
@@ -163,6 +205,21 @@ async function initFirebase() {
         }
       });
     });
+
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('online', () => {
+        if (db && !isOnline) {
+          testConnection(false).then((reachable) => {
+            if (reachable && currentUser) {
+              notifyAuthListeners();
+            }
+          });
+        }
+      });
+      window.addEventListener('offline', () => {
+        isOnline = false;
+      });
+    }
 
     await testConnection();
   } catch (err) {
@@ -183,7 +240,7 @@ async function ensureDailyCourseRegistered(dateKey) {
   const canonicalSeed = Gen.canonicalDailySeed(dateKey);
   const preview = Gen.previewSeedCourse(canonicalSeed, dateKey);
 
-  if (!db) return preview;
+  if (!db || !isOnline) return preview;
   const user = auth ? auth.currentUser : null;
   if (!isCloudAuthenticated(user)) {
     return preview;
@@ -194,7 +251,12 @@ async function ensureDailyCourseRegistered(dateKey) {
   let snap;
   try {
     snap = await getDoc(ref);
+    isOnline = true;
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return preview;
+    }
     handleFirestoreError(error, OperationType.GET, docPath);
   }
 
@@ -217,7 +279,12 @@ async function ensureDailyCourseRegistered(dateKey) {
     };
     try {
       await setDoc(ref, payload);
+      isOnline = true;
     } catch (error) {
+      if (isOfflineError(error)) {
+        isOnline = false;
+        return preview;
+      }
       // If another player registered concurrently, re-read gracefully
       try {
         const retry = await getDoc(ref);
@@ -247,7 +314,7 @@ async function fetchDailyArchive(recentDays = 14) {
   }
 
   let cloudSynced = false;
-  if (db) {
+  if (db && isOnline) {
     const colPath = 'dailyCourses';
     try {
       const q = query(collection(db, colPath), where('isPublic', '==', true), limit(60));
@@ -259,9 +326,14 @@ async function fetchDailyArchive(recentDays = 14) {
         const seed = typeof d.seed === 'string' && d.seed.length >= 4 ? d.seed : Gen.canonicalDailySeed(dk);
         map.set(dk, { ...Gen.previewSeedCourse(seed, dk), storedInDb: true });
       });
+      isOnline = true;
       cloudSynced = true;
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, colPath);
+      if (isOfflineError(error)) {
+        isOnline = false;
+      } else {
+        handleFirestoreError(error, OperationType.LIST, colPath);
+      }
     }
   }
 
@@ -273,7 +345,7 @@ async function fetchLeaderboard(dateKey) {
   await ready;
   const Gen = window.DailyCourseGen;
   if (!Gen.isValidDateKey(dateKey)) return { entries: [], cloudSynced: false };
-  if (!db) return { entries: [], cloudSynced: false };
+  if (!db || !isOnline) return { entries: [], cloudSynced: false };
 
   const path = `dailyCourses/${dateKey}/runs`;
   try {
@@ -284,6 +356,7 @@ async function fetchLeaderboard(dateKey) {
       limit(25)
     );
     const snap = await getDocs(q);
+    isOnline = true;
     const entries = [];
     snap.forEach((docSnap) => {
       const d = docSnap.data();
@@ -299,6 +372,10 @@ async function fetchLeaderboard(dateKey) {
     });
     return { entries, cloudSynced: true };
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return { entries: [], cloudSynced: false };
+    }
     handleFirestoreError(error, OperationType.LIST, path);
   }
 }
@@ -307,7 +384,7 @@ async function submitDailyRun(dateKey, runTime, splits) {
   await ready;
   const Gen = window.DailyCourseGen;
   if (!Gen.isValidDateKey(dateKey)) return { submitted: false, reason: 'invalid-date' };
-  if (!db || !auth) return { submitted: false, reason: 'offline' };
+  if (!db || !auth || !isOnline) return { submitted: false, reason: 'offline' };
   if (!isCloudAuthenticated(currentUser)) return { submitted: false, reason: 'signed-out' };
 
   const cleanTime = Math.round(Number(runTime) * 1000) / 1000;
@@ -317,6 +394,7 @@ async function submitDailyRun(dateKey, runTime, splits) {
 
   // Ensure parent daily course document exists before writing subcollection run (Master Gate)
   await ensureDailyCourseRegistered(dateKey);
+  if (!isOnline) return { submitted: false, reason: 'offline' };
 
   const uid = currentUser.uid;
   const runPath = `dailyCourses/${dateKey}/runs/${uid}`;
@@ -325,7 +403,12 @@ async function submitDailyRun(dateKey, runTime, splits) {
   let existingSnap;
   try {
     existingSnap = await getDoc(runRef);
+    isOnline = true;
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return { submitted: false, reason: 'offline' };
+    }
     handleFirestoreError(error, OperationType.GET, runPath);
   }
 
@@ -347,6 +430,10 @@ async function submitDailyRun(dateKey, runTime, splits) {
         updatedAt: serverTimestamp()
       });
     } catch (error) {
+      if (isOfflineError(error)) {
+        isOnline = false;
+        return { submitted: false, reason: 'offline' };
+      }
       handleFirestoreError(error, OperationType.UPDATE, runPath);
     }
   } else {
@@ -362,6 +449,10 @@ async function submitDailyRun(dateKey, runTime, splits) {
         updatedAt: serverTimestamp()
       });
     } catch (error) {
+      if (isOfflineError(error)) {
+        isOnline = false;
+        return { submitted: false, reason: 'offline' };
+      }
       handleFirestoreError(error, OperationType.CREATE, runPath);
     }
   }
@@ -373,7 +464,7 @@ async function submitDailyRun(dateKey, runTime, splits) {
 
 async function loadUserSettings() {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser)) {
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser)) {
     return { settings: null, exists: false, cloudSynced: false };
   }
   const uid = currentUser.uid;
@@ -381,6 +472,7 @@ async function loadUserSettings() {
   const ref = doc(db, 'userSettings', uid);
   try {
     const snap = await getDoc(ref);
+    isOnline = true;
     if (!snap.exists()) {
       return { settings: null, exists: false, cloudSynced: true };
     }
@@ -388,13 +480,17 @@ async function loadUserSettings() {
     const clean = window.VelocitySettings ? window.VelocitySettings.sanitizeSettings(raw) : raw;
     return { settings: clean, exists: true, cloudSynced: true };
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return { settings: null, exists: false, cloudSynced: false };
+    }
     handleFirestoreError(error, OperationType.GET, path);
   }
 }
 
 async function saveUserSettings(settings) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser)) {
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser)) {
     return { saved: false, reason: !currentUser ? 'signed-out' : 'offline' };
   }
   if (!window.VelocitySettings) {
@@ -408,7 +504,12 @@ async function saveUserSettings(settings) {
   let existingSnap;
   try {
     existingSnap = await getDoc(ref);
+    isOnline = true;
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return { saved: false, reason: 'offline' };
+    }
     handleFirestoreError(error, OperationType.GET, path);
   }
 
@@ -425,6 +526,10 @@ async function saveUserSettings(settings) {
         updatedAt: serverTimestamp()
       });
     } catch (error) {
+      if (isOfflineError(error)) {
+        isOnline = false;
+        return { saved: false, reason: 'offline' };
+      }
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
   } else {
@@ -435,6 +540,10 @@ async function saveUserSettings(settings) {
         updatedAt: serverTimestamp()
       });
     } catch (error) {
+      if (isOfflineError(error)) {
+        isOnline = false;
+        return { saved: false, reason: 'offline' };
+      }
       handleFirestoreError(error, OperationType.CREATE, path);
     }
   }
@@ -445,7 +554,7 @@ async function syncDisplayNameToRun(dateKey, customDisplayName) {
   await ready;
   const Gen = window.DailyCourseGen;
   if (!Gen || !Gen.isValidDateKey(dateKey)) return { updated: false };
-  if (!db || !isCloudAuthenticated(currentUser)) return { updated: false };
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser)) return { updated: false };
 
   const uid = currentUser.uid;
   const runPath = `dailyCourses/${dateKey}/runs/${uid}`;
@@ -454,7 +563,9 @@ async function syncDisplayNameToRun(dateKey, customDisplayName) {
   let snap;
   try {
     snap = await getDoc(runRef);
-  } catch (_) {
+    isOnline = true;
+  } catch (error) {
+    if (isOfflineError(error)) isOnline = false;
     return { updated: false };
   }
   if (!snap || !snap.exists()) return { updated: false };
@@ -472,13 +583,17 @@ async function syncDisplayNameToRun(dateKey, customDisplayName) {
     });
     return { updated: true };
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return { updated: false };
+    }
     handleFirestoreError(error, OperationType.UPDATE, runPath);
   }
 }
 
 async function loadUserInventory() {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return {
       inventory: null,
       exists: false,
@@ -495,7 +610,20 @@ async function loadUserInventory() {
   let snap;
   try {
     snap = await getDoc(invRef);
+    isOnline = true;
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return {
+        inventory: null,
+        exists: false,
+        cloudSynced: false,
+        knivesLoaded: false,
+        glovesLoaded: false,
+        weaponsLoaded: false,
+        partial: false
+      };
+    }
     handleFirestoreError(error, OperationType.GET, invPath);
   }
   if (!snap || !snap.exists()) {
@@ -587,7 +715,7 @@ async function loadUserInventory() {
 
 async function writeUserInventorySummaryLocked(inventory) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return { saved: false, reason: !currentUser ? 'signed-out' : 'offline' };
   }
   const uid = currentUser.uid;
@@ -598,7 +726,12 @@ async function writeUserInventorySummaryLocked(inventory) {
   let existingSnap;
   try {
     existingSnap = await getDoc(invRef);
+    isOnline = true;
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return { saved: false, reason: 'offline' };
+    }
     handleFirestoreError(error, OperationType.GET, invPath);
   }
 
@@ -622,6 +755,10 @@ async function writeUserInventorySummaryLocked(inventory) {
       });
       knownParentInventoryUid = uid;
     } catch (error) {
+      if (isOfflineError(error)) {
+        isOnline = false;
+        return { saved: false, reason: 'offline' };
+      }
       handleFirestoreError(error, OperationType.UPDATE, invPath);
     }
   } else {
@@ -633,6 +770,10 @@ async function writeUserInventorySummaryLocked(inventory) {
       });
       knownParentInventoryUid = uid;
     } catch (error) {
+      if (isOfflineError(error)) {
+        isOnline = false;
+        return { saved: false, reason: 'offline' };
+      }
       handleFirestoreError(error, OperationType.CREATE, invPath);
     }
   }
@@ -650,7 +791,7 @@ function saveUserInventorySummary(inventory) {
 
 async function ensureParentInventoryDoc(fullInventory) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return false;
   }
   if (knownParentInventoryUid === currentUser.uid) {
@@ -662,7 +803,7 @@ async function ensureParentInventoryDoc(fullInventory) {
 
 async function saveCloudSubcollectionItem(subcollection, itemPayload, fullInventory) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return { saved: false };
   }
   const parentReady = await ensureParentInventoryDoc(fullInventory);
@@ -675,7 +816,11 @@ async function saveCloudSubcollectionItem(subcollection, itemPayload, fullInvent
   try {
     const existingSnap = await getDoc(itemRef);
     if (existingSnap.exists()) return { saved: true };
-  } catch (_) {
+  } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return { saved: false };
+    }
     // Proceed directly to create; allow update:false protects existing immutable docs.
   }
 
@@ -686,33 +831,45 @@ async function saveCloudSubcollectionItem(subcollection, itemPayload, fullInvent
     });
     return { saved: true };
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return { saved: false };
+    }
     handleFirestoreError(error, OperationType.CREATE, itemPath);
   }
 }
 
 async function deleteCloudSubcollectionItem(subcollection, itemId) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser)) return { deleted: false };
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser)) return { deleted: false };
   const uid = currentUser.uid;
   const itemPath = `userInventory/${uid}/${subcollection}/${itemId}`;
   const itemRef = doc(db, 'userInventory', uid, subcollection, itemId);
   try {
     const existingSnap = await getDoc(itemRef);
     if (!existingSnap.exists()) return { deleted: true };
-  } catch (_) {
+  } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return { deleted: false };
+    }
     // Continue to deleteDoc attempt
   }
   try {
     await deleteDoc(itemRef);
     return { deleted: true };
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return { deleted: false };
+    }
     handleFirestoreError(error, OperationType.DELETE, itemPath);
   }
 }
 
 async function saveCloudKnife(knifeItem, fullInventory) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return { saved: false };
   }
   const payload = window.KnivesSystem.toCloudKnifePayload(knifeItem, currentUser.uid);
@@ -725,7 +882,7 @@ async function deleteCloudKnife(knifeId) {
 
 async function saveCloudGlove(gloveItem, fullInventory) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return { saved: false };
   }
   const payload = window.KnivesSystem.toCloudGlovePayload(gloveItem, currentUser.uid);
@@ -738,7 +895,7 @@ async function deleteCloudGlove(gloveId) {
 
 async function saveCloudWeapon(weaponItem, fullInventory) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser) || !window.KnivesSystem) {
     return { saved: false };
   }
   const payload = window.KnivesSystem.toCloudWeaponPayload(weaponItem, currentUser.uid);
@@ -751,7 +908,7 @@ async function deleteCloudWeapon(weaponId) {
 
 async function updateCloudStatTrakKills(subcollection, itemId, kills) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser)) return { updated: false };
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser)) return { updated: false };
   if ((subcollection !== 'weapons' && subcollection !== 'knives') || !itemId) return { updated: false };
   const uid = currentUser.uid;
   const cleanKills = Math.max(0, Math.min(999999, Math.floor(Number(kills) || 0)));
@@ -760,6 +917,7 @@ async function updateCloudStatTrakKills(subcollection, itemId, kills) {
     await updateDoc(itemRef, { statTrakKills: cleanKills });
     return { updated: true };
   } catch (error) {
+    if (isOfflineError(error)) isOnline = false;
     console.warn('StatTrak cloud sync skipped:', error && error.message ? error.message : error);
     return { updated: false };
   }
@@ -795,9 +953,9 @@ function normalizeLobbyDoc(docSnap) {
     hostUid: d.hostUid,
     hostName: d.hostName || 'Host',
     roomName: d.roomName || 'Velocity Arena',
-    mapId: d.mapId || 'arena_aim',
-    mode: d.mode || 'duel_1v1',
-    maxPlayers: d.maxPlayers || 2,
+    mapId: d.mapId || 'tac_citadel',
+    mode: d.mode || 'demolition_5v5',
+    maxPlayers: d.maxPlayers || 4,
     playerCount: d.playerCount || 1,
     status: d.status || 'open',
     isPrivate: Boolean(d.isPrivate),
@@ -807,7 +965,7 @@ function normalizeLobbyDoc(docSnap) {
 }
 
 function subscribePublicLobbies(onUpdate, onError) {
-  if (!db || !isCloudAuthenticated(currentUser)) {
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser)) {
     if (typeof onUpdate === 'function') onUpdate([]);
     return () => {};
   }
@@ -840,6 +998,9 @@ function subscribePublicLobbies(onUpdate, onError) {
 }
 
 const VALID_ARENA_IDS = new Set([
+  'tac_citadel',
+  'tac_skyway',
+  'tac_alpine',
   'arena_surf',
   'arena_aim',
   'arena_spire',
@@ -853,14 +1014,15 @@ async function createLobby(opts) {
   if (!db || !isCloudAuthenticated(currentUser)) {
     throw new Error('Sign in with Email, Google, or Private Guest to host a server.');
   }
-  const mode = opts && opts.mode === 'ffa_4p' ? 'ffa_4p' : 'duel_1v1';
-  const rawMapId = opts && typeof opts.mapId === 'string' ? opts.mapId : 'arena_surf';
-  const mapId = VALID_ARENA_IDS.has(rawMapId) ? rawMapId : 'arena_surf';
-  const maxPlayers = mode === 'ffa_4p' ? 4 : 2;
+  const mode = opts && opts.mode === 'ffa_4p' ? 'ffa_4p' : 'demolition_5v5';
+  const defaultMap = mode === 'ffa_4p' ? 'arena_surf' : 'tac_citadel';
+  const rawMapId = opts && typeof opts.mapId === 'string' ? opts.mapId : defaultMap;
+  const mapId = VALID_ARENA_IDS.has(rawMapId) ? rawMapId : defaultMap;
+  const maxPlayers = 4;
   const isPrivate = Boolean(opts && opts.isPrivate);
   const hostName = sanitizeDisplayName(currentUser).slice(0, 32) || 'Host';
   const rawRoom = String((opts && opts.roomName) || '').replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 32);
-  const roomName = rawRoom || `${hostName}'s ${mode === 'ffa_4p' ? 'FFA' : '1v1'}`;
+  const roomName = rawRoom || `${hostName}'s ${mode === 'ffa_4p' ? 'FFA' : 'Demolition 5v5'}`;
 
   let joinCode = isPrivate ? generateRoomCode() : '';
   let lobbyId = generateLobbyId(isPrivate, joinCode);
@@ -926,8 +1088,8 @@ async function updateLobby(lobbyId, patch) {
   if (patch && typeof patch.status === 'string') body.status = patch.status;
   if (patch && typeof patch.mapId === 'string' && VALID_ARENA_IDS.has(patch.mapId)) body.mapId = patch.mapId;
   if (patch && typeof patch.mode === 'string') {
-    body.mode = patch.mode;
-    body.maxPlayers = patch.mode === 'ffa_4p' ? 4 : 2;
+    body.mode = patch.mode === 'ffa_4p' ? 'ffa_4p' : 'demolition_5v5';
+    body.maxPlayers = 4;
   }
   try {
     await updateDoc(ref, body);
@@ -954,14 +1116,19 @@ async function closeLobby(lobbyId) {
 
 async function getLobbyById(lobbyId) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser) || !lobbyId) return null;
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser) || !lobbyId) return null;
   try {
     const snap = await getDoc(doc(db, 'lobbies', lobbyId));
+    isOnline = true;
     if (!snap.exists()) return null;
     const item = normalizeLobbyDoc(snap);
     if (item.status === 'closed' || Date.now() - item.heartbeatMs > 40000) return null;
     return item;
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return null;
+    }
     handleFirestoreError(error, OperationType.GET, `lobbies/${lobbyId}`);
   }
 }
@@ -1073,11 +1240,12 @@ async function deletePeerDoc(lobbyId, peerUid) {
 
 async function loadUserLoadouts() {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser)) return null;
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser)) return null;
   const uid = currentUser.uid;
   const ref = doc(db, 'userLoadouts', uid);
   try {
     const snap = await getDoc(ref);
+    isOnline = true;
     if (!snap.exists()) return null;
     const data = snap.data() || {};
     return {
@@ -1089,13 +1257,17 @@ async function loadUserLoadouts() {
       equippedWeaponCamos: data.equippedWeaponCamos
     };
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return null;
+    }
     handleFirestoreError(error, OperationType.GET, `userLoadouts/${uid}`);
   }
 }
 
 async function writeUserLoadoutsLocked(loadoutState) {
   await ready;
-  if (!db || !isCloudAuthenticated(currentUser) || !window.LoadoutsSystem) return false;
+  if (!db || !isOnline || !isCloudAuthenticated(currentUser) || !window.LoadoutsSystem) return false;
   const uid = currentUser.uid;
   const loadoutsPath = `userLoadouts/${uid}`;
   const payload = window.LoadoutsSystem.toCloudLoadoutsPayload(loadoutState, uid);
@@ -1104,7 +1276,12 @@ async function writeUserLoadoutsLocked(loadoutState) {
   let existing = null;
   try {
     existing = await getDoc(ref);
+    isOnline = true;
   } catch (error) {
+    if (isOfflineError(error)) {
+      isOnline = false;
+      return false;
+    }
     handleFirestoreError(error, OperationType.GET, loadoutsPath);
   }
 
@@ -1126,6 +1303,10 @@ async function writeUserLoadoutsLocked(loadoutState) {
         });
         knownLoadoutsUid = uid;
       } catch (error) {
+        if (isOfflineError(error)) {
+          isOnline = false;
+          return false;
+        }
         handleFirestoreError(error, OperationType.UPDATE, loadoutsPath);
       }
     } else {
@@ -1137,6 +1318,10 @@ async function writeUserLoadoutsLocked(loadoutState) {
         });
         knownLoadoutsUid = uid;
       } catch (error) {
+        if (isOfflineError(error)) {
+          isOnline = false;
+          return false;
+        }
         handleFirestoreError(error, OperationType.UPDATE, loadoutsPath);
       }
     }
@@ -1149,6 +1334,10 @@ async function writeUserLoadoutsLocked(loadoutState) {
       });
       knownLoadoutsUid = uid;
     } catch (error) {
+      if (isOfflineError(error)) {
+        isOnline = false;
+        return false;
+      }
       handleFirestoreError(error, OperationType.CREATE, loadoutsPath);
     }
   }

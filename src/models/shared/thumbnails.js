@@ -16,7 +16,7 @@
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
-    const { albedoCanvas } = paintWeaponToCanvases(item, 128);
+    const { albedoCanvas } = paintWeaponToCanvases(item, 192);
     const wt = item.weaponType;
 
     const bg = ctx.createRadialGradient(W * 0.5, H * 0.5, 8, W * 0.5, H * 0.5, W * 0.62);
@@ -276,7 +276,7 @@
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
-    const { albedoCanvas, palette } = paintGloveToCanvases(item, 128);
+    const { albedoCanvas, palette } = paintGloveToCanvases(item, 192);
     const gt = item.gloveType;
     const accentHex = '#' + palette.cuff.toString(16).padStart(6, '0');
     const knuckleHex = '#' + palette.knuckle.toString(16).padStart(6, '0');
@@ -423,7 +423,7 @@
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
-    const { albedoCanvas } = paintSkinToCanvases(item, 128);
+    const { albedoCanvas } = paintSkinToCanvases(item, 192);
 
     const bg = ctx.createRadialGradient(W * 0.52, H * 0.48, 8, W * 0.52, H * 0.48, W * 0.62);
     bg.addColorStop(0, 'rgba(28, 52, 74, 0.42)');

@@ -76,6 +76,9 @@ function isDedicatedSurfMap(){
   const meta=catalog.getCourseMeta(level.id);
   return !!(meta&&meta.category==='surf');
 }
+function isDemolitionMode(){
+  return Boolean(window.NetcodeSystem&&window.NetcodeSystem.getState().mode==='demolition_5v5');
+}
 function toggleGrapple(){
   const p=player;
   if(isDedicatedSurfMap()){
@@ -84,14 +87,42 @@ function toggleGrapple(){
     showToast('GRAPPLE DISABLED IN SURF MAPS');
     return;
   }
-  if(p.grapple){p.grapple=null;grappleEl.textContent='GRAPPLE READY';return;}
+  const demo=isDemolitionMode();
+  if(p.grapple){
+    p.grapple=null;
+    grappleEl.textContent=demo?'GRAPPLE KIT':'GRAPPLE READY';
+    return;
+  }
+  if(demo){
+    const ns=window.NetcodeSystem.getState();
+    if(!ns.localAlive||ns.phase!=='live'){
+      if(ns.phase==='buy')showToast('WAIT FOR ROUND START');
+      return;
+    }
+    const charges=ns.localEcon&&ns.localEcon.utility?(ns.localEcon.utility.grapple||0):0;
+    if(charges<=0){
+      grappleEl.textContent='BUY GRAPPLE [B]';
+      showToast('BUY GRAPPLE KIT IN SHOP [B]');
+      return;
+    }
+  }
   const cp=Math.cos(p.pitch),dir=V3(-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp);
   raycaster.set(V3(p.pos.x,p.pos.y+p.eye,p.pos.z),dir);raycaster.far=CFG.grappleRange;
-  const hits=raycaster.intersectObjects(solidMeshes,false);
-  if(hits.length){p.grapple=hits[0].point.clone();grappleEl.textContent='GRAPPLE CONNECTED';showToast('TETHER CONNECTED');}
+  const hits=raycaster.intersectObjects(solidMeshes,false).filter(h=>h.object&&h.object.visible!==false&&!(h.object.userData&&h.object.userData.disabled));
+  if(hits.length){
+    if(demo&&window.NetcodeSystem){
+      const used=window.NetcodeSystem.useDemolitionUtility({kind:'grapple'});
+      if(!used||!used.ok){showToast('BUY GRAPPLE KIT IN SHOP [B]');return;}
+    }
+    p.grapple=hits[0].point.clone();grappleEl.textContent='GRAPPLE CONNECTED';showToast('TETHER CONNECTED');
+  }
   else showToast('NO GRAPPLE ANCHOR');
 }
 function burst(){
+  if(isDemolitionMode()){
+    showToast('SPEED BURST DISABLED IN DEMOLITION');
+    return;
+  }
   if(isDedicatedSurfMap()){
     showToast('KINETIC BURST DISABLED IN SURF MAPS');
     return;
@@ -117,7 +148,7 @@ function resetPlayer(){
     window.CombatSystem.resetAmmo();
     window.CombatSystem.clearScope();
   }
-  refreshGates();cpEl.textContent='';timerEl.textContent='00:00.000';grappleEl.textContent=isDedicatedSurfMap()?'GRAPPLE DISABLED':'GRAPPLE READY';showToast('POSITION RESET');
+  refreshGates();cpEl.textContent='';timerEl.textContent='00:00.000';grappleEl.textContent=isDedicatedSurfMap()?'GRAPPLE DISABLED':(isDemolitionMode()?'GRAPPLE KIT [B]':'GRAPPLE READY');showToast('POSITION RESET');
 }
 
 const _q=V3();
@@ -235,11 +266,12 @@ function step(dt){
   p.surfGrace=Math.max(0,p.surfGrace-moveDt);
 
   // Full-auto firing (ARs, SMGs, G-18 Auto, M-134 Minigun) & rapid Fan-the-Hammer hold (R-88 Revolver)
-  if(window.CombatSystem){
+  const fireBlocked=typeof isCombatFireBlocked==='function'?isCombatFireBlocked():isArenaBlocked();
+  if(window.CombatSystem&&!fireBlocked){
     const cst=window.CombatSystem.getState();
     const fireHeld=isActionDown('fire');
     if(typeof window.CombatSystem.setMinigunHeld==='function'){
-      window.CombatSystem.setMinigunHeld(fireHeld&&cst.isScorestreak&&cst.weaponId==='minigun'&&!isArenaBlocked());
+      window.CombatSystem.setMinigunHeld(fireHeld&&cst.isScorestreak&&cst.weaponId==='minigun'&&!fireBlocked);
     }
     if(fireHeld&&cst.auto){
       performFire(false);
@@ -249,7 +281,7 @@ function step(dt){
     }
   }
 
-  // Freeze player movement during 1v1 round countdown or death respawn
+  // Freeze player movement during round countdown, halftime, match over, or death spectating
   if(isArenaBlocked()){
     if(window.CombatSystem){
       if(typeof window.CombatSystem.setChargeHeld==='function')window.CombatSystem.setChargeHeld(false);

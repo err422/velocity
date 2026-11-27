@@ -36,6 +36,7 @@ function showMenu(){
   if(typeof CoursePreview3D!=='undefined')CoursePreview3D.stop();
   if(typeof ArenaPreview3D!=='undefined')ArenaPreview3D.stop();
   if(NetcodeSystem.getState().isArena)NetcodeSystem.leaveSession();
+  if(window.DemolitionUI&&typeof window.DemolitionUI.closeAllModals==='function')window.DemolitionUI.closeAllModals();
   CombatSystem.clearScope();
   if(typeof CombatSystem.setChargeHeld==='function')CombatSystem.setChargeHeld(false);
   const revRing=$('revolverChargeRing');
@@ -79,6 +80,7 @@ function showPause(){
   ArmoryPreview.stop();
   if(typeof CoursePreview3D!=='undefined')CoursePreview3D.stop();
   if(typeof ArenaPreview3D!=='undefined')ArenaPreview3D.stop();
+  if(window.DemolitionUI&&typeof window.DemolitionUI.closeAllModals==='function')window.DemolitionUI.closeAllModals();
   CombatSystem.clearScope();
   pauseWorldViewActive=true;
   pauseViewBlend=0;
@@ -209,6 +211,7 @@ NetcodeSystem.setCallbacks({
   onBotEvent:(event)=>{if(window.ChatSystem)window.ChatSystem.handleGameEvent(event);},
   onBanner:(b)=>message(b.subtext?`${b.text} · ${b.subtext}`:b.text,{duration:b.durationMs||2000}),
   onLocalRespawn:(sp,refill)=>respawnAtSpawn(sp,refill),
+  onSelectLoadout:(idx)=>{if(typeof window.applySavedLoadoutByIndex==='function')window.applySavedLoadoutByIndex(idx);},
   onRemoteTracer:(m)=>CombatSystem.spawnTracer(V3(m.sx,m.sy,m.sz),V3(m.ex,m.ey,m.ez),m.slot==='awp'?0x7ef2ff:m.slot==='revolver'?0xffd27a:0xffa065),
   onLocalKill:(info)=>{
     const hs=Boolean(info&&(info.isHeadshot||info.headshot));
@@ -256,6 +259,7 @@ NetcodeSystem.setCallbacks({
     const arenaName=(typeof ArenaCatalog!=='undefined')?ArenaCatalog.getArenaName(targetId).toUpperCase():targetId.toUpperCase();
     lastScoreboardTableSig='';
     lastVoteRenderSig='';
+    if(window.ChatSystem&&typeof window.ChatSystem.resetMatchMemory==='function')window.ChatSystem.resetMatchMemory();
     loadLevel(targetId,{keepSession:true});
     inLevel=true;
     enter();
@@ -265,8 +269,26 @@ NetcodeSystem.setCallbacks({
 CombatSystem.setOnWarmupKill((info)=>{
   NetcodeSystem.pushWarmupKill(info.botName,info.weaponId||info.slot,info.isHeadshot);
   if(window.ChatSystem){
-    window.ChatSystem.handleGameEvent({type:'player_killed_bot',botName:info.botName,weapon:info.weaponId||info.slot});
-    if(info.totalKills>=3&&info.totalKills%3===0)window.ChatSystem.handleGameEvent({type:'player_kill_streak',playerName:NetcodeSystem.getState().localName,totalKills:info.totalKills});
+    const ns=NetcodeSystem.getState();
+    window.ChatSystem.handleGameEvent({
+      type:'player_killed_bot',
+      botUid:info.botUid||null,
+      botName:info.botName,
+      playerName:ns.localName||'Runner',
+      weapon:info.weaponId||info.slot,
+      headshot:Boolean(info.isHeadshot),
+      mapId:ns.mapId,
+      mode:ns.mode
+    });
+    if(info.totalKills>=3&&info.totalKills%3===0){
+      window.ChatSystem.handleGameEvent({
+        type:'player_kill_streak',
+        playerName:ns.localName||'Runner',
+        totalKills:info.totalKills,
+        mapId:ns.mapId,
+        mode:ns.mode
+      });
+    }
   }
   renderArenaHudStatic();
 });
@@ -611,6 +633,13 @@ document.querySelectorAll('[data-host-mode]').forEach(btn=>{
   btn.onclick=()=>{
     hostSelectedMode=btn.dataset.hostMode;
     document.querySelectorAll('[data-host-mode]').forEach(b=>b.classList.toggle('active',b===btn));
+    if(hostRoomNameInput){
+      hostRoomNameInput.placeholder=hostSelectedMode==='ffa_4p'?'e.g. Surf Stadium FFA':'e.g. Desert Citadel 5v5';
+    }
+    if(typeof renderArenaMapPicker==='function'){
+      renderArenaMapPicker();
+      selectHostArena(hostSelectedMap,false);
+    }
   };
 });
 document.querySelectorAll('[data-host-vis]').forEach(btn=>{
@@ -969,10 +998,10 @@ if(params.get('autostart')==='1'){
   }else if(lvlParam&&LEVELS[lvlParam]){
     loadLevel(lvlParam);inLevel=true;enter();
   }else{
-    loadLevel('arena_surf');inLevel=true;enter();
+    loadLevel('tac_citadel');inLevel=true;enter();
   }
 }else{
-  loadLevel('arena_surf');
+  loadLevel('tac_citadel');
   showMenu();
 }
 if(isSoftwareGl)frame(performance.now());

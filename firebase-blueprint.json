@@ -302,7 +302,9 @@
             "blacksite": { "type": "integer" },
             "overdrive": { "type": "integer" },
             "eclipse": { "type": "integer" },
-            "ronin": { "type": "integer" }
+            "ronin": { "type": "integer" },
+            "prestige": { "type": "integer" },
+            "phantom": { "type": "integer" }
           },
           "required": ["velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse"]
         },
@@ -386,7 +388,7 @@
         },
         "caseId": {
           "type": "string",
-          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin"]
+          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin", "prestige", "phantom"]
         },
         "statTrak": {
           "type": "boolean"
@@ -479,7 +481,7 @@
         },
         "caseId": {
           "type": "string",
-          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin"]
+          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin", "prestige", "phantom"]
         },
         "createdAt": {
           "type": "string",
@@ -556,7 +558,25 @@
             "reactive_oni",
             "camo_gold",
             "camo_diamond",
-            "camo_dark_matter"
+            "camo_dark_matter",
+            "cod_opal",
+            "cod_dark_spine",
+            "cod_borealis",
+            "cod_interstellar",
+            "cod_nebula",
+            "cod_mercury",
+            "cod_molten_obsidian",
+            "cod_constellation",
+            "cod_orion",
+            "cod_retro_grid",
+            "cod_forged_titanium",
+            "cod_stained_glass",
+            "cod_kintsugi_porcelain",
+            "cod_blood_cell",
+            "cod_polyatomic",
+            "cod_ghoulie",
+            "cod_bioluminescent",
+            "cod_afterlife"
           ]
         },
         "rarity": {
@@ -576,7 +596,7 @@
         "bluePct": { "type": "integer" },
         "caseId": {
           "type": "string",
-          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin"]
+          "enum": ["starter", "velocity", "chroma", "spectrum", "blacksite", "overdrive", "eclipse", "ronin", "prestige", "phantom"]
         },
         "statTrak": {
           "type": "boolean"
@@ -613,8 +633,8 @@
         "hostUid": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "minLength": 1, "maxLength": 128 },
         "hostName": { "type": "string", "minLength": 1, "maxLength": 32 },
         "roomName": { "type": "string", "minLength": 1, "maxLength": 32 },
-        "mapId": { "type": "string", "enum": ["arena_surf", "arena_aim", "arena_spire", "arena_cargo", "arena_skyline", "arena_canyon"] },
-        "mode": { "type": "string", "enum": ["duel_1v1", "ffa_4p"] },
+        "mapId": { "type": "string", "enum": ["tac_citadel", "tac_skyway", "tac_alpine", "arena_surf", "arena_aim", "arena_spire", "arena_cargo", "arena_skyline", "arena_canyon"] },
+        "mode": { "type": "string", "enum": ["demolition_5v5", "ffa_4p"] },
         "maxPlayers": { "type": "integer" },
         "playerCount": { "type": "integer" },
         "status": { "type": "string", "enum": ["open", "in_progress", "closed"] },

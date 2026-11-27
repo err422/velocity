@@ -153,6 +153,24 @@
     return 'Sign-in could not be completed. Please try again.';
   }
 
+  function isOfflineFirestoreError(err) {
+    if (!err) return false;
+    const code = typeof err.code === 'string' ? err.code.toLowerCase() : '';
+    const msg = typeof err.message === 'string' ? err.message : String(err);
+    if (
+      code === 'permission-denied' ||
+      /missing or insufficient permissions|permission-denied/i.test(msg)
+    ) {
+      return false;
+    }
+    if (code === 'unavailable') {
+      return true;
+    }
+    return /the client is offline|could not reach cloud firestore backend|failed to get document because the client is offline|failed to get document from server|network-request-failed|unable to resolve host/i.test(
+      msg
+    );
+  }
+
   return {
     MIN_PASSWORD_LENGTH,
     MAX_PASSWORD_LENGTH,
@@ -165,6 +183,7 @@
     isUserSignedIn,
     getAuthProviderKind,
     describeAccountBadge,
-    formatAuthError
+    formatAuthError,
+    isOfflineFirestoreError
   };
 });

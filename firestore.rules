@@ -303,7 +303,7 @@ service cloud.firestore {
     function isValidCaseCountsMap(c) {
       return c is map
         && c.keys().hasAll(['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse'])
-        && c.keys().hasOnly(['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin'])
+        && c.keys().hasOnly(['velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin', 'prestige', 'phantom'])
         && c.velocity is int
         && c.velocity >= 0
         && c.velocity <= 999
@@ -322,7 +322,9 @@ service cloud.firestore {
         && c.eclipse is int
         && c.eclipse >= 0
         && c.eclipse <= 999
-        && (!('ronin' in c) || (c.ronin is int && c.ronin >= 0 && c.ronin <= 999));
+        && (!('ronin' in c) || (c.ronin is int && c.ronin >= 0 && c.ronin <= 999))
+        && (!('prestige' in c) || (c.prestige is int && c.prestige >= 0 && c.prestige <= 999))
+        && (!('phantom' in c) || (c.phantom is int && c.phantom >= 0 && c.phantom <= 999));
     }
 
     function isValidUserInventoryShape(data, uid) {
@@ -477,7 +479,7 @@ service cloud.firestore {
         && data.caseId is string
         && data.caseId.size() >= 5
         && data.caseId.size() <= 16
-        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin']
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin', 'prestige', 'phantom']
         && (!('statTrak' in data) || data.statTrak is bool)
         && (!('statTrakKills' in data) || (data.statTrakKills is int && data.statTrakKills >= 0 && data.statTrakKills <= 999999))
         && data.createdAt is timestamp
@@ -571,7 +573,7 @@ service cloud.firestore {
         && data.caseId is string
         && data.caseId.size() >= 5
         && data.caseId.size() <= 16
-        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin']
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin', 'prestige', 'phantom']
         && data.createdAt is timestamp
         && data.createdAt == request.time;
     }
@@ -676,7 +678,25 @@ service cloud.firestore {
           'reactive_oni',
           'camo_gold',
           'camo_diamond',
-          'camo_dark_matter'
+          'camo_dark_matter',
+          'cod_opal',
+          'cod_dark_spine',
+          'cod_borealis',
+          'cod_interstellar',
+          'cod_nebula',
+          'cod_mercury',
+          'cod_molten_obsidian',
+          'cod_constellation',
+          'cod_orion',
+          'cod_retro_grid',
+          'cod_forged_titanium',
+          'cod_stained_glass',
+          'cod_kintsugi_porcelain',
+          'cod_blood_cell',
+          'cod_polyatomic',
+          'cod_ghoulie',
+          'cod_bioluminescent',
+          'cod_afterlife'
         ]
         && data.rarity is string
         && data.rarity.size() >= 4
@@ -701,7 +721,7 @@ service cloud.firestore {
         && data.caseId is string
         && data.caseId.size() >= 5
         && data.caseId.size() <= 16
-        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin']
+        && data.caseId in ['starter', 'velocity', 'chroma', 'spectrum', 'blacksite', 'overdrive', 'eclipse', 'ronin', 'prestige', 'phantom']
         && (!('statTrak' in data) || data.statTrak is bool)
         && (!('statTrakKills' in data) || (data.statTrakKills is int && data.statTrakKills >= 0 && data.statTrakKills <= 999999))
         && data.createdAt is timestamp
@@ -767,13 +787,13 @@ service cloud.firestore {
         && data.mapId is string
         && data.mapId.size() >= 6
         && data.mapId.size() <= 20
-        && data.mapId in ['arena_surf', 'arena_aim', 'arena_spire', 'arena_cargo', 'arena_skyline', 'arena_canyon']
+        && data.mapId in ['tac_citadel', 'tac_skyway', 'tac_alpine', 'arena_surf', 'arena_aim', 'arena_spire', 'arena_cargo', 'arena_skyline', 'arena_canyon']
         && data.mode is string
         && data.mode.size() >= 6
-        && data.mode.size() <= 12
-        && data.mode in ['duel_1v1', 'ffa_4p']
+        && data.mode.size() <= 16
+        && data.mode in ['demolition_5v5', 'ffa_4p']
         && data.maxPlayers is int
-        && ((data.mode == 'duel_1v1' && data.maxPlayers == 2) || (data.mode == 'ffa_4p' && data.maxPlayers == 4))
+        && ((data.mode == 'demolition_5v5' && data.maxPlayers == 4) || (data.mode == 'ffa_4p' && data.maxPlayers == 4))
         && data.playerCount is int
         && data.playerCount >= 1
         && data.playerCount <= data.maxPlayers

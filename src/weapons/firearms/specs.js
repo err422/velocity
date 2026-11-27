@@ -1898,12 +1898,44 @@
       desc: 'Complete all 6 Base Camo challenges on this weapon.'
     },
     {
+      id: 'cod_opal',
+      skinId: 'cod_opal',
+      name: 'Opal',
+      tier: 'MASTERY II',
+      accent: '#e8f4ff',
+      desc: 'Unlock Gold on at least 2 weapons. Pearlescent white-opal mosaic under mirror clearcoat.'
+    },
+    {
       id: 'camo_diamond',
       skinId: 'camo_diamond',
       name: 'Diamond',
-      tier: 'MASTERY II',
+      tier: 'MASTERY III',
       accent: '#e6f7ff',
       desc: 'Unlock Gold on every weapon in this weapon class.'
+    },
+    {
+      id: 'cod_dark_spine',
+      skinId: 'cod_dark_spine',
+      name: 'Dark Spine',
+      tier: 'MASTERY IV',
+      accent: '#d946ff',
+      desc: 'Unlock Diamond across 2 weapon classes. Matte graphite armor split by crystalline magenta spines.'
+    },
+    {
+      id: 'cod_borealis',
+      skinId: 'cod_borealis',
+      name: 'Borealis',
+      tier: 'MASTERY V',
+      accent: '#34f5c5',
+      desc: 'Unlock Diamond across 4 weapon classes. Painted northern-lights emerald, cyan, and violet ribbons.'
+    },
+    {
+      id: 'cod_interstellar',
+      skinId: 'cod_interstellar',
+      name: 'Interstellar',
+      tier: 'GRAND MASTERY',
+      accent: '#9d7bff',
+      desc: 'Unlock Diamond across 5 weapon classes. Deep indigo cosmic starfield with painted constellation threads.'
     },
     {
       id: 'camo_dark_matter',
@@ -1913,12 +1945,136 @@
       accent: '#c06bff',
       animated: true,
       desc: 'Unlock Diamond across all weapon classes. Animated cosmic Nebula shader.'
+    },
+    {
+      id: 'cod_nebula',
+      skinId: 'cod_nebula',
+      name: 'Nebula',
+      tier: 'FINAL MASTERY',
+      accent: '#c95bff',
+      desc: 'Unlock Diamond across all weapon classes. Deep-space violet, teal, and gold-flare painted lacquer.'
     }
   ]);
 
+  const PRESTIGE_CAMOS = Object.freeze([
+    {
+      id: 'cod_mercury',
+      skinId: 'cod_mercury',
+      name: 'Mercury',
+      tier: 'PRESTIGE I · LV. 8',
+      reqLevel: 8,
+      accent: '#dbe8f4',
+      desc: 'Reach Weapon Level 8. Mirror-polished liquid quicksilver chrome ripples over machined titanium.'
+    },
+    {
+      id: 'cod_molten_obsidian',
+      skinId: 'cod_molten_obsidian',
+      name: 'Molten Obsidian',
+      tier: 'PRESTIGE II · LV. 10',
+      reqLevel: 10,
+      accent: '#ff7b24',
+      desc: 'Reach Weapon Level 10. Matte volcanic obsidian slabs fractured by incandescent amber-gold slag veins.'
+    },
+    {
+      id: 'cod_constellation',
+      skinId: 'cod_constellation',
+      name: "Constellation's End",
+      tier: 'PRESTIGE III · LV. 12',
+      reqLevel: 12,
+      accent: '#f6cb64',
+      desc: 'Reach Weapon Level 12 (Max). Midnight celestial enamel inlaid with 24K gold star-charts and astrolabe rings.'
+    }
+  ]);
+
+  const CLASS_SIGNATURE_CAMOS = Object.freeze({
+    ar: {
+      id: 'cod_orion',
+      skinId: 'cod_orion',
+      classId: 'ar',
+      name: 'Orion',
+      tier: 'AR SIGNATURE',
+      metric: 'kills',
+      target: 20,
+      accent: '#63a8ff',
+      desc: 'Unlock Gold on this Assault Rifle and score 20 total eliminations.'
+    },
+    smg: {
+      id: 'cod_retro_grid',
+      skinId: 'cod_retro_grid',
+      classId: 'smg',
+      name: 'Retro Grid',
+      tier: 'SMG SIGNATURE',
+      metric: 'airKills',
+      target: 10,
+      accent: '#ff49c4',
+      desc: 'Unlock Gold on this SMG and score 10 mid-air or surf eliminations.'
+    },
+    shotgun: {
+      id: 'cod_forged_titanium',
+      skinId: 'cod_forged_titanium',
+      classId: 'shotgun',
+      name: 'Forged Titanium',
+      tier: 'SHOTGUN SIGNATURE',
+      metric: 'rangeKills',
+      target: 10,
+      accent: '#9cb8cc',
+      desc: 'Unlock Gold on this Shotgun and score 10 point-blank or longshot eliminations.'
+    },
+    sniper: {
+      id: 'cod_stained_glass',
+      skinId: 'cod_stained_glass',
+      classId: 'sniper',
+      name: 'Stained Glass',
+      tier: 'SNIPER SIGNATURE',
+      metric: 'headshots',
+      target: 10,
+      accent: '#f5b841',
+      desc: 'Unlock Gold on this Sniper and score 10 precision headshot eliminations.'
+    },
+    katana: {
+      id: 'cod_kintsugi_porcelain',
+      skinId: 'cod_kintsugi_porcelain',
+      classId: 'katana',
+      name: 'Kintsugi Porcelain',
+      tier: 'KATANA SIGNATURE',
+      metric: 'signature',
+      target: 8,
+      accent: '#f0c659',
+      desc: 'Unlock Gold on the Ronin Katana and score 8 Slash-Dash or Deflect eliminations.'
+    },
+    revolver: {
+      id: 'cod_blood_cell',
+      skinId: 'cod_blood_cell',
+      classId: 'revolver',
+      name: 'Blood Cell',
+      tier: 'REVOLVER SIGNATURE',
+      metric: 'headshots',
+      target: 8,
+      accent: '#e6223e',
+      desc: 'Unlock Gold on the R-88 Revolver and score 8 precision eliminations.'
+    },
+    pistol: {
+      id: 'cod_polyatomic',
+      skinId: 'cod_polyatomic',
+      classId: 'pistol',
+      name: 'Polyatomic',
+      tier: 'SIDEARM SIGNATURE',
+      metric: 'kills',
+      target: 15,
+      accent: '#b45cff',
+      desc: 'Unlock Gold on this Sidearm and score 15 total eliminations.'
+    }
+  });
+
+  function getClassSignatureCamo(classId) {
+    return CLASS_SIGNATURE_CAMOS[classId] || CLASS_SIGNATURE_CAMOS.ar;
+  }
+
   const ALL_CAMO_SKIN_IDS = Object.freeze([
     ...CAMO_CHALLENGES.map((c) => c.skinId),
-    ...MASTERY_CAMOS.map((m) => m.skinId)
+    ...MASTERY_CAMOS.map((m) => m.skinId),
+    ...PRESTIGE_CAMOS.map((p) => p.skinId),
+    ...Object.values(CLASS_SIGNATURE_CAMOS).map((s) => s.skinId)
   ]);
 
   function createEmptyWeaponCamoProgress() {
@@ -2009,12 +2165,43 @@
 
     const baseUnlockedCount = baseCamos.filter((c) => c.unlocked).length;
     const goldUnlocked = baseUnlockedCount >= CAMO_CHALLENGES.length;
+    const totalGoldWeapons = WEAPON_IDS.filter((id) => hasWeaponGold(clean.camoProgress, id)).length;
+    const opalUnlocked = totalGoldWeapons >= 2;
     const classWeapons = getWeaponsInClass(spec.classId);
     const classGoldCount = classWeapons.filter((id) => hasWeaponGold(clean.camoProgress, id)).length;
     const diamondUnlocked = goldUnlocked && classGoldCount >= classWeapons.length;
     const totalClasses = WEAPON_CLASSES.length;
     const diamondClassesCount = WEAPON_CLASSES.filter((cls) => hasClassDiamond(clean.camoProgress, cls.id)).length;
+    const darkSpineUnlocked = diamondClassesCount >= 2;
+    const borealisUnlocked = diamondClassesCount >= 4;
+    const interstellarUnlocked = diamondClassesCount >= 5;
     const darkMatterUnlocked = diamondClassesCount >= totalClasses;
+
+    const lvInfo = getWeaponLevelInfo((clean.weaponXp && clean.weaponXp[wid]) || 0);
+    const curLevel = lvInfo.level || 1;
+    const prestigeCamos = PRESTIGE_CAMOS.map((pc) => {
+      const unlocked = curLevel >= pc.reqLevel;
+      const cur = Math.min(pc.reqLevel, curLevel);
+      return Object.assign({}, pc, {
+        unlocked,
+        current: cur,
+        target: pc.reqLevel,
+        pct: Math.round(clamp(cur / pc.reqLevel, 0, 1) * 100)
+      });
+    });
+
+    const sigDef = getClassSignatureCamo(spec.classId);
+    const sigRaw = Number(progress[sigDef.metric]) || 0;
+    const sigUnlocked = goldUnlocked && sigRaw >= sigDef.target;
+    const signatureCamos = [
+      Object.assign({}, sigDef, {
+        unlocked: sigUnlocked,
+        current: Math.min(sigDef.target, Math.round(sigRaw * 100) / 100),
+        rawCurrent: Math.round(sigRaw * 100) / 100,
+        target: sigDef.target,
+        pct: Math.round(clamp((goldUnlocked ? sigRaw / sigDef.target : (baseUnlockedCount / CAMO_CHALLENGES.length) * 0.5), 0, 1) * 100)
+      })
+    ];
 
     const masteryCamos = [
       Object.assign({}, MASTERY_CAMOS[0], {
@@ -2024,12 +2211,42 @@
         pct: Math.round((baseUnlockedCount / CAMO_CHALLENGES.length) * 100)
       }),
       Object.assign({}, MASTERY_CAMOS[1], {
+        unlocked: opalUnlocked,
+        current: Math.min(2, totalGoldWeapons),
+        target: 2,
+        pct: Math.round(clamp(totalGoldWeapons / 2, 0, 1) * 100)
+      }),
+      Object.assign({}, MASTERY_CAMOS[2], {
         unlocked: diamondUnlocked,
         current: classGoldCount,
         target: classWeapons.length,
         pct: Math.round((classGoldCount / Math.max(1, classWeapons.length)) * 100)
       }),
-      Object.assign({}, MASTERY_CAMOS[2], {
+      Object.assign({}, MASTERY_CAMOS[3], {
+        unlocked: darkSpineUnlocked,
+        current: Math.min(2, diamondClassesCount),
+        target: 2,
+        pct: Math.round(clamp(diamondClassesCount / 2, 0, 1) * 100)
+      }),
+      Object.assign({}, MASTERY_CAMOS[4], {
+        unlocked: borealisUnlocked,
+        current: Math.min(4, diamondClassesCount),
+        target: 4,
+        pct: Math.round(clamp(diamondClassesCount / 4, 0, 1) * 100)
+      }),
+      Object.assign({}, MASTERY_CAMOS[5], {
+        unlocked: interstellarUnlocked,
+        current: Math.min(5, diamondClassesCount),
+        target: 5,
+        pct: Math.round(clamp(diamondClassesCount / 5, 0, 1) * 100)
+      }),
+      Object.assign({}, MASTERY_CAMOS[6], {
+        unlocked: darkMatterUnlocked,
+        current: diamondClassesCount,
+        target: totalClasses,
+        pct: Math.round((diamondClassesCount / Math.max(1, totalClasses)) * 100)
+      }),
+      Object.assign({}, MASTERY_CAMOS[7], {
         unlocked: darkMatterUnlocked,
         current: diamondClassesCount,
         target: totalClasses,
@@ -2039,17 +2256,27 @@
 
     const unlockedSkinIds = [];
     for (const c of baseCamos) if (c.unlocked) unlockedSkinIds.push(c.skinId);
+    for (const s of signatureCamos) if (s.unlocked) unlockedSkinIds.push(s.skinId);
+    for (const p of prestigeCamos) if (p.unlocked) unlockedSkinIds.push(p.skinId);
     for (const m of masteryCamos) if (m.unlocked) unlockedSkinIds.push(m.skinId);
 
     return {
       weaponId: wid,
       classId: spec.classId,
+      weaponLevel: curLevel,
       baseCamos,
+      signatureCamos,
+      prestigeCamos,
       masteryCamos,
       baseUnlockedCount,
       goldUnlocked,
+      opalUnlocked,
       diamondUnlocked,
+      darkSpineUnlocked,
+      borealisUnlocked,
+      interstellarUnlocked,
       darkMatterUnlocked,
+      nebulaUnlocked: darkMatterUnlocked,
       unlockedSkinIds,
       equippedCamoId: (clean.equippedWeaponCamos && clean.equippedWeaponCamos[wid]) || ''
     };
@@ -2133,6 +2360,16 @@
     for (const c of afterStatus.baseCamos) {
       if (c.unlocked && !beforeSet.has(c.skinId)) {
         newlyUnlocked.push({ skinId: c.skinId, name: c.name, tier: 'BASE CAMO', accent: c.accent });
+      }
+    }
+    for (const s of afterStatus.signatureCamos) {
+      if (s.unlocked && !beforeSet.has(s.skinId)) {
+        newlyUnlocked.push({ skinId: s.skinId, name: s.name, tier: s.tier, accent: s.accent });
+      }
+    }
+    for (const p of afterStatus.prestigeCamos) {
+      if (p.unlocked && !beforeSet.has(p.skinId)) {
+        newlyUnlocked.push({ skinId: p.skinId, name: p.name, tier: p.tier, accent: p.accent });
       }
     }
     for (const m of afterStatus.masteryCamos) {
@@ -2611,7 +2848,10 @@
     CAMO_CHALLENGES,
     CAMO_CHALLENGE_IDS,
     MASTERY_CAMOS,
+    PRESTIGE_CAMOS,
+    CLASS_SIGNATURE_CAMOS,
     ALL_CAMO_SKIN_IDS,
+    getClassSignatureCamo,
     getWeaponSpec,
     getScorestreakDef,
     getSlotAttachmentsForWeapon,

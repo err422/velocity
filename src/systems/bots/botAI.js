@@ -74,33 +74,85 @@
     }
   };
 
-  // Player-style callsigns keep bots from looking like labeled training dummies.
+  // Authentic FPS lobby gamertags across three real-player styles:
+  // 1) Chaotic joke tags, 2) Normal everyday names with numbers, 3) Lazy lowercase & retro Xbox/PSN tags
+  const NAME_STYLE_POOLS = Object.freeze({
+    joke: Object.freeze([
+      'MicrowaveBurrito', 'ur_wifi_sucks', 'iEatCrayons', 'ToasterBath99',
+      'my_aim_is_cooked', 'LeftoverTaco', 'TaxEvasionEnjoyer', 'BrokeMySpacebar',
+      'UnpaidIntern', 'GrandmaWithAnAWP', 'WetSocksOnly', 'CerealBeforeMilk',
+      'WifiFromMcDonalds', 'ChairDiff', '404AimNotFound', 'FloorInspector',
+      'CertifiedWhiffer', 'LaggingOnPurpose', 'TouchGrassPls', 'MomUnpluggedWifi',
+      'PlayingOnTrackpad', 'ColdHotPocket', 'SoggyWaffle', 'GasStationSushi',
+      '3AMMcNuggets', 'YourLocalRat', 'MissedEveryShot', 'KeyboardWarrior99',
+      'FreeKillDelivery', 'NotUsingSound', 'NoScopeGrandpa', 'AltF4ForAimbot',
+      'SentToTheLobby', 'SkillIssueInc', 'SpawnCamper69', 'WhoStoleMyAim',
+      'IHave200Ping', 'MilkBeforeCereal'
+    ]),
+    normal: Object.freeze([
+      'tyler_04', 'marcus98', 'jake2006', 'devon_23', 'chris09', 'ethan_k',
+      'brandon88', 'noah_17', 'lucas2005', 'ryan_m', 'kyle99', 'caleb07',
+      'alex_r', 'jordan24', 'matt_03', 'dylan19', 'sam_b', 'austin02',
+      'trevor96', 'connor_11', 'nate_08', 'logan97', 'garrett_14', 'zach2004',
+      'hunter_05', 'cole99', 'mason_12', 'aidan06', 'eric_21', 'derek_01',
+      'isaac95', 'gavin_10', 'kevin2003', 'owen_18', 'jesse_07', 'brayden04'
+    ]),
+    lazy_retro: Object.freeze([
+      'idkman', 'brochill', 'plsno', 'whydididie', 'justhere', 'tired', 'ben',
+      'nottrying', 'afk_brb', 'nahh', 'dontshoot', 'bruh', 'waitwhat', 'imbad',
+      'chilling', 'okbuddy', 'mybad', 'uhhh', 'sleepy', 'justvibin',
+      'xX_Sniper_Xx', 'xX_DarkWolf_Xx', 'ShadowKiller09', 'Reaper_2008',
+      'ProGamer_777', 'xX_Headshot_Xx', 'SilentDeath99', 'GhostRecon07',
+      'MLG_Quickscope', 'xX_Slayer_Xx', 'NightHawk_06', 'FatalShot99',
+      'SniperWolf04', 'xX_Phantom_Xx'
+    ])
+  });
+
   const PLAYER_NAME_POOL = Object.freeze([
-    'nox', 'Kairo', 'vanta', 'm1dnite', 'zyro', 'lowkey', 's0lar', 'kaizen',
-    'Rift', 'kuro', 'breezy', 'clutch.exe', 'pixelshift', 'ghosted', 'Jett',
-    'r0gue', 'Echo', 'drift', 'Navi', 'sway', 'coldboot', 'Marlow', 'onyx',
-    'flickz', 'orbit', 'riven', 'no_scope', 'hollow', 'tundra', 'juno',
-    'static', 's1lent', 'Afterglow', 'vexed', 'stride', 'Mako', 'zenith',
-    'rez', 'lumen', 'ace_', 'skylark', 'wraith', 'frosty', 'nimbus', 'koda',
-    'voided', 'dash', 'monarch', 'sidequest', 'lagging', 'sable'
+    ...NAME_STYLE_POOLS.joke,
+    ...NAME_STYLE_POOLS.normal,
+    ...NAME_STYLE_POOLS.lazy_retro
   ]);
+
+  function inferNameStyle(name) {
+    const low = String(name || '').trim().toLowerCase();
+    for (const style of Object.keys(NAME_STYLE_POOLS)) {
+      if (NAME_STYLE_POOLS[style].some((n) => n.toLowerCase() === low)) return style;
+    }
+    return null;
+  }
 
   function generatePlayerName(usedNames) {
     const used = new Set();
+    const styleCounts = { joke: 0, normal: 0, lazy_retro: 0 };
     if (Array.isArray(usedNames)) {
       for (const item of usedNames) {
         const name = typeof item === 'string' ? item : item && item.name;
-        if (name) used.add(String(name).trim().toLowerCase());
+        if (name) {
+          const clean = String(name).trim();
+          used.add(clean.toLowerCase());
+          const st = inferNameStyle(clean);
+          if (st) styleCounts[st] += 1;
+        }
       }
+    }
+    // Balance styles across the lobby so a 4-player match has a realistic mix
+    const styles = ['joke', 'normal', 'lazy_retro'];
+    const minCount = Math.min(styleCounts.joke, styleCounts.normal, styleCounts.lazy_retro);
+    const preferredStyles = styles.filter((st) => styleCounts[st] === minCount);
+    const chosenStyle = preferredStyles[Math.floor(Math.random() * preferredStyles.length)] || 'joke';
+    const styleAvailable = NAME_STYLE_POOLS[chosenStyle].filter((name) => !used.has(name.toLowerCase()));
+    if (styleAvailable.length) {
+      return styleAvailable[Math.floor(Math.random() * styleAvailable.length)];
     }
     const available = PLAYER_NAME_POOL.filter((name) => !used.has(name.toLowerCase()));
     if (available.length) return available[Math.floor(Math.random() * available.length)];
-    const base = PLAYER_NAME_POOL[Math.floor(Math.random() * PLAYER_NAME_POOL.length)] || 'player';
+    const base = PLAYER_NAME_POOL[Math.floor(Math.random() * PLAYER_NAME_POOL.length)] || 'tyler';
     let suffix = Math.floor(Math.random() * 90) + 10;
-    let candidate = base + suffix;
+    let candidate = base.slice(0, 20) + suffix;
     while (used.has(candidate.toLowerCase())) {
       suffix += 1;
-      candidate = base + suffix;
+      candidate = base.slice(0, 20) + suffix;
     }
     return candidate.slice(0, 24);
   }
@@ -540,7 +592,7 @@
 
     for (let i = 0; i < solids.length; i++) {
       const s = solids[i];
-      if (!s || !s.box || !s.inv || !s.half) continue;
+      if (!s || s.disabled || !s.box || !s.inv || !s.half) continue;
       if (boxDistanceToPointSq(s.box, _colC) > T2) continue;
 
       applyMat4ToPoint(_colLp, _colC, s.inv);
@@ -658,7 +710,7 @@
     _colC.z = pos.z;
     for (let i = 0; i < solids.length; i++) {
       const s = solids[i];
-      if (!s || !s.box || !s.inv || !s.half) continue;
+      if (!s || s.disabled || !s.box || !s.inv || !s.half) continue;
       if (boxDistanceToPointSq(s.box, _colC) > R * R) continue;
       applyMat4ToPoint(_colLp, _colC, s.inv);
       const dx = _colLp.x - clamp(_colLp.x, -s.half.x, s.half.x);
@@ -906,8 +958,21 @@
     else bot.magazine = val;
   }
 
+  function firstActiveHit(hits) {
+    if (!hits || hits.length === 0) return null;
+    for (let i = 0; i < hits.length; i++) {
+      const o = hits[i] && hits[i].object;
+      if (!o || o.visible === false || (o.userData && o.userData.disabled)) continue;
+      return hits[i];
+    }
+    return null;
+  }
+
   // ---------- Vision, Navigation & Grapple Ray Helpers ----------
   function hasLineOfSight(origin, targetPt, solidMeshes) {
+    if (root.UtilitySystem && typeof root.UtilitySystem.isRayBlockedBySmoke === 'function') {
+      if (root.UtilitySystem.isRayBlockedBySmoke(origin, targetPt)) return false;
+    }
     if (!_raySight || !solidMeshes || solidMeshes.length === 0) return true;
     _vDir.subVectors(targetPt, origin);
     const d = _vDir.length();
@@ -916,7 +981,7 @@
     _raySight.set(origin, _vDir);
     _raySight.near = 0.08;
     _raySight.far = Math.max(0.08, d - 0.35);
-    return _raySight.intersectObjects(solidMeshes, false).length === 0;
+    return !firstActiveHit(_raySight.intersectObjects(solidMeshes, false));
   }
 
   function probeClearance(origin, dir, maxDist, solidMeshes) {
@@ -924,8 +989,8 @@
     _rayNav.set(origin, dir);
     _rayNav.near = 0.08;
     _rayNav.far = maxDist;
-    const hits = _rayNav.intersectObjects(solidMeshes, false);
-    return hits.length > 0 ? hits[0].distance : maxDist;
+    const hit = firstActiveHit(_rayNav.intersectObjects(solidMeshes, false));
+    return hit ? hit.distance : maxDist;
   }
 
   function probeFloorBelow(x, y, z, solidMeshes) {
@@ -936,6 +1001,8 @@
     _rayNav.far = 22.0;
     const hits = _rayNav.intersectObjects(solidMeshes, false);
     for (let i = 0; i < hits.length; i++) {
+      const o = hits[i] && hits[i].object;
+      if (!o || o.visible === false || (o.userData && o.userData.disabled)) continue;
       const fy = hits[i].point.y;
       if (fy <= y + 1.2 && fy >= y - 18.0) return fy;
     }
@@ -1398,14 +1465,18 @@
           .normalize();
       }
 
-      // Check solid world occlusion
+      // Check solid world occlusion (ignoring broken destructible panels)
       let worldDist = maxRange;
+      let worldHitObj = null;
       if (_rayShot && solidMeshes && solidMeshes.length > 0) {
         _rayShot.set(_vOrigin, _vShotDir);
         _rayShot.near = 0.08;
         _rayShot.far = maxRange;
-        const wh = _rayShot.intersectObjects(solidMeshes, false);
-        if (wh.length > 0) worldDist = wh[0].distance;
+        const wh = firstActiveHit(_rayShot.intersectObjects(solidMeshes, false));
+        if (wh) {
+          worldDist = wh.distance;
+          worldHitObj = wh.object;
+        }
       }
 
       // Ray-sphere test against realistic player head (radius 0.18m) and torso (radius 0.35m)
@@ -1455,8 +1526,14 @@
           ? LS.computeDistanceDamage(build, hitDist, pelletHead, false)
           : (pelletHead ? build.damageHead : build.damageBody);
         totalDamage += dmg;
-      } else if (callbacks && typeof callbacks.spawnBurst === 'function' && worldDist < maxRange && p < 2) {
-        callbacks.spawnBurst(_vEndPt, 0xffe2a0, 3, 4.0);
+      } else {
+        if (worldHitObj && worldHitObj.userData && worldHitObj.userData.destructiblePanelId &&
+            root.DestructionSystem && typeof root.DestructionSystem.damagePanel === 'function') {
+          root.DestructionSystem.damagePanel(worldHitObj.userData.destructiblePanelId, build.damageBody || 32, build.weaponId);
+        }
+        if (callbacks && typeof callbacks.spawnBurst === 'function' && worldDist < maxRange && p < 2) {
+          callbacks.spawnBurst(_vEndPt, 0xffe2a0, 3, 4.0);
+        }
       }
     }
 
@@ -1488,12 +1565,15 @@
     const clampedDt = clamp(Number(dt) || 0, 0, 0.05);
     if (clampedDt <= 0) return;
 
-    const skill = getActiveSkill();
+    const skill = (ctx && ctx.skillOverride) ? ctx.skillOverride : getActiveSkill();
     const solidMeshes = (ctx && ctx.solidMeshes) || [];
     const target = ctx && ctx.target;
     const targetPos = target && target.position;
     const targetAlive = Boolean(target && target.alive && targetPos);
     const abilitiesAllowed = !ctx || ctx.abilitiesAllowed !== false;
+    const isBlinded = Boolean(ctx && ctx.blinded);
+    const holdMovement = Boolean(ctx && ctx.holdMovement);
+    const tacticalGoalPos = (ctx && ctx.tacticalGoalPos) || null;
     const callbacks = (ctx && ctx.callbacks) || {};
 
     // Timers (tick in world time so weapon fire rates & cooldowns match human Chrono rules!)
@@ -1552,8 +1632,8 @@
       bot.lastTargetPos.y = targetPos.y;
       bot.lastTargetPos.z = targetPos.z;
 
-      // Vision cone + raycast LOS (360-degree awareness when alerted or within close hearing range < 13m)
-      if (dist <= bot.profile.sightRange) {
+      // Vision cone + raycast LOS (blocked by flashbang blind or volumetric smoke)
+      if (!isBlinded && dist <= bot.profile.sightRange) {
         const fx = -Math.sin(bot.yaw), fz = -Math.cos(bot.yaw);
         const dot = horizDist > 0.001 ? (dx * fx + dz * fz) / horizDist : 1;
         const inFov = dot >= -0.25 || bot.alertTimer > 0 || dist < 13.5 || Boolean(target.chronoTier > 0);
@@ -1800,6 +1880,16 @@
           }
         }
       }
+    } else if (tacticalGoalPos) {
+      // Navigate toward coordinated Demolition 5v5 site / bomb / ping objective
+      _vMove.set(tacticalGoalPos.x - bot.pos.x, 0, tacticalGoalPos.z - bot.pos.z);
+      const gDist = _vMove.length();
+      if (gDist > 1.8) {
+        _vMove.divideScalar(gDist);
+        wantsJump = bot.grounded && Math.hypot(bot.vel.x, bot.vel.z) > 7.8 && Math.random() < 0.06;
+      } else {
+        _vMove.set(0, 0, 0);
+      }
     } else if (targetAlive) {
       // Patrol aggressively toward arena hot zones / opponent sector
       bot.decisionTimer -= clampedDt;
@@ -1819,6 +1909,12 @@
         _vMove.normalize();
         wantsJump = bot.grounded && Math.hypot(bot.vel.x, bot.vel.z) > 8.0 && Math.random() < 0.08;
       }
+    }
+
+    if (holdMovement) {
+      _vMove.set(0, 0, 0);
+      wantsJump = false;
+      wantsSlide = false;
     }
 
     // Obstacle avoidance steering + stuck escape
@@ -1989,6 +2085,7 @@
 
   return {
     BOT_ARCHETYPES,
+    NAME_STYLE_POOLS,
     PLAYER_NAME_POOL,
     generatePlayerName,
     DIFFICULTY_LEVELS,

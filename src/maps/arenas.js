@@ -1274,18 +1274,38 @@
     }
   ]);
 
-  const ARENA_IDS = Object.freeze(ARENA_CATALOG.map((a) => a.id));
+  // Merge the 3 Demolition 5v5 tactical maps (if loaded) ahead of the 6 FFA arenas
+  const tacList = (root.TacticalMapCatalog && Array.isArray(root.TacticalMapCatalog.TACTICAL_MAPS))
+    ? root.TacticalMapCatalog.TACTICAL_MAPS
+    : (typeof require === 'function' ? (() => {
+        try {
+          const t = require('./tacticalMaps.js');
+          return t && Array.isArray(t.TACTICAL_MAPS) ? t.TACTICAL_MAPS : [];
+        } catch (_) { return []; }
+      })() : []);
+
+  const FFA_ARENA_CATALOG = Object.freeze(ARENA_CATALOG.map((a) => Object.assign({ mode: 'ffa' }, a)));
+  const DEMOLITION_ARENA_CATALOG = Object.freeze(tacList.slice());
+  const COMBINED_ARENA_CATALOG = Object.freeze([...DEMOLITION_ARENA_CATALOG, ...FFA_ARENA_CATALOG]);
+
+  const ARENA_IDS = Object.freeze(COMBINED_ARENA_CATALOG.map((a) => a.id));
+  const FFA_ARENA_IDS = Object.freeze(FFA_ARENA_CATALOG.map((a) => a.id));
+  const DEMOLITION_ARENA_IDS = Object.freeze(DEMOLITION_ARENA_CATALOG.map((a) => a.id));
   const ARENA_BY_ID = Object.create(null);
-  for (const a of ARENA_CATALOG) ARENA_BY_ID[a.id] = a;
+  for (const a of COMBINED_ARENA_CATALOG) ARENA_BY_ID[a.id] = a;
 
   function isValidArenaId(id) {
     return typeof id === 'string' && Boolean(ARENA_BY_ID[id]);
   }
 
+  function isDemolitionMapId(id) {
+    return typeof id === 'string' && DEMOLITION_ARENA_IDS.includes(id);
+  }
+
   function normalizeArenaId(id, fallback) {
     if (isValidArenaId(id)) return id;
     if (isValidArenaId(fallback)) return fallback;
-    return 'arena_surf';
+    return DEMOLITION_ARENA_IDS[0] || 'arena_surf';
   }
 
   function getArenaMeta(id) {
@@ -1297,27 +1317,41 @@
     return meta ? meta.name : 'Arena';
   }
 
-  function pickVoteOptions(currentMapId, rng) {
-    const cur = normalizeArenaId(currentMapId, 'arena_surf');
+  function getCatalogForMode(mode) {
+    if (mode === 'demolition_5v5' || mode === 'demolition') return DEMOLITION_ARENA_CATALOG;
+    if (mode === 'ffa_4p' || mode === 'ffa') return FFA_ARENA_CATALOG;
+    return COMBINED_ARENA_CATALOG;
+  }
+
+  function pickVoteOptions(currentMapId, rng, modeHint) {
+    const isDemo = modeHint === 'demolition_5v5' || modeHint === 'demolition' || isDemolitionMapId(currentMapId);
+    const poolIds = isDemo && DEMOLITION_ARENA_IDS.length >= 3 ? DEMOLITION_ARENA_IDS : FFA_ARENA_IDS;
+    const cur = poolIds.includes(currentMapId) ? currentMapId : poolIds[0];
     const rand = typeof rng === 'function' ? rng : Math.random;
-    const others = ARENA_IDS.filter((id) => id !== cur);
+    const others = poolIds.filter((id) => id !== cur);
     for (let i = others.length - 1; i > 0; i--) {
       const j = Math.floor(rand() * (i + 1)) % (i + 1);
       const tmp = others[i];
       others[i] = others[j];
       others[j] = tmp;
     }
-    return [others[0], others[1], cur];
+    return [others[0], others[1], cur].filter(Boolean);
   }
 
   return {
     ARENA_IDS,
-    ARENA_CATALOG,
+    FFA_ARENA_IDS,
+    DEMOLITION_ARENA_IDS,
+    ARENA_CATALOG: COMBINED_ARENA_CATALOG,
+    FFA_ARENA_CATALOG,
+    DEMOLITION_ARENA_CATALOG,
     ARENA_BY_ID,
     isValidArenaId,
+    isDemolitionMapId,
     normalizeArenaId,
     getArenaMeta,
     getArenaName,
+    getCatalogForMode,
     pickVoteOptions,
     buildArenaSurf,
     buildArenaAim,

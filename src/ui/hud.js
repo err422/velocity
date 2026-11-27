@@ -113,8 +113,8 @@ let firingRangeReturnContext=null; // { screen: 'loadouts'|'gunsmith', slotCateg
 // Servers panel state
 let serversReturnTarget='menu';
 let serversFilterMode='all';
-let hostSelectedMap='arena_surf';
-let hostSelectedMode='duel_1v1';
+let hostSelectedMap='tac_citadel';
+let hostSelectedMode='demolition_5v5';
 let hostSelectedVis='public';
 let livePublicLobbies=[];
 let unsubPublicLobbies=null;
@@ -172,15 +172,15 @@ function renderControlsLegend(){
     [moveStr,'Move'],
     [`${f(kb.fire)} / ${f(kb.altFire)}`,'Shoot / ADS / Katana Deflect'],
     [`${f(kb.slotRifle)}-${f(kb.slotDeagle)} / ${f(kb.slotKnife)}`,'Primary · Sec · Melee / Swap'],
-    ['5','Deploy Scorestreak'],
+    ['B','Demolition Equipment Shop'],
+    ['5 / 6 / 7','Throwables · C4/Recon · Gadgets'],
+    ['E / G','Plant · Defuse · Grapple / Drop Bomb'],
+    ['Z / MMB','Tactical Radio / 3D Ping'],
     [f(kb.reload),'Reload'],
-    [f(kb.checkpoint),'Previous checkpoint'],
     [f(kb.jump),'Jump / wall jump'],
-    [f(kb.slide),'Slide'],
-    [f(kb.grapple),'Grapple / Katana Dash (Q)'],
-    [f(kb.burst),'Speed burst'],
-    [f(kb.restart),'Reset run'],
-    [f(kb.inspect),'Inspect weapon / knife']
+    [f(kb.slide),'Slide / Crouch'],
+    [f(kb.inspect),'Inspect weapon / knife'],
+    ['V (Dead)','Toggle Free-Roam Ghost Cam']
   ];
   menuControlsEl.textContent='';
   for(const [k,desc] of rows){
@@ -261,9 +261,9 @@ function updateCombatHud(){
     hudReloadBar.style.display='none';
   }
 
-  // Scorestreak Meter (visible in Arena & Sandbox)
+  // Scorestreak Meter (visible in FFA Arena & Sandbox; disabled in Demolition 5v5)
   if(hudScorestreakEl&&cs.scorestreak){
-    const showStreak=Boolean(ns.isArena||(level&&level.id==='sandbox'));
+    const showStreak=Boolean((ns.isArena&&ns.mode!=='demolition_5v5')||(level&&level.id==='sandbox'));
     hudScorestreakEl.style.display=showStreak?'block':'none';
     if(showStreak){
       const ss=cs.scorestreak;
@@ -382,7 +382,7 @@ function updateCombatHud(){
   // Arena HP + Top Bar + Scoreboard
   if(ns.isArena){
     arenaHpWrapEl.style.display='block';
-    arenaTopBarEl.style.display='flex';
+    arenaTopBarEl.style.display=ns.mode==='demolition_5v5'?'none':'flex';
     if(ns.localHp!==lastHudHp){
       lastHudHp=ns.localHp;
       hpValEl.textContent=String(ns.localHp);
@@ -429,7 +429,7 @@ function renderArenaHudStatic(){
   }
   const pauseBotDiffBox=$('pauseBotDiffBox');
   if(pauseBotDiffBox){
-    const showBotDiff=Boolean((level&&level.id==='sandbox')||ns.role==='warmup'||ns.role==='host');
+    const showBotDiff=Boolean(ns.mode!=='demolition_5v5'&&((level&&level.id==='sandbox')||ns.role==='warmup'||ns.role==='host'));
     pauseBotDiffBox.style.display=showBotDiff?'':'none';
   }
   if(pauseReturnStudioBtn){
@@ -451,7 +451,10 @@ function renderArenaHudStatic(){
   const arenaLabel=(typeof ArenaCatalog!=='undefined'&&ns.mapId&&ArenaCatalog.isValidArenaId(ns.mapId))
     ?ArenaCatalog.getArenaName(ns.mapId).toUpperCase()
     :'ARENA';
-  if(ns.role==='warmup'){
+  if(ns.mode==='demolition_5v5'){
+    arenaScoreLineEl.textContent=`${arenaLabel} · DEMOLITION 5V5`;
+    arenaSubLineEl.textContent='FIRST TO 5 · HALFTIME SWAP AFTER R3 · [B] SHOP';
+  }else if(ns.role==='warmup'){
     const cs=CombatSystem.getState();
     arenaScoreLineEl.textContent=isSandboxSpar
       ?`SANDBOX SPARRING · ${aiLabel} · ${cs.warmupKills} KILLS`
@@ -461,13 +464,8 @@ function renderArenaHudStatic(){
       :'BOT KILLS GRANT GUN XP · ESC TO ADJUST DIFFICULTY · 1-3 WEAPONS';
   }else if(ns.phase==='warmup'){
     const codeTag=ns.lobby&&ns.lobby.isPrivate?` · PRIVATE CODE: ${ns.lobby.joinCode}`:' · LISTED ON PUBLIC BOARD';
-    arenaScoreLineEl.textContent=`${arenaLabel} · WAITING (${ns.players.length}/${ns.lobby?ns.lobby.maxPlayers:2})${codeTag}`;
+    arenaScoreLineEl.textContent=`${arenaLabel} · WAITING (${ns.players.length}/${ns.lobby?ns.lobby.maxPlayers:4})${codeTag}`;
     arenaSubLineEl.textContent=`FIGHT ${aiLabel} BOTS WHILE WAITING · KILLS GRANT GUN XP`;
-  }else if(ns.mode==='duel_1v1'){
-    const p1=ns.players[0]||{name:'P1',score:0};
-    const p2=ns.players[1]||{name:'P2',score:0};
-    arenaScoreLineEl.textContent=`${p1.name} ${p1.score}  —  ${p2.score} ${p2.name}  ·  ROUND ${ns.round}`;
-    arenaSubLineEl.textContent=ns.phase==='match_over'?`${arenaLabel} · MATCH COMPLETE · VOTE NEXT ARENA`:`${arenaLabel} · 1v1 FIRST TO 5 · HOLD TAB FOR SCOREBOARD`;
   }else{
     const lead=ns.players[0];
     arenaScoreLineEl.textContent=lead
@@ -507,30 +505,80 @@ function renderArenaScoreboard(ns){
   const arenaName=(typeof ArenaCatalog!=='undefined'&&ns.mapId&&ArenaCatalog.isValidArenaId(ns.mapId))
     ?ArenaCatalog.getArenaName(ns.mapId).toUpperCase()
     :'ARENA';
-  sbTitleEl.textContent=ns.phase==='match_over'
-    ?(ns.matchWinnerUid===ns.localUid?'VICTORY — MATCH COMPLETE':`${ns.matchWinnerName.toUpperCase()} WINS`)
-    :(ns.lobby?ns.lobby.roomName.toUpperCase():`${arenaName} SCOREBOARD`);
-  sbSubEl.textContent=ns.mode==='duel_1v1'
-    ?`${arenaName} · 1v1 DUEL · FIRST TO 5 · ROUND ${ns.round}`
-    :`${arenaName} · FREE-FOR-ALL · FIRST TO ${CombatSystem.FFA_WIN_KILLS}`;
-
-  const tableSig=ns.players.map(pl=>`${pl.uid}:${pl.name}:${pl.score}:${pl.kills}:${pl.deaths}`).join('|');
-  if(tableSig!==lastScoreboardTableSig){
-    lastScoreboardTableSig=tableSig;
-    sbTableEl.textContent='';
-    const hdr=document.createElement('div');
-    hdr.className='sb-row hdr';
-    hdr.innerHTML='<span>PLAYER</span><span>SCORE</span><span>KILLS</span><span>DEATHS</span>';
-    sbTableEl.appendChild(hdr);
-    for(const pl of ns.players){
-      const row=document.createElement('div');
-      row.className='sb-row'+(pl.uid===ns.localUid?' me':'');
-      const c1=document.createElement('span');c1.textContent=pl.name;
-      const c2=document.createElement('span');c2.textContent=String(pl.score);
-      const c3=document.createElement('span');c3.textContent=String(pl.kills);
-      const c4=document.createElement('span');c4.textContent=String(pl.deaths);
-      row.append(c1,c2,c3,c4);
-      sbTableEl.appendChild(row);
+  const isDemo=ns.mode==='demolition_5v5';
+  if(isDemo&&ns.demoMatch){
+    const dm=ns.demoMatch;
+    const atkSquad=(dm.sideSquads&&dm.sideSquads.atk)||'alpha';
+    const defSquad=(dm.sideSquads&&dm.sideSquads.def)||'bravo';
+    const atkScore=(dm.scores&&dm.scores[atkSquad])||0;
+    const defScore=(dm.scores&&dm.scores[defSquad])||0;
+    const winnerSide=dm.winnerSquad?(dm.winnerSquad===atkSquad?'atk':'def'):null;
+    const localWon=ns.phase==='match_over'&&winnerSide===ns.localTeam;
+    sbTitleEl.textContent=ns.phase==='match_over'
+      ?(localWon?'VICTORY — DEMOLITION COMPLETE':`${winnerSide==='atk'?'ATTACKERS':'DEFENDERS'} WIN (${atkScore}–${defScore})`)
+      :(ns.lobby?ns.lobby.roomName.toUpperCase():`${arenaName} · DEMOLITION 5V5`);
+    sbSubEl.textContent=`${arenaName} · DEMOLITION 5V5 · ATK ${atkScore} – ${defScore} DEF · ROUND ${dm.round}`;
+    const tableSig='demo|'+atkScore+'|'+defScore+'|'+ns.players.map(pl=>`${pl.uid}:${pl.team}:${pl.alive?1:0}:${pl.kills}:${pl.deaths}:${pl.credits||0}:${pl.armor||0}:${pl.defuseKit?1:0}`).join('|');
+    if(tableSig!==lastScoreboardTableSig){
+      lastScoreboardTableSig=tableSig;
+      sbTableEl.textContent='';
+      const renderTeamBlock=(teamKey,label,scoreNum)=>{
+        const grpHdr=document.createElement('div');
+        grpHdr.className='sb-team-hdr '+teamKey;
+        grpHdr.innerHTML=`<span>${label}</span><strong>${scoreNum}</strong>`;
+        sbTableEl.appendChild(grpHdr);
+        const hdr=document.createElement('div');
+        hdr.className='sb-row sb-row-demo hdr';
+        hdr.innerHTML='<span>OPERATOR</span><span>STATUS</span><span>K / D</span><span>CASH</span><span>GEAR</span>';
+        sbTableEl.appendChild(hdr);
+        const list=ns.players.filter(p=>p.team===teamKey).sort((a,b)=>(b.kills-a.kills)||(a.deaths-b.deaths));
+        for(const pl of list){
+          const row=document.createElement('div');
+          row.className='sb-row sb-row-demo'+(pl.uid===ns.localUid?' me':'')+(pl.alive===false?' dead':'');
+          const c1=document.createElement('span');
+          c1.textContent=pl.name+(pl.isBot?'':' ★');
+          const c2=document.createElement('span');
+          c2.textContent=pl.alive===false?'OUT':'ALIVE';
+          const c3=document.createElement('span');
+          c3.textContent=`${pl.kills} / ${pl.deaths}`;
+          const c4=document.createElement('span');
+          c4.textContent=`$${pl.credits||0}`;
+          const gear=[];
+          if(pl.armor>0)gear.push(pl.helmet?`A${pl.armor}+H`:`A${pl.armor}`);
+          if(pl.defuseKit)gear.push('KIT');
+          if(dm.bomb&&dm.bomb.state==='carried'&&dm.bomb.carrierUid===pl.uid)gear.push('BOMB');
+          const c5=document.createElement('span');
+          c5.textContent=gear.length?gear.join(' '):'—';
+          row.append(c1,c2,c3,c4,c5);
+          sbTableEl.appendChild(row);
+        }
+      };
+      renderTeamBlock('atk','ATTACKERS (ATK)',atkScore);
+      renderTeamBlock('def','DEFENDERS (DEF)',defScore);
+    }
+  }else{
+    sbTitleEl.textContent=ns.phase==='match_over'
+      ?(ns.matchWinnerUid===ns.localUid?'VICTORY — MATCH COMPLETE':`${ns.matchWinnerName.toUpperCase()} WINS`)
+      :(ns.lobby?ns.lobby.roomName.toUpperCase():`${arenaName} SCOREBOARD`);
+    sbSubEl.textContent=`${arenaName} · FREE-FOR-ALL · FIRST TO ${CombatSystem.FFA_WIN_KILLS}`;
+    const tableSig=ns.players.map(pl=>`${pl.uid}:${pl.name}:${pl.score}:${pl.kills}:${pl.deaths}`).join('|');
+    if(tableSig!==lastScoreboardTableSig){
+      lastScoreboardTableSig=tableSig;
+      sbTableEl.textContent='';
+      const hdr=document.createElement('div');
+      hdr.className='sb-row hdr';
+      hdr.innerHTML='<span>PLAYER</span><span>SCORE</span><span>KILLS</span><span>DEATHS</span>';
+      sbTableEl.appendChild(hdr);
+      for(const pl of ns.players){
+        const row=document.createElement('div');
+        row.className='sb-row'+(pl.uid===ns.localUid?' me':'');
+        const c1=document.createElement('span');c1.textContent=pl.name;
+        const c2=document.createElement('span');c2.textContent=String(pl.score);
+        const c3=document.createElement('span');c3.textContent=String(pl.kills);
+        const c4=document.createElement('span');c4.textContent=String(pl.deaths);
+        row.append(c1,c2,c3,c4);
+        sbTableEl.appendChild(row);
+      }
     }
   }
 

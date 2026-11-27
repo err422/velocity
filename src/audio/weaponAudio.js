@@ -948,6 +948,125 @@
       osc.start(now);
       osc.stop(now + 0.14);
     }
+    function playBombBeep(urgent) {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(urgent ? 2350 : 1840, now);
+      g.gain.setValueAtTime(urgent ? 0.13 : 0.085, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    }
+    function playPlantTick() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(1180 + Math.random() * 280, now);
+      g.gain.setValueAtTime(0.04, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.032);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.036);
+    }
+    function playDefuseClick() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      [0, 0.06].forEach((off, idx) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(idx === 0 ? 920 : 1480, now + off);
+        g.gain.setValueAtTime(0.06, now + off);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + off + 0.045);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(now + off);
+        osc.stop(now + off + 0.05);
+      });
+    }
+    function playExplosion(scale) {
+      const c = getCtx();
+      if (!c) return;
+      const mult = Math.max(0.7, Math.min(1.5, Number(scale) || 1.0));
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.34, 'lowpass', 620, 0.7, 0.36 * mult);
+      const sub = c.createOscillator();
+      const sg = c.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(115, now);
+      sub.frequency.exponentialRampToValueAtTime(28, now + 0.42);
+      sg.gain.setValueAtTime(0.32 * mult, now);
+      sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.46);
+      sub.connect(sg);
+      sg.connect(c.destination);
+      sub.start(now);
+      sub.stop(now + 0.48);
+    }
+    function playFlashbangPop() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.12, 'highpass', 1800, 0.8, 0.28);
+      const ring = c.createOscillator();
+      const g = c.createGain();
+      ring.type = 'sine';
+      ring.frequency.setValueAtTime(3420, now);
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 1.15);
+      ring.connect(g);
+      g.connect(c.destination);
+      ring.start(now);
+      ring.stop(now + 1.2);
+    }
+    function playSmokeHiss() {
+      const c = getCtx();
+      if (!c) return;
+      noiseBurst(c, c.currentTime, 0.55, 'bandpass', 2200, 1.1, 0.12);
+    }
+    function playMolotovIgnite() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      noiseBurst(c, now, 0.14, 'highpass', 2600, 1.4, 0.16);
+      noiseBurst(c, now + 0.06, 0.32, 'lowpass', 950, 0.9, 0.18);
+    }
+    function playDestructionBreak(kind) {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      if (kind === 'glass') {
+        noiseBurst(c, now, 0.16, 'highpass', 3200, 1.6, 0.18);
+      } else {
+        noiseBurst(c, now, 0.22, 'lowpass', 780, 0.9, 0.24);
+      }
+    }
+    function playReconPing() {
+      const c = getCtx();
+      if (!c) return;
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1440, now);
+      osc.frequency.exponentialRampToValueAtTime(2120, now + 0.14);
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.20);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    }
     return {
       fireRifle,
       fireAwp,
@@ -988,7 +1107,16 @@
       killConfirm,
       roundHorn,
       chronoEnter,
-      chronoExit
+      chronoExit,
+      playBombBeep,
+      playPlantTick,
+      playDefuseClick,
+      playExplosion,
+      playFlashbangPop,
+      playSmokeHiss,
+      playMolotovIgnite,
+      playDestructionBreak,
+      playReconPing
     };
   })();
 

@@ -1039,6 +1039,24 @@ function getSwatchFallbackBg(skinId,accent){
   if(skinId==='camo_gold')return 'linear-gradient(135deg,#8c6112 0%,#ffd84d 52%,#6e480a 100%)';
   if(skinId==='camo_diamond')return 'linear-gradient(135deg,#9fb4c8 0%,#f5fbff 48%,#e6b84c 100%)';
   if(skinId==='camo_dark_matter')return 'linear-gradient(135deg,#19092b 0%,#9e42ff 52%,#2a0b4a 100%)';
+  if(skinId==='cod_opal')return 'linear-gradient(135deg,#eef9ff 0%,#c7f6ee 50%,#f8d7f4 100%)';
+  if(skinId==='cod_dark_spine')return 'linear-gradient(135deg,#14151e 0%,#d946ff 55%,#1a1026 100%)';
+  if(skinId==='cod_borealis')return 'linear-gradient(135deg,#071324 0%,#26f5ba 48%,#9a54ff 100%)';
+  if(skinId==='cod_interstellar')return 'linear-gradient(135deg,#090a22 0%,#6394ff 52%,#c468ff 100%)';
+  if(skinId==='cod_nebula')return 'linear-gradient(135deg,#0a0514 0%,#1ed4e0 44%,#e042b8 100%)';
+  if(skinId==='cod_mercury')return 'linear-gradient(135deg,#2a313b 0%,#f2f8ff 50%,#6d7a8a 100%)';
+  if(skinId==='cod_molten_obsidian')return 'linear-gradient(135deg,#171314 0%,#ff6c14 54%,#ffd454 100%)';
+  if(skinId==='cod_constellation')return 'linear-gradient(135deg,#07142e 0%,#f4c95d 52%,#0c2046 100%)';
+  if(skinId==='cod_orion')return 'linear-gradient(135deg,#0b1742 0%,#36eeff 48%,#ff3fb4 100%)';
+  if(skinId==='cod_retro_grid')return 'linear-gradient(135deg,#190736 0%,#ff49c4 50%,#38f6ff 100%)';
+  if(skinId==='cod_forged_titanium')return 'linear-gradient(135deg,#7c8c9c 0%,#d8e4ee 50%,#4d78d8 100%)';
+  if(skinId==='cod_stained_glass')return 'linear-gradient(135deg,#d91e48 0%,#f2a826 48%,#1e5ce6 100%)';
+  if(skinId==='cod_kintsugi_porcelain')return 'linear-gradient(135deg,#f4efe4 0%,#2a56a8 52%,#f4c852 100%)';
+  if(skinId==='cod_blood_cell')return 'linear-gradient(135deg,#1c0309 0%,#e6223e 54%,#3d0611 100%)';
+  if(skinId==='cod_polyatomic')return 'linear-gradient(135deg,#200b3b 0%,#9e44f5 52%,#e496ff 100%)';
+  if(skinId==='cod_ghoulie')return 'linear-gradient(135deg,#06111c 0%,#3cf7e0 52%,#7e4dff 100%)';
+  if(skinId==='cod_bioluminescent')return 'linear-gradient(135deg,#06121b 0%,#26f7dc 50%,#38ff9c 100%)';
+  if(skinId==='cod_afterlife')return 'linear-gradient(135deg,#0c1018 0%,#2ce6ff 54%,#1e38c8 100%)';
   return `linear-gradient(135deg,rgba(14,24,36,.95) 0%,${c} 100%)`;
 }
 
@@ -1288,6 +1306,7 @@ function renderGunsmithSkins(entry){
   gsSkinsGridEl.textContent='';
 
   const showChallenges=gunsmithCamoFilter==='all'||gunsmithCamoFilter==='challenges';
+  const showPrestige=gunsmithCamoFilter==='all'||gunsmithCamoFilter==='prestige';
   const showArmory=gunsmithCamoFilter==='all'||gunsmithCamoFilter==='armory';
 
   let defaultDescriptor=null;
@@ -1323,7 +1342,69 @@ function renderGunsmithSkins(entry){
       return desc;
     });
 
-    // Mastery Camos (Gold, Diamond, Dark Matter)
+    // Class Signature Camo (1 per weapon class)
+    const sigDescs=(status.signatureCamos||[]).map((sc)=>{
+      const skinId=sc.skinId||sc.id;
+      const isEq=equippedCamoId===skinId;
+      const desc={
+        key:`sig:${skinId}`,
+        kind:'camo',
+        skinId,
+        patternSeed:42,
+        floatValue:0.01,
+        name:sc.name,
+        code:`SIGNATURE · ${sc.tier||'CLASS ART'}`,
+        tier:sc.tier||'CLASS SIGNATURE',
+        desc:sc.desc,
+        sub:status.goldUnlocked?'Gold Complete · Signature Painted PBR Finish':'Requires Gold Camo on this weapon first',
+        accent:sc.accent||'#65e7ff',
+        unlocked:!!sc.unlocked,
+        equipped:isEq,
+        hasProgress:true,
+        current:sc.current,
+        target:sc.target,
+        pct:sc.pct,
+        previewItem:makeCamoPreviewItem(skinId),
+        onEquip:()=>equipCamoSkin(skinId,sc.name,isEq)
+      };
+      descriptors.push(desc);
+      byKey.set(desc.key,desc);
+      if(isEq)defaultDescriptor=desc;
+      return desc;
+    });
+
+    // Weapon Prestige Camos (Lv. 8 Mercury, Lv. 10 Molten Obsidian, Lv. 12 Constellation's End)
+    const prestigeDescs=(status.prestigeCamos||[]).map((pc,idx)=>{
+      const skinId=pc.skinId||pc.id;
+      const isEq=equippedCamoId===skinId;
+      const desc={
+        key:`prestige:${skinId}`,
+        kind:'camo',
+        skinId,
+        patternSeed:42,
+        floatValue:0.01,
+        name:pc.name,
+        code:`PRESTIGE 0${idx+1} · WEAPON LV. ${pc.reqLevel}`,
+        tier:pc.tier||'WEAPON PRESTIGE',
+        desc:pc.desc,
+        sub:`Current Weapon Level: Lv. ${status.weaponLevel||1} / ${pc.reqLevel} · Painted Liquid-Metal PBR`,
+        accent:pc.accent||'#ffd84d',
+        unlocked:!!pc.unlocked,
+        equipped:isEq,
+        hasProgress:true,
+        current:pc.current,
+        target:pc.target,
+        pct:pc.pct,
+        previewItem:makeCamoPreviewItem(skinId),
+        onEquip:()=>equipCamoSkin(skinId,pc.name,isEq)
+      };
+      descriptors.push(desc);
+      byKey.set(desc.key,desc);
+      if(isEq)defaultDescriptor=desc;
+      return desc;
+    });
+
+    // Completionist Mastery Camos (Gold, Opal, Diamond, Dark Spine, Borealis, Interstellar, Dark Matter, Nebula)
     const masteryDescs=status.masteryCamos.map((mc,idx)=>{
       const skinId=mc.skinId||mc.id;
       const isEq=equippedCamoId===skinId;
@@ -1337,7 +1418,7 @@ function renderGunsmithSkins(entry){
         code:`MASTERY 0${idx+1} · COMPLETIONIST`,
         tier:mc.tier||'COMPLETIONIST',
         desc:mc.desc,
-        sub:mc.animated?'Animated shader · Unlocks across all weapons':'Completionist reward · Click swatch to toggle',
+        sub:mc.animated?'Animated shader · Unlocks across all weapons':'Masterpiece painted PBR finish · Click swatch to toggle',
         accent:mc.accent||'#ffd84d',
         unlocked:!!mc.unlocked,
         equipped:isEq,
@@ -1377,6 +1458,36 @@ function renderGunsmithSkins(entry){
       for(const d of masteryDescs)mastGrid.appendChild(buildSwatchTile(d));
       mastSec.append(mastHead,mastGrid);
       groupsEl.appendChild(mastSec);
+    }
+
+    if(groupsEl&&showPrestige){
+      if(sigDescs.length){
+        const sigUnlocked=sigDescs.filter(s=>s.unlocked).length;
+        const sigSec=document.createElement('div');
+        sigSec.className='gs-swatch-section';
+        const sigHead=document.createElement('div');
+        sigHead.className='gs-swatch-sec-head';
+        sigHead.innerHTML=`<span>CLASS SIGNATURE</span><strong>${sigUnlocked}/${sigDescs.length}</strong>`;
+        const sigGrid=document.createElement('div');
+        sigGrid.className='gs-swatch-grid';
+        for(const d of sigDescs)sigGrid.appendChild(buildSwatchTile(d));
+        sigSec.append(sigHead,sigGrid);
+        groupsEl.appendChild(sigSec);
+      }
+
+      if(prestigeDescs.length){
+        const pUnlocked=prestigeDescs.filter(p=>p.unlocked).length;
+        const pSec=document.createElement('div');
+        pSec.className='gs-swatch-section';
+        const pHead=document.createElement('div');
+        pHead.className='gs-swatch-sec-head';
+        pHead.innerHTML=`<span>WEAPON PRESTIGE</span><strong>${pUnlocked}/${prestigeDescs.length}</strong>`;
+        const pGrid=document.createElement('div');
+        pGrid.className='gs-swatch-grid';
+        for(const d of prestigeDescs)pGrid.appendChild(buildSwatchTile(d));
+        pSec.append(pHead,pGrid);
+        groupsEl.appendChild(pSec);
+      }
     }
   }
 

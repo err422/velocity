@@ -24,13 +24,13 @@
       m.rotation.set(rot[0], rot[1], rot[2]);
       envScene.add(m);
     };
-    // Crisp high-contrast overhead softboxes + warm/cool specular edge strips for faceted CS:S bevels & CS2 metallic sheen
-    addPanel(panelGeo, 0xf2faff, 3.4, [0, 6.5, 0.5], [Math.PI / 2, 0, 0]);
-    addPanel(stripGeo, 0xffffff, 4.2, [0, 5.8, -3.5], [Math.PI / 2.6, 0, 0]);
-    addPanel(panelGeo, 0xffe8c8, 2.85, [6.5, 2.6, 2.2], [0, -Math.PI / 2, 0]);
-    addPanel(panelGeo, 0x6ae4ff, 2.45, [-6.5, 1.9, -2.0], [0, Math.PI / 2, 0]);
-    addPanel(stripGeo, 0xd8f0ff, 2.4, [0, 2.2, 7.0], [0, Math.PI, 0]);
-    addPanel(panelGeo, 0x223b52, 0.95, [0, -5.5, 0], [-Math.PI / 2, 0, 0]);
+    // Crisp studio softboxes + warm/cool specular edge strips for rich PBR skin & metallic bevel reflections
+    addPanel(panelGeo, 0xf6fbff, 3.6, [0, 6.5, 0.5], [Math.PI / 2, 0, 0]);
+    addPanel(stripGeo, 0xffffff, 4.6, [0, 5.8, -3.5], [Math.PI / 2.6, 0, 0]);
+    addPanel(panelGeo, 0xffe4be, 3.0, [6.5, 2.6, 2.2], [0, -Math.PI / 2, 0]);
+    addPanel(panelGeo, 0x7ae8ff, 2.55, [-6.5, 1.9, -2.0], [0, Math.PI / 2, 0]);
+    addPanel(stripGeo, 0xdff2ff, 2.6, [0, 2.2, 7.0], [0, Math.PI, 0]);
+    addPanel(panelGeo, 0x1e344a, 1.05, [0, -5.5, 0], [-Math.PI / 2, 0, 0]);
 
     const rt = pmrem.fromScene(envScene, 0.032);
     pmrem.dispose();
@@ -66,7 +66,7 @@
 
   // ---------- Face-Normal-Aware Box UV Mapper (Eliminates Top/Bottom/Front/Bevel Streaking!) ----------
   // Side faces (|nx| dominant): u = Stock(+Z)->Muzzle(-Z), v = Bottom->Top
-  // Top/Bottom faces (|ny| dominant): u = Stock(+Z)->Muzzle(-Z), v = Left->Right at matched texel density
+  // Top/Bottom faces (|ny| dominant): u = Stock(+Z)->Muzzle(-Z), v mapped cleanly in upper/lower bands
   // Front/Rear faces (|nz| dominant): u = Left->Right at matched density, v = Bottom->Top
   const _uvA = new THREE.Vector3();
   const _uvB = new THREE.Vector3();
@@ -95,7 +95,7 @@
     const spanZ = Math.max(1e-4, bounds.maxZ - bounds.minZ);
     const spanY = Math.max(1e-4, bounds.maxY - bounds.minY);
     const mat = mesh.matrix;
-    const clampUV = (val) => Math.max(0.012, Math.min(0.988, val));
+    const clampUV = (val) => Math.max(0.015, Math.min(0.985, val));
 
     for (let i = 0; i < pos.count; i += 3) {
       if (i + 2 >= pos.count) break;
@@ -110,6 +110,7 @@
       const ax = Math.abs(_uvN.x);
       const ay = Math.abs(_uvN.y);
       const az = Math.abs(_uvN.z);
+      const isTopFace = _uvN.y >= 0;
 
       const verts = [_uvA, _uvB, _uvC];
       for (let k = 0; k < 3; k++) {
@@ -120,9 +121,11 @@
           u = (bounds.maxZ - p.z) / spanZ;
           v = (p.y - bounds.minY) / spanY;
         } else if (ay >= ax && ay >= az) {
-          // Top dust cover / upper receiver / under-handguard: map X smoothly across V band (centered around upper body)
+          // Top dust cover / upper receiver / under-handguard: keep upper & lower zones coherent
           u = (bounds.maxZ - p.z) / spanZ;
-          v = 0.62 + (p.x / spanY);
+          v = isTopFace
+            ? Math.max(0.54, Math.min(0.94, 0.74 + (p.x / spanY) * 0.55))
+            : Math.max(0.08, Math.min(0.46, 0.26 + (p.x / spanY) * 0.55));
         } else {
           // Front / rear faces: map X along U at matched vertical density so no edge lines ever smear
           u = 0.50 + (p.x / spanZ);
@@ -290,6 +293,7 @@
           if (m.bumpMap) texs.add(m.bumpMap);
           if (m.normalMap) texs.add(m.normalMap);
           if (m.metalnessMap) texs.add(m.metalnessMap);
+          if (m.emissiveMap) texs.add(m.emissiveMap);
         }
       }
     });

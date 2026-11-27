@@ -132,6 +132,25 @@ function applyActiveLoadoutToRuntime(opts){
   lastHudAmmo=-1;
   lastHudWeaponSig='';
 }
+function applySavedLoadoutByIndex(idx){
+  if(!window.activeLoadouts||!Array.isArray(window.activeLoadouts.loadouts))return false;
+  const cleanIdx=Math.max(0,Math.min(window.activeLoadouts.loadouts.length-1,Math.floor(Number(idx)||0)));
+  const slot=window.activeLoadouts.loadouts[cleanIdx];
+  if(!slot)return false;
+  window.activeLoadouts.activeIndex=cleanIdx;
+  if(window.LoadoutsSystem&&typeof window.LoadoutsSystem.saveLocal==='function'){
+    window.LoadoutsSystem.saveLocal(window.activeLoadouts);
+  }
+  applyActiveLoadoutToRuntime({keepSlot:false});
+  if(window.CombatSystem){
+    window.CombatSystem.resetAmmo();
+    window.CombatSystem.switchSlot('primary',true);
+  }
+  if(window.ViewmodelSystem)window.ViewmodelSystem.triggerDraw();
+  return true;
+}
+window.applySavedLoadoutByIndex=applySavedLoadoutByIndex;
+
 function syncInventoryCosmeticsToViewmodel(){
   ViewmodelSystem.equipGlove(KnivesSystem.getEquippedGlove(window.activeInventory));
   ViewmodelSystem.equipKnife(KnivesSystem.getEquippedKnife(window.activeInventory),false);
@@ -139,6 +158,38 @@ function syncInventoryCosmeticsToViewmodel(){
   applyActiveLoadoutToRuntime();
 }
 syncInventoryCosmeticsToViewmodel();
+
+// Demolition 5v5 Spectate (alive teammates) + Free-Roam Ghost Camera state
+const demoSpectate={mode:'teammate',targetIdx:0,targetUid:null,targetName:'',pos:V3(0,4,0),initFree:false};
+window.cycleDemolitionSpectate=function(dir){
+  if(!window.NetcodeSystem)return;
+  const tms=window.NetcodeSystem.getAliveTeammates();
+  if(!tms.length){demoSpectate.mode='freecam';return;}
+  demoSpectate.mode='teammate';
+  demoSpectate.targetIdx=(demoSpectate.targetIdx+(dir>=0?1:-1)+tms.length)%tms.length;
+  showToast(`SPECTATING ${tms[demoSpectate.targetIdx].name}`);
+};
+window.toggleDemolitionFreeCam=function(){
+  if(demoSpectate.mode==='freecam'){
+    const tms=window.NetcodeSystem?window.NetcodeSystem.getAliveTeammates():[];
+    if(tms.length){
+      demoSpectate.mode='teammate';
+      showToast(`SPECTATING ${tms[demoSpectate.targetIdx%tms.length].name}`);
+      return;
+    }
+  }
+  demoSpectate.mode='freecam';
+  demoSpectate.initFree=false;
+  showToast('FREE-ROAM GHOST CAMERA');
+};
+window.getDemolitionSpectateInfo=function(){
+  return {mode:demoSpectate.mode,targetUid:demoSpectate.targetUid,targetName:demoSpectate.targetName};
+};
+function isLocalDemolitionDeadSpectating(){
+  if(!inLevel||!window.NetcodeSystem)return false;
+  const ns=window.NetcodeSystem.getState();
+  return ns.mode==='demolition_5v5'&&!ns.localAlive&&(ns.phase==='live'||ns.phase==='post_round');
+}
 
 function updateGhostVisual(dt){
   if(!course){
@@ -205,8 +256,55 @@ function render(dt){
       pauseCameraLooker.quaternion,
       eased
     );
+  }else if(isLocalDemolitionDeadSpectating()){
+    pauseViewBlend=0;
+    if(pauseAvatarVisual)pauseAvatarVisual.group.visible=false;
+    const tms=window.NetcodeSystem?window.NetcodeSystem.getAliveTeammates():[];
+    if(demoSpectate.mode==='teammate'&&tms.length>0){
+      demoSpectate.targetIdx=demoSpectate.targetIdx%tms.length;
+      const tm=tms[demoSpectate.targetIdx];
+      demoSpectate.targetUid=tm.uid;
+      demoSpectate.targetName=tm.name;
+      const av=window.CombatSystem&&typeof window.CombatSystem.getRemoteAvatar==='function'?window.CombatSystem.getRemoteAvatar(tm.uid):null;
+      if(av&&av.group){
+        const tp=av.group.position;
+        const ty=av.group.rotation.y||0;
+        const backX=Math.sin(ty)*3.4,backZ=Math.cos(ty)*3.4;
+        camera.position.set(tp.x+backX,tp.y+2.35,tp.z+backZ);
+        camera.lookAt(tp.x-Math.sin(ty)*8,tp.y+1.45,tp.z-Math.cos(ty)*8);
+        demoSpectate.pos.copy(camera.position);
+      }else{
+        camera.position.set(_rp.x,_rp.y+3.2,_rp.z);
+        camera.rotation.set(p.pitch,p.yaw,0);
+      }
+      demoSpectate.initFree=false;
+    }else{
+      demoSpectate.targetUid=null;
+      demoSpectate.targetName='';
+      if(!demoSpectate.initFree){
+        demoSpectate.pos.set(_rp.x,_rp.y+2.6,_rp.z);
+        demoSpectate.initFree=true;
+      }
+      const flySpd=14*dt;
+      const cp=Math.cos(p.pitch),sy=Math.sin(p.yaw),cy=Math.cos(p.yaw);
+      const fwdX=-sy*cp,fwdY=Math.sin(p.pitch),fwdZ=-cy*cp;
+      const rgtX=cy,rgtZ=-sy;
+      if(isActionDown('forward')){demoSpectate.pos.x+=fwdX*flySpd;demoSpectate.pos.y+=fwdY*flySpd;demoSpectate.pos.z+=fwdZ*flySpd;}
+      if(isActionDown('back')){demoSpectate.pos.x-=fwdX*flySpd;demoSpectate.pos.y-=fwdY*flySpd;demoSpectate.pos.z-=fwdZ*flySpd;}
+      if(isActionDown('right')){demoSpectate.pos.x+=rgtX*flySpd;demoSpectate.pos.z+=rgtZ*flySpd;}
+      if(isActionDown('left')){demoSpectate.pos.x-=rgtX*flySpd;demoSpectate.pos.z-=rgtZ*flySpd;}
+      if(isActionDown('jump'))demoSpectate.pos.y+=flySpd;
+      if(isActionDown('slide'))demoSpectate.pos.y-=flySpd;
+      const B=(level&&level.bound)||48;
+      demoSpectate.pos.x=clamp(demoSpectate.pos.x,-B,B);
+      demoSpectate.pos.z=clamp(demoSpectate.pos.z,-B,B);
+      demoSpectate.pos.y=clamp(demoSpectate.pos.y,0.8,24);
+      camera.position.copy(demoSpectate.pos);
+      camera.rotation.set(p.pitch,p.yaw,0);
+    }
   }else{
     pauseViewBlend=0;
+    demoSpectate.initFree=false;
     if(pauseAvatarVisual)pauseAvatarVisual.group.visible=false;
     camera.position.set(_rp.x,_rp.y+p.eye,_rp.z);
     camera.rotation.set(p.pitch,p.yaw,p.roll);
@@ -216,6 +314,45 @@ function render(dt){
   let combatFrameState=null;
   if(inLevel){
     const botTargetState=NetcodeSystem.getState();
+    const isDemoMode=botTargetState.mode==='demolition_5v5';
+    if(window.DestructionSystem&&typeof window.DestructionSystem.update==='function'){
+      window.DestructionSystem.update(dt);
+    }
+    if(isDemoMode&&window.UtilitySystem&&typeof window.UtilitySystem.update==='function'){
+      const cpLocal=Math.cos(p.pitch);
+      const localDir={x:-Math.sin(p.yaw)*cpLocal,y:Math.sin(p.pitch),z:-Math.cos(p.yaw)*cpLocal};
+      const allAvatars=window.CombatSystem&&typeof window.CombatSystem.getAllRemoteAvatars==='function'?window.CombatSystem.getAllRemoteAvatars():[];
+      const utilEnemies=[];
+      for(const av of allAvatars){
+        if(!av||!av.group||!av.group.visible)continue;
+        const pInfo=(botTargetState.players||[]).find(pl=>pl.uid===av.uid);
+        if(!pInfo||pInfo.alive===false)continue;
+        utilEnemies.push({uid:av.uid,team:pInfo.team,pos:av.group.position});
+      }
+      window.UtilitySystem.update(dt,{
+        solidMeshes,
+        localPos:_rp,
+        localDir,
+        localUid:botTargetState.localUid,
+        localTeam:botTargetState.localTeam,
+        enemies:utilEnemies,
+        bombState:botTargetState.demoMatch?botTargetState.demoMatch.bomb:null,
+        onExplosion:(ev)=>{
+          if(window.NetcodeSystem&&typeof window.NetcodeSystem.applyDemolitionAreaDamage==='function'){
+            window.NetcodeSystem.applyDemolitionAreaDamage(ev.ownerUid,ev.ownerTeam,ev,ev.radius,ev.maxDamage,ev.type);
+          }
+        },
+        onFireTick:(ev)=>{
+          if(window.NetcodeSystem&&typeof window.NetcodeSystem.applyDemolitionAreaDamage==='function'){
+            window.NetcodeSystem.applyDemolitionAreaDamage(ev.ownerUid,ev.ownerTeam,ev,ev.radius,ev.damage,'molotov');
+          }
+        }
+      });
+    }
+    if(isDemoMode&&botTargetState.localAlive&&botTargetState.phase==='live'&&window.NetcodeSystem&&typeof window.NetcodeSystem.stepLocalBombAction==='function'){
+      const holdUse=Boolean(keys['KeyE'])&&!(typeof isDemolitionMenuOpen==='function'&&isDemolitionMenuOpen());
+      window.NetcodeSystem.stepLocalBombAction(holdUse,_rp,dt);
+    }
     const arenaCourseMeta=window.CourseCatalog&&typeof window.CourseCatalog.getCourseMeta==='function'
       ?window.CourseCatalog.getCourseMeta(level.id):null;
     const botMovementContext={
@@ -227,11 +364,12 @@ function render(dt){
       teleporters,
       killY:level&&typeof level.killY==='number'?level.killY:-18,
       mapId:botTargetState.mapId||level.id,
-      abilitiesAllowed:!(arenaCourseMeta&&arenaCourseMeta.category==='surf'),
+      abilitiesAllowed:!(arenaCourseMeta&&arenaCourseMeta.category==='surf')&&!isDemoMode,
       arenaSpawns:botTargetState.players
     };
     CombatSystem.update(dt,{
       uid:botTargetState.localUid,
+      localTeam:botTargetState.localTeam,
       position:_rp,
       yaw:p.yaw,
       pitch:p.pitch,
@@ -298,6 +436,9 @@ function render(dt){
     NetcodeSystem.update(dt,{x:_rp.x,y:_rp.y,z:_rp.z,yaw:p.yaw,slot:combatFrameState.activeSlot,ct:combatFrameState.chronoTier||0});
     ViewmodelSystem.update(dt,p,combatFrameState.adsProgress,combatFrameState.chronoWeight||0);
     updateCombatHud();
+    if(window.DemolitionUI&&typeof window.DemolitionUI.update==='function'){
+      window.DemolitionUI.update(NetcodeSystem.getState(),dt,p,window.getDemolitionSpectateInfo());
+    }
   }
   if(window.MobileControls){
     const overlayHidden=overlay.style.display==='none';
@@ -351,7 +492,7 @@ function frame(now){
   else{acc=0;}
   render(dt);
   renderer.render(scene,camera);
-  if(inLevel&&!pauseWorldViewActive)ViewmodelSystem.render(renderer);
+  if(inLevel&&!pauseWorldViewActive&&!isLocalDemolitionDeadSpectating())ViewmodelSystem.render(renderer);
   if(isSoftwareGl)afterDraw(frame);
   else frameId=requestAnimationFrame(frame);
 }
@@ -377,7 +518,7 @@ const LEVELS={
 if(typeof ArenaCatalog!=='undefined'&&Array.isArray(ArenaCatalog.ARENA_CATALOG)){
   for(const a of ArenaCatalog.ARENA_CATALOG){
     LEVELS[a.id]={
-      name:`ARENA · ${a.shortName}`,
+      name:a.isDemolition?`DEMOLITION · ${a.shortName}`:`ARENA · ${a.shortName}`,
       build:()=>a.build(),
       meta:a
     };
@@ -412,6 +553,8 @@ const worldBuildApi={
 };
 
 function clearWorldGroup(){
+  if(window.DestructionSystem&&typeof window.DestructionSystem.clearMap==='function')window.DestructionSystem.clearMap();
+  if(window.UtilitySystem&&typeof window.UtilitySystem.clearAll==='function')window.UtilitySystem.clearAll();
   scene.remove(levelGroup);
   levelGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();});
   levelGroup=new THREE.Group();
@@ -473,20 +616,39 @@ function activateLoadedLevel(built,displayName,opts){
   if(built.targets&&built.targets.length>0){
     CombatSystem.setupTargets(built.targetMode||'gauntlet',built.targets,built.rangeMeta||null);
   }
-  if(built.isArena){
+  if(window.UtilitySystem&&typeof window.UtilitySystem.ensureInit==='function'){
+    window.UtilitySystem.ensureInit(levelGroup,pads);
+  }
+  if(built.isDemolition){
     if(typeof CombatSystem.resetMatchStreaks==='function')CombatSystem.resetMatchStreaks();
+    demoSpectate.mode='teammate';demoSpectate.targetIdx=0;demoSpectate.initFree=false;
+    const arenaSpawns=built.arenaSpawns||built.spawns||[];
+    NetcodeSystem.setArenaSpawns(arenaSpawns);
+    NetcodeSystem.setTacticalLevelData(built);
+    if(!o.keepSession&&!NetcodeSystem.getState().isArena){
+      NetcodeSystem.startSoloDemolition(id);
+    }
+    CombatSystem.setWarmupBotsVisible(false);
+    CombatSystem.switchSlot('primary');
+  }else if(built.isArena){
+    if(typeof CombatSystem.resetMatchStreaks==='function')CombatSystem.resetMatchStreaks();
+    NetcodeSystem.setTacticalLevelData(null);
     const arenaSpawns=built.arenaSpawns||built.spawns||[];
     NetcodeSystem.setArenaSpawns(arenaSpawns);
     CombatSystem.setupWarmupBots(arenaSpawns,3);
     if(!o.keepSession&&!NetcodeSystem.getState().isArena){
-      NetcodeSystem.startSoloWarmup(id,'duel_1v1');
+      NetcodeSystem.startSoloWarmup(id,'ffa_4p');
     }
     const ns=NetcodeSystem.getState();
     CombatSystem.setWarmupBotsVisible(!ns.isOnline||ns.phase==='warmup');
     CombatSystem.switchSlot('primary');
   }else{
+    NetcodeSystem.setTacticalLevelData(null);
     if(NetcodeSystem.getState().isArena)NetcodeSystem.leaveSession();
     CombatSystem.switchSlot(id==='sandbox'?'primary':'melee');
+  }
+  if(window.DemolitionUI&&typeof window.DemolitionUI.closeAllModals==='function'){
+    window.DemolitionUI.closeAllModals();
   }
   syncInventoryCosmeticsToViewmodel();
   resetPlayer();

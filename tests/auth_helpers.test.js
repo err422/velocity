@@ -124,3 +124,47 @@ test('firestore.rules supports Email/Password and Anonymous players without emai
   assert.equal(rulesText.includes('allow read, write: if false;'), true);
   assert.equal(rulesText.includes('request.auth.uid == uid'), true);
 });
+
+test('isOfflineFirestoreError detects offline/unavailable errors and never masks permission-denied', () => {
+  assert.equal(
+    AuthHelpers.isOfflineFirestoreError(new Error('Failed to get document because the client is offline.')),
+    true
+  );
+  assert.equal(
+    AuthHelpers.isOfflineFirestoreError({ code: 'unavailable', message: 'Backend unreachable' }),
+    true
+  );
+  assert.equal(
+    AuthHelpers.isOfflineFirestoreError(
+      new Error('Could not reach Cloud Firestore backend. Backend didn\'t respond within 10 seconds.')
+    ),
+    true
+  );
+  assert.equal(
+    AuthHelpers.isOfflineFirestoreError(new Error('Failed to get document from server.')),
+    true
+  );
+  assert.equal(
+    AuthHelpers.isOfflineFirestoreError({ code: 'permission-denied', message: 'Missing or insufficient permissions.' }),
+    false
+  );
+  assert.equal(
+    AuthHelpers.isOfflineFirestoreError(new Error('Missing or insufficient permissions.')),
+    false
+  );
+  assert.equal(AuthHelpers.isOfflineFirestoreError(null), false);
+});
+
+test('firebaseBackend.js initializes resilient Firestore transport and retains startup probe + permission handler', () => {
+  const backendText = fs.readFileSync(
+    path.join(__dirname, '..', 'src', 'systems', 'progression', 'firebaseBackend.js'),
+    'utf8'
+  );
+  assert.equal(backendText.includes('initializeFirestore('), true);
+  assert.equal(backendText.includes('experimentalAutoDetectLongPolling: true'), true);
+  assert.equal(backendText.includes('useFetchStreams: false'), true);
+  assert.equal(backendText.includes("getDocFromServer(doc(db, 'test', 'connection'))"), true);
+  assert.equal(backendText.includes('function handleFirestoreError('), true);
+  assert.equal(backendText.includes('isOfflineError('), true);
+});
+

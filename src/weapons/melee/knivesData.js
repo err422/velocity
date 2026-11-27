@@ -1158,6 +1158,169 @@
       maxFloat: 0.01,
       accent: '#c06bff',
       description: 'Animated cosmic Dark Matter nebula shader pulsing with ultraviolet starlight. Earned via Diamond on all classes.'
+    },
+    // ---------- Call of Duty Inspired Painted PBR Showcase Collection (18 Skins) ----------
+    cod_opal: {
+      id: 'cod_opal',
+      name: 'Opal',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.06,
+      accent: '#e8f4ff',
+      description: 'Luminous mother-of-pearl white opal mosaic with pastel rose, aqua, and ice-blue nacre facets under mirror clearcoat.'
+    },
+    cod_dark_spine: {
+      id: 'cod_dark_spine',
+      name: 'Dark Spine',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.12,
+      accent: '#d946ff',
+      description: 'Smoked matte graphite armor split by razor-sharp crystalline magenta-violet energy spines and backlit crystal seams.'
+    },
+    cod_borealis: {
+      id: 'cod_borealis',
+      name: 'Borealis',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.08,
+      accent: '#34f5c5',
+      description: 'Painted northern-lights silk ribbons of emerald, glacial cyan, and royal violet sweeping cleanly across midnight arctic alloy.'
+    },
+    cod_interstellar: {
+      id: 'cod_interstellar',
+      name: 'Interstellar',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.06,
+      accent: '#9d7bff',
+      description: 'Deep cosmic indigo starfield layered with painted lavender nebula clouds, sharp star clusters, and delicate constellation threads.'
+    },
+    cod_nebula: {
+      id: 'cod_nebula',
+      name: 'Nebula',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.05,
+      accent: '#c95bff',
+      description: 'Rich deep-space violet, cyan-teal, and magenta painterly cosmos punctuated by golden-white star flares under mirror lacquer.'
+    },
+    cod_mercury: {
+      id: 'cod_mercury',
+      name: 'Mercury',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.10,
+      accent: '#dbe8f4',
+      description: 'Mirror-polished liquid quicksilver chrome ripples pooling cleanly across dark satin-machined titanium channels.'
+    },
+    cod_molten_obsidian: {
+      id: 'cod_molten_obsidian',
+      name: 'Molten Obsidian',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.16,
+      accent: '#ff7b24',
+      description: 'Matte volcanic basalt slabs cracked open with incandescent amber-gold slag veins and heat-darkened forged bevels.'
+    },
+    cod_constellation: {
+      id: 'cod_constellation',
+      name: "Constellation's End",
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.08,
+      accent: '#f6cb64',
+      description: 'Deep celestial midnight enamel inlaid with engraved 24K gold star-charts, brass astrolabe rings, and pinpoint starlight.'
+    },
+    cod_orion: {
+      id: 'cod_orion',
+      name: 'Orion',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.12,
+      accent: '#63a8ff',
+      description: 'Royal cobalt-indigo anodized alloy traced with razor-crisp iridescent cyan, violet, and magenta topographic contour waves.'
+    },
+    cod_retro_grid: {
+      id: 'cod_retro_grid',
+      name: 'Retro Grid',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.18,
+      accent: '#ff49c4',
+      description: 'Bold 1980s synth-arcade lacquer featuring a chrome sunset horizon and receding laser-cyan and neon-magenta perspective grid.'
+    },
+    cod_forged_titanium: {
+      id: 'cod_forged_titanium',
+      name: 'Forged Titanium',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.20,
+      accent: '#9cb8cc',
+      description: 'Heavy brushed billet titanium armor plates with beveled rivets, heat-blued TIG welds, and glowing orange forge seams.'
+    },
+    cod_stained_glass: {
+      id: 'cod_stained_glass',
+      name: 'Stained Glass',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.14,
+      accent: '#f5b841',
+      description: 'Cathedral-grade leaded stained-glass mosaic of ruby, sapphire, emerald, and amber jewel panes framed in raised dark-tin cames.'
+    },
+    cod_kintsugi_porcelain: {
+      id: 'cod_kintsugi_porcelain',
+      name: 'Kintsugi Porcelain',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.10,
+      accent: '#f0c659',
+      description: 'Ivory bone-china glaze painted with cobalt Sumi botanical motifs, fractured and mended with raised 24K liquid-gold kintsugi veins.'
+    },
+    cod_blood_cell: {
+      id: 'cod_blood_cell',
+      name: 'Blood Cell',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.14,
+      accent: '#e6223e',
+      description: 'Obsidian-burgundy gloss lacquer suspended with layered translucent ruby-red organic cellular discs under wet mirror clearcoat.'
+    },
+    cod_polyatomic: {
+      id: 'cod_polyatomic',
+      name: 'Polyatomic',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.10,
+      accent: '#b45cff',
+      description: 'Triangulated amethyst, ultraviolet, and electric-orchid crystal shards catching crisp geometric highlights against matte black steel.'
+    },
+    cod_ghoulie: {
+      id: 'cod_ghoulie',
+      name: 'Ghoulie',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.16,
+      accent: '#3bf7d4',
+      description: 'Spectral cyan-teal and phantom violet wisps curling over haunted midnight steel with stylized ghostly skull artwork.'
+    },
+    cod_bioluminescent: {
+      id: 'cod_bioluminescent',
+      name: 'Bioluminescent',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.14,
+      accent: '#24f2c8',
+      description: 'Abyssal slate laced with intricate luminous turquoise, seafoam-emerald, and indigo organic coral veins and spore clusters.'
+    },
+    cod_afterlife: {
+      id: 'cod_afterlife',
+      name: 'Afterlife',
+      patternBased: true,
+      minFloat: 0.00,
+      maxFloat: 0.12,
+      accent: '#5ce8ff',
+      description: 'Midnight obsidian armor etched with layered spectral ice-cyan and indigo spirit flames and arcane geometric runes.'
     }
   });
 
@@ -1595,6 +1758,132 @@
           { itemKind: 'glove', gloveType: 'sport', skinId: 'stormgrid' },
           { itemKind: 'glove', gloveType: 'wraps', skinId: 'eclipse_mantle' },
           { itemKind: 'glove', gloveType: 'wraps', skinId: 'slaughter' }
+        ]
+      }
+    },
+    prestige: {
+      id: 'prestige',
+      name: 'Prestige Vault Case',
+      shortName: 'Prestige Vault',
+      artCode: 'PV',
+      tierLabel: 'PRESTIGE SPEC',
+      price: 550,
+      accent: '#f6cb64',
+      rarityWeights: Object.freeze({ milspec: 18, restricted: 22, classified: 22, covert: 18, gold: 20 }),
+      description: 'Forged Titanium, Kintsugi Porcelain, Stained Glass, Blood Cell, Mercury, Molten Obsidian & Constellation · 20% Gold.',
+      pools: {
+        milspec: [
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'cod_forged_titanium' },
+          { itemKind: 'weapon', weaponType: 'sawedoff', skinId: 'cod_forged_titanium' },
+          { itemKind: 'weapon', weaponType: 'leverslug', skinId: 'cod_forged_titanium' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'cod_retro_grid' },
+          { itemKind: 'weapon', weaponType: 'mp7', skinId: 'cod_retro_grid' },
+          { itemKind: 'weapon', weaponType: 'pistol', skinId: 'cod_polyatomic' },
+          { itemKind: 'weapon', weaponType: 'g18', skinId: 'cod_retro_grid' },
+          { itemKind: 'weapon', weaponType: 'famas', skinId: 'cod_forged_titanium' }
+        ],
+        restricted: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'cod_orion' },
+          { itemKind: 'weapon', weaponType: 'scar', skinId: 'cod_forged_titanium' },
+          { itemKind: 'weapon', weaponType: 'honeybadger', skinId: 'cod_polyatomic' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'cod_polyatomic' },
+          { itemKind: 'weapon', weaponType: 'usps', skinId: 'cod_mercury' },
+          { itemKind: 'weapon', weaponType: 'akimbo', skinId: 'cod_retro_grid' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'cod_blood_cell' },
+          { itemKind: 'weapon', weaponType: 'dmr', skinId: 'cod_orion' }
+        ],
+        classified: [
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'cod_stained_glass' },
+          { itemKind: 'weapon', weaponType: 'scout', skinId: 'cod_stained_glass' },
+          { itemKind: 'weapon', weaponType: 'dmr', skinId: 'cod_stained_glass' },
+          { itemKind: 'weapon', weaponType: 'katana', skinId: 'cod_kintsugi_porcelain' },
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'cod_mercury' },
+          { itemKind: 'weapon', weaponType: 'scar', skinId: 'cod_blood_cell' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'cod_mercury' },
+          { itemKind: 'weapon', weaponType: 'mp7', skinId: 'cod_polyatomic' }
+        ],
+        covert: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'cod_constellation' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'cod_constellation' },
+          { itemKind: 'weapon', weaponType: 'katana', skinId: 'cod_constellation' },
+          { itemKind: 'weapon', weaponType: 'scar', skinId: 'cod_molten_obsidian' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'cod_molten_obsidian' },
+          { itemKind: 'weapon', weaponType: 'honeybadger', skinId: 'cod_kintsugi_porcelain' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'cod_kintsugi_porcelain' },
+          { itemKind: 'weapon', weaponType: 'famas', skinId: 'cod_orion' }
+        ],
+        gold: [
+          { knifeType: 'karambit', skinId: 'tiger_tooth' },
+          { knifeType: 'butterfly', skinId: 'fade', forceFullFade: true },
+          { knifeType: 'm9', skinId: 'emberstrike' },
+          { knifeType: 'skeleton', skinId: 'damascus' },
+          { itemKind: 'glove', gloveType: 'specialist', skinId: 'eclipse_mantle' },
+          { itemKind: 'glove', gloveType: 'sport', skinId: 'slingshot' },
+          { itemKind: 'glove', gloveType: 'wraps', skinId: 'crimson_kimono' },
+          { itemKind: 'glove', gloveType: 'specialist', skinId: 'fade', forceFullFade: true }
+        ]
+      }
+    },
+    phantom: {
+      id: 'phantom',
+      name: 'Phantom Relic Case',
+      shortName: 'Phantom Relic',
+      artCode: 'PR',
+      tierLabel: 'ETHEREAL SPEC',
+      price: 600,
+      accent: '#3bf7d4',
+      rarityWeights: Object.freeze({ milspec: 16, restricted: 21, classified: 22, covert: 19, gold: 22 }),
+      description: 'Ghoulie, Bioluminescent, Afterlife, Opal, Dark Spine, Borealis, Interstellar & Nebula · 22% Gold.',
+      pools: {
+        milspec: [
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'cod_bioluminescent' },
+          { itemKind: 'weapon', weaponType: 'mp7', skinId: 'cod_bioluminescent' },
+          { itemKind: 'weapon', weaponType: 'pistol', skinId: 'cod_ghoulie' },
+          { itemKind: 'weapon', weaponType: 'g18', skinId: 'cod_ghoulie' },
+          { itemKind: 'weapon', weaponType: 'usps', skinId: 'cod_afterlife' },
+          { itemKind: 'weapon', weaponType: 'shotgun', skinId: 'cod_bioluminescent' },
+          { itemKind: 'weapon', weaponType: 'famas', skinId: 'cod_afterlife' },
+          { itemKind: 'weapon', weaponType: 'sawedoff', skinId: 'cod_ghoulie' }
+        ],
+        restricted: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'cod_ghoulie' },
+          { itemKind: 'weapon', weaponType: 'honeybadger', skinId: 'cod_bioluminescent' },
+          { itemKind: 'weapon', weaponType: 'akimbo', skinId: 'cod_afterlife' },
+          { itemKind: 'weapon', weaponType: 'leverslug', skinId: 'cod_afterlife' },
+          { itemKind: 'weapon', weaponType: 'scout', skinId: 'cod_bioluminescent' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'cod_opal' },
+          { itemKind: 'weapon', weaponType: 'dmr', skinId: 'cod_ghoulie' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'cod_opal' }
+        ],
+        classified: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'cod_dark_spine' },
+          { itemKind: 'weapon', weaponType: 'scar', skinId: 'cod_dark_spine' },
+          { itemKind: 'weapon', weaponType: 'katana', skinId: 'cod_afterlife' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'cod_borealis' },
+          { itemKind: 'weapon', weaponType: 'smg', skinId: 'cod_borealis' },
+          { itemKind: 'weapon', weaponType: 'famas', skinId: 'cod_opal' },
+          { itemKind: 'weapon', weaponType: 'mp7', skinId: 'cod_dark_spine' },
+          { itemKind: 'weapon', weaponType: 'usps', skinId: 'cod_opal' }
+        ],
+        covert: [
+          { itemKind: 'weapon', weaponType: 'rifle', skinId: 'cod_interstellar' },
+          { itemKind: 'weapon', weaponType: 'awp', skinId: 'cod_interstellar' },
+          { itemKind: 'weapon', weaponType: 'katana', skinId: 'cod_nebula' },
+          { itemKind: 'weapon', weaponType: 'scar', skinId: 'cod_nebula' },
+          { itemKind: 'weapon', weaponType: 'deagle', skinId: 'cod_interstellar' },
+          { itemKind: 'weapon', weaponType: 'revolver', skinId: 'cod_nebula' },
+          { itemKind: 'weapon', weaponType: 'honeybadger', skinId: 'cod_borealis' },
+          { itemKind: 'weapon', weaponType: 'scout', skinId: 'cod_interstellar' }
+        ],
+        gold: [
+          { knifeType: 'karambit', skinId: 'doppler', forceGem: true },
+          { knifeType: 'butterfly', skinId: 'arctic_veil' },
+          { knifeType: 'm9', skinId: 'doppler', forceGem: true },
+          { knifeType: 'skeleton', skinId: 'case_hardened', forceBlueGem: true },
+          { itemKind: 'glove', gloveType: 'sport', skinId: 'pandoras_box' },
+          { itemKind: 'glove', gloveType: 'sport', skinId: 'vice' },
+          { itemKind: 'glove', gloveType: 'specialist', skinId: 'emerald_web' },
+          { itemKind: 'glove', gloveType: 'wraps', skinId: 'overprint' }
         ]
       }
     }

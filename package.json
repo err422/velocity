@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "test": "node --test tests/ghost.test.js tests/daily.test.js tests/surf.test.js tests/settings.test.js tests/knives.test.js tests/combat.test.js tests/loadouts.test.js tests/bot-ai.test.js tests/arenas.test.js tests/arsenal_expansion.test.js tests/mobile.test.js tests/devmode.test.js tests/weapon_fixes.test.js tests/auth_helpers.test.js tests/chat.test.js",
+    "test": "node --test tests/ghost.test.js tests/daily.test.js tests/surf.test.js tests/settings.test.js tests/knives.test.js tests/combat.test.js tests/loadouts.test.js tests/bot-ai.test.js tests/arenas.test.js tests/arsenal_expansion.test.js tests/mobile.test.js tests/devmode.test.js tests/weapon_fixes.test.js tests/auth_helpers.test.js tests/chat.test.js tests/cod_skins.test.js tests/demolition.test.js",
     "build": "node -e \"const fs=require('fs'),p=require('path'),{execFileSync:e}=require('child_process');const w=(d,o=[])=>{for(const x of fs.readdirSync(d,{withFileTypes:true})){const f=p.join(d,x.name);if(x.isDirectory())w(f,o);else if(f.endsWith('.js'))o.push(f);}return o;};for(const f of ['server.js',...w('src')]){if(f.endsWith('firebaseBackend.js'))continue;e(process.execPath,['-c',f],{stdio:'inherit'});}\"",
     "lint": "npx eslint firestore.rules && npm run build"
   },
