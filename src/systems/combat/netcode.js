@@ -608,14 +608,24 @@
     return spawnIdx;
   }
 
+  function scheduleLobbyBotFill(delayMs) {
+    if (botFillTimer || state.role !== 'host' || !state.lobby || state.mode !== 'ffa_4p') return false;
+    const delay = Number.isFinite(delayMs) ? Math.max(0, delayMs) : LOBBY_BOT_FILL_DELAY_MS;
+    botFillTimer = setTimeout(() => {
+      botFillTimer = null;
+      if (state.role === 'host' && state.lobby && state.mode === 'ffa_4p') {
+        hostFillLobbyWithBots();
+      }
+    }, delay);
+    return true;
+  }
+
   function hostFillLobbyWithBots() {
-    if (state.role !== 'host' || !state.lobby || state.mode !== 'ffa_4p' || state.phase !== 'warmup') return false;
+    if (state.role !== 'host' || !state.lobby || state.mode !== 'ffa_4p') return false;
+    if (!['warmup', 'countdown', 'live'].includes(state.phase)) return false;
 
-    // Never claim a seat while a human peer is still completing its join.
-    for (const peer of hostPeers.values()) {
-      if (!peer.joined) return false;
-    }
-
+    // Pending human joins can claim a bot seat when their data channel opens.
+    // Filling now avoids leaving the match under-populated while a peer connects.
     const capacity = Math.max(2, Math.min(4, state.lobby.maxPlayers || 4));
     const openSlots = Math.max(0, capacity - state.players.size);
     if (openSlots <= 0) return false;
@@ -652,6 +662,16 @@
     }
     state.statusText = `AI OPPONENTS JOINED · ${added} BOT${added === 1 ? '' : 'S'}`;
     showBanner('AI OPPONENTS JOINED', `${added} BOT${added === 1 ? '' : 'S'} ENTERED THE ARENA`, 2200);
+
+    // If the lobby is still warming up, the bots are enough to start the match.
+    // If it is already live, replicate the newly added bots to every client.
+    if (state.phase === 'warmup' && state.players.size >= 2) {
+      hostStartRoundOrMatch(true);
+    } else {
+      broadcastFullSnapshot();
+      syncLobbyMetaNow();
+      emitState();
+    }
     return true;
   }
 
@@ -2584,16 +2604,13 @@
     }
     if (state.players.size < 2 && state.role === 'host') {
       hostStartRoundOrMatch(false);
-      if (botFillTimer) clearTimeout(botFillTimer);
-      botFillTimer = setTimeout(() => {
-        botFillTimer = null;
-        hostFillLobbyWithBots();
-      }, LOBBY_BOT_FILL_DELAY_MS);
     } else {
       broadcastFullSnapshot();
       syncLobbyMetaNow();
       emitState();
     }
+    // Refill a vacated FFA seat without resetting an already-running lobby timer.
+    scheduleLobbyBotFill();
   }
 
   // ---------- Public Session Starters ----------
@@ -2678,10 +2695,7 @@
         }
       }, 150);
     } else {
-      botFillTimer = setTimeout(() => {
-        botFillTimer = null;
-        hostFillLobbyWithBots();
-      }, LOBBY_BOT_FILL_DELAY_MS);
+      scheduleLobbyBotFill();
     }
 
     emitState();
