@@ -14,7 +14,7 @@
   const FFA_WIN_KILLS = 15;
   const FFA_RESPAWN_SEC = 2.5;
   const WARMUP_RESPAWN_SEC = 2.4;
-  const LOBBY_BOT_FILL_DELAY_MS = 60000;
+  const LOBBY_BOT_FILL_DELAY_MS = 5000;
   const DUEL_FREEZE_SEC = 2.2;
   const DUEL_POST_ROUND_SEC = 2.4;
   const MAP_VOTE_DURATION_SEC = 12;
@@ -614,7 +614,10 @@
     botFillTimer = setTimeout(() => {
       botFillTimer = null;
       if (state.role === 'host' && state.lobby && state.mode === 'ffa_4p') {
-        hostFillLobbyWithBots();
+        const addedBots = hostFillLobbyWithBots();
+        if (addedBots && state.phase === 'warmup' && state.players.size >= 2) {
+          hostStartRoundOrMatch(true);
+        }
       }
     }, delay);
     return true;
@@ -665,13 +668,9 @@
 
     // If the lobby is still warming up, the bots are enough to start the match.
     // If it is already live, replicate the newly added bots to every client.
-    if (state.phase === 'warmup' && state.players.size >= 2) {
-      hostStartRoundOrMatch(true);
-    } else {
-      broadcastFullSnapshot();
-      syncLobbyMetaNow();
-      emitState();
-    }
+    broadcastFullSnapshot();
+    syncLobbyMetaNow();
+    emitState();
     return true;
   }
 
