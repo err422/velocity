@@ -666,8 +666,7 @@
     state.statusText = `AI OPPONENTS JOINED · ${added} BOT${added === 1 ? '' : 'S'}`;
     showBanner('AI OPPONENTS JOINED', `${added} BOT${added === 1 ? '' : 'S'} ENTERED THE ARENA`, 2200);
 
-    // If the lobby is still warming up, the bots are enough to start the match.
-    // If it is already live, replicate the newly added bots to every client.
+    // Replicate the completed roster so clients create the same bot avatars and AI.
     broadcastFullSnapshot();
     syncLobbyMetaNow();
     emitState();
