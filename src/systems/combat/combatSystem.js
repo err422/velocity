@@ -571,6 +571,7 @@
   // Remote WebRTC Player Avatars and host-authoritative arena AI.
   const remoteAvatars = new Map();
   const arenaBotAi = new Map();
+  let arenaBotDebugLastLog = 0;
 
   function ensureInit(targetScene) {
     if (worldScene === targetScene && fxGroup) return;
@@ -2505,6 +2506,12 @@
   function syncArenaBots(players, resetBrains) {
     const wanted = new Set();
     if (!Array.isArray(players)) players = [];
+    const incomingBots = players.filter((p) => p && p.uid && p.isBot);
+    console.info('[Velocity Bots] syncArenaBots called', {
+      incomingBots: incomingBots.map((p) => p.uid),
+      resetBrains: Boolean(resetBrains),
+      existingControllers: arenaBotAi.size
+    });
     const BAI = root.BotAISystem;
     const DE = root.DemolitionEngine;
     const archetypes = getBotArchetypes();
@@ -2674,14 +2681,29 @@
     const botRecords = roster.filter((p) => p && p.isBot && p.alive !== false);
     if (!botRecords.length) return;
 
-    // Recover missing AI controllers from the authoritative roster. This keeps
-    // bots from becoming inert remote avatars if their visual was created
-    // before the brain registry was populated.
-    if (botRecords.some((p) => !arenaBotAi.has(p.uid))) {
-      syncArenaBots(roster, false);
+    // Diagnostics only. The frame loop must never create or repair bot controllers.
+    const missingBrains = botRecords.filter((p) => !arenaBotAi.has(p.uid)).map((p) => p.uid);
+    const nowMs = performance.now();
+    if (nowMs - arenaBotDebugLastLog >= 2000) {
+      arenaBotDebugLastLog = nowMs;
+      console.info('[Velocity Bots] host AI tick', {
+        role: netState && netState.role,
+        phase,
+        rosterPlayers: roster.length,
+        livingBots: botRecords.length,
+        aiControllers: arenaBotAi.size,
+        missingBrains,
+        remoteAvatars: remoteAvatars.size,
+        botAISystemReady: Boolean(root.BotAISystem && typeof root.BotAISystem.stepBot === 'function')
+      });
     }
-
-    if (arenaBotAi.size === 0) return;
+    if (missingBrains.length) {
+      console.error('[Velocity Bots] bots exist in the roster without AI controllers. No automatic recovery will run.', missingBrains);
+    }
+    if (arenaBotAi.size === 0) {
+      console.warn('[Velocity Bots] no AI controllers registered; skipping bot simulation.');
+      return;
+    }
     const BAI = root.BotAISystem;
     if (!BAI || typeof BAI.stepBot !== 'function') return;
 
