@@ -609,21 +609,36 @@
   }
 
   function scheduleLobbyBotFill(delayMs) {
-    if (botFillTimer || state.role !== 'host' || !state.lobby || state.mode !== 'ffa_4p') return false;
+    const allowed = !botFillTimer && state.role === 'host' && state.lobby && state.mode === 'ffa_4p';
+    if (!allowed) {
+      console.debug('[Velocity Bots] bot-fill timer not scheduled', {
+        timerAlreadyActive: Boolean(botFillTimer), role: state.role,
+        hasLobby: Boolean(state.lobby), mode: state.mode, phase: state.phase
+      });
+      return false;
+    }
     const delay = Number.isFinite(delayMs) ? Math.max(0, delayMs) : LOBBY_BOT_FILL_DELAY_MS;
+    console.info('[Velocity Bots] scheduling lobby bot fill', { delayMs: delay, players: state.players.size, capacity: state.lobby.maxPlayers || 4 });
     botFillTimer = setTimeout(() => {
       botFillTimer = null;
+      console.info('[Velocity Bots] bot-fill timer fired', { role: state.role, mode: state.mode, phase: state.phase, players: state.players.size });
       if (state.role === 'host' && state.lobby && state.mode === 'ffa_4p') {
         const addedBots = hostFillLobbyWithBots();
-        if (addedBots && state.phase === 'warmup' && state.players.size >= 2) {
-          hostStartRoundOrMatch(true);
-        }
+        console.info('[Velocity Bots] bot-fill result', {
+          addedBots, players: state.players.size,
+          roster: serializePlayersList().map((p) => ({ uid: p.uid, isBot: Boolean(p.isBot) }))
+        });
+        if (addedBots && state.phase === 'warmup' && state.players.size >= 2) hostStartRoundOrMatch(true);
       }
     }, delay);
     return true;
   }
 
   function hostFillLobbyWithBots() {
+    console.info('[Velocity Bots] hostFillLobbyWithBots entered', {
+      role: state.role, mode: state.mode, phase: state.phase,
+      players: state.players.size, capacity: state.lobby && state.lobby.maxPlayers
+    });
     if (state.role !== 'host' || !state.lobby || state.mode !== 'ffa_4p') return false;
     if (!['warmup', 'countdown', 'live'].includes(state.phase)) return false;
 
@@ -2340,11 +2355,19 @@
 
     let entry = hostPeers.get(peerUid);
     if (!entry) {
+      console.info('[Velocity Netcode] discovered joining peer', {
+        peerUid, displayName: peerDoc.displayName, phase: state.phase,
+        players: Array.from(state.players.values()).map((p) => ({ uid: p.uid, name: p.name, isBot: Boolean(p.isBot) }))
+      });
       let replacingBotUid = null;
       const capacity = state.lobby.maxPlayers || 2;
       if (!state.players.has(peerUid) && state.players.size >= capacity) {
         replacingBotUid = findUnreservedBotUid();
-        if (!replacingBotUid) return;
+        console.info('[Velocity Netcode] peer needs a seat', { peerUid, capacity, currentPlayers: state.players.size, replacingBotUid });
+        if (!replacingBotUid) {
+          console.warn('[Velocity Netcode] rejecting peer: lobby full and no replaceable bot', { peerUid });
+          return;
+        }
       }
 
       const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
@@ -2373,6 +2396,10 @@
         } else if (ch.label === 'game') {
           entry.gameCh = ch;
           ch.onopen = () => {
+            console.info('[Velocity Netcode] peer game channel opened', {
+              peerUid, joined: entry.joined, reservedBotUid: entry.replacingBotUid,
+              role: state.role, phase: state.phase, playerCount: state.players.size
+            });
             if (state.mode === 'demolition_5v5') {
               const humanCountNow = countHumanPlayers();
               if (humanCountNow >= (state.lobby.maxPlayers || 4)) {
@@ -2408,7 +2435,12 @@
 
             let replacementSpawnIdx = null;
             if (entry.replacingBotUid) {
-              replacementSpawnIdx = hostRemoveBotForReplacement(entry.replacingBotUid);
+              const replacedUid = entry.replacingBotUid;
+              replacementSpawnIdx = hostRemoveBotForReplacement(replacedUid);
+              console.info('[Velocity Netcode] bot seat replacement', {
+                peerUid, replacedUid, replacementSucceeded: replacementSpawnIdx != null,
+                remainingBotUids: Array.from(state.players.values()).filter((p) => p.isBot).map((p) => p.uid)
+              });
               entry.replacingBotUid = null;
             }
             const rec = ensurePlayerRecord(peerUid, entry.displayName);
@@ -2422,6 +2454,10 @@
             rec.z = spawn.z;
             rec.yaw = spawn.yaw || 0;
             entry.joined = true;
+            console.info('[Velocity Netcode] peer assigned to match', {
+              peerUid, phase: state.phase, playerCount: state.players.size,
+              roster: serializePlayersList().map((p) => ({ uid: p.uid, isBot: Boolean(p.isBot), alive: p.alive }))
+            });
 
             if (state.phase === 'warmup' && state.players.size >= 2) {
               hostStartRoundOrMatch(true);
